@@ -584,7 +584,7 @@ void crawl_art_init(void) {
     for (int f = 0; f < 4; f++) { spr_key(SP_KEY0 + f, KS[f], R_GOLD); spr_key(SP_KEYS0 + f, KS[f], R_IRON); spr_key(SP_KEYC0 + f, KS[f], R_BLOOD); }
     spr_phial();
     spr_tomb(SP_TOMB_FRESH, 4);                                     /* her plot's newest (the four kinds are props_level's) */
-    spr_lectern(); spr_mapware(); spr_lampstand();
+    spr_lectern(); spr_mapware(); spr_compassware(); spr_lampstand();
     for (int k = 0; k < 3; k++) spr_mk_rseal(SP_MK_RSEAL0 + k, k); spr_mapfloor();   /* the tutorial's (docs/PLAN-tutorial.md) */
     spr_mk_pricket(SP_MK_PRICKET0, 0); spr_mk_pricket(SP_MK_PRICKET1, 1); spr_mk_coffer(SP_MK_COFFER0, 0); spr_mk_coffer(SP_MK_COFFER1, 1);   /* 1.0.0b16 */
     spr_mk_cage(SP_MK_CAGE0, 0); spr_mk_cage(SP_MK_CAGE1, 1); spr_mk_rack(SP_MK_RACK0, 0); spr_mk_rack(SP_MK_RACK1, 1);

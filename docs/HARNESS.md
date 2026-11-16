@@ -51,7 +51,7 @@ wisp, follows it home and sends it on from the altar's menu; it can't be hurt), 
 put there as the level opens, already leaving), `CRAWL_BOSSHP=f` (a boss's health times f), `CRAWL_OMEN=s` (the
 level's omens on any level, every s seconds, the first at once), `CRAWL_TOTEM=dddd` (each boss ability's rank, a digit
 each in boss order, and that boss counted beaten), `CRAWL_SCRIP=n` (n scrip of each boss, all four counted beaten),
-`CRAWL_PEDS=n` (the merchant's pedestals), `CRAWL_TPCAT=1` (before the merchant herself), `CRAWL_TPSTONE=1` (before the plot's newest stone), `CRAWL_STONE=n` (n stones in the plot, from what is held), `CRAWL_TPSHRINE=1`
+`CRAWL_PEDS=n` (the merchant's pedestals), `CRAWL_TPCAT=1` (before the merchant herself), `CRAWL_TPCOMPASS=1` (before the compass, once you take control), `CRAWL_TPSTONE=1` (before the plot's newest stone), `CRAWL_STONE=n` (n stones in the plot, from what is held), `CRAWL_TPSHRINE=1`
 (before the Rune Shrine), `CRAWL_LETGO=1` (the full bag's question as you take over in her room, with a bag), `CRAWL_HOLDCARD=1` (a level's card and a boss's held
 up once shown), `CRAWL_CLAIM=1` (her claim's card as you take over, its words only, nothing taken), `CRAWL_TOAST=1` (a pop-up as you take over), `CRAWL_SEENALL=1` (every kind met and some slain, for the bestiary), `CRAWL_TPLECTERN=1` (before the Compendium), `CRAWL_TPREPO=1` (before the Repository), `CRAWL_TPTOTEM=1` (in the merchant's back room facing the Hexed Totem once you take control), `CRAWL_TPPORTAL=1` (in the
 grave plot facing the Accursed Portal), `CRAWL_RUNTOP=n` (the runs it opens: 0 only run I), `CRAWL_BSTEP=s` (every

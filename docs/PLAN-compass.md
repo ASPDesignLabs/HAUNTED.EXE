@@ -62,7 +62,7 @@ The sheet comes first, on its own, and nothing else is built until it is approve
 |---|---|---|
 | 0 | This plan; the sheet (section 4). **Stop for the owner** | the sheet |
 | 1 | **Done.** `RUN.has_compass`, `compass_kind`, `compass_color`, saved in the byte after the wisp's three in the page's fixed part (bit 0 held, 1-2 the wisp's kind, 3-4 its key): not in `LG_CASTER`'s flags, which are the ledger's kept-through-death state, so what a death clears is written with the page. That byte was always written 0 and never read, so no new version is needed; an older page reads as none. `docs/SAVES.md` and `docs/HARNESS.md` say so | `CRAWL_SAVETEST=1`: 11 cases, 0 bad; the dream's log matches the build before on seeds 3 and 5 for 1200 s, line for line |
-| 2 | Buying: `BUY_COMPASS` in `her_rooms.c` (live only with a map and no compass), price, say-lines, the prop, the pane, `EVENT compass_bought left n` | harness frames; `HOST_INPUT` buys it |
+| 2 | **Done, harness only.** `BUY_COMPASS` in `her_rooms.c` (`COMPASS_FOR_SALE()`: a map, no compass), `COMPASS_PRICE` 2500 and its place at her right (`COMPASS_X/Y`, the map's mirror across her) in `wisps.c`; `SP_COMPASSWARE` (the sprite, `parts/hall.c`, drawn as the sheet's dial with a bone loop above it); the price over it (`hud.c`), its prompt, `compass_look`, the wares page (`tab.c`, the sheet's words; A/D now go round the pedestals, the map and the compass); `compass_buy`, `EVENT compass_bought left n`; `CRAWL_TPCOMPASS=1`. Bought, it leans toward the way out. The page has no dial yet (step 5) | frames `media/sheets/compass/step2_room.png`, `step2_page.png`; bought at 2500 with 3000 held (left 0 by the harness's gold), refused with 100 ("YOU ARE $2400 SHORT"), not shown without the map; the dream's log matches the build before on seeds 3 and 5 for 1200 s; the save test still 11 cases, 0 bad |
 | 3 | The bearing: `compass_bearing()` from `wisp_target()`; the readout's words | a test level, each objective |
 | 4 | The L menu's TRACK; falling back to the exit | scripted input; every run's keys |
 | 5 | The HUD stone and dial (`draw/frame.c` `TB_MAP` neighbourhood; touch stones in `crawl_title.c` `tstone_draw`; the pad's layout) | frames in the three input modes |
@@ -80,6 +80,8 @@ against `controls.c` when step 4 is reached.
   (how many levels of a typical run it takes to afford, with and without dying).
 
 ## 7. Hand-off log
+
+*Step 2 done, harness only (16 November 2026): buying, see the table. Bought, it does nothing yet: its needle, the L menu's TRACK and its death come in steps 3 to 6. Next: step 3, the bearing.*
 
 *Step 1 done (16 November 2026): the state and the save, see the table. Debug switches `CRAWL_HASCOMPASS=1`, `CRAWL_SAVETEST=1`. Next: step 2, buying.*
 

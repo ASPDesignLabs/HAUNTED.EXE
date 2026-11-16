@@ -461,6 +461,7 @@ static void crawl_control(int what) {
         float x = 0, y = 0, a = 0;
         if (sscanf(getenv("CRAWL_TPHALL"), "%f,%f,%f", &x, &y, &a) == 3) { G.px = x; G.py = y; G.ang = a * PI_F / 180.0f; G.cx = (int)x; G.cy = (int)y; }
     }
+    if (getenv("CRAWL_TPCOMPASS") && G.shop) { G.px = COMPASS_X + 1.6f; G.py = COMPASS_Y + 0.1f; G.ang = face_of(COMPASS_X, COMPASS_Y); G.cx = (int)G.px; G.cy = (int)G.py; }   /* before the compass */
     if (getenv("CRAWL_TPCAT") && G.shop) { G.px = CAT_X + 1.3f; G.py = CAT_Y + 0.4f; G.ang = face_of(CAT_X, CAT_Y); G.cx = (int)G.px; G.cy = (int)G.py; }   /* before the merchant */
     if (getenv("CRAWL_TPREPO") && G.shop) { G.px = 5.5f; G.py = 14.5f; G.ang = PI_F; G.cx = 5; G.cy = 14; }   /* before the Repository's niches */
     if (getenv("CRAWL_TPLECTERN") && G.shop) { G.px = LECTERN_X + 0.5f; G.py = LECTERN_Y - 1.6f; G.ang = PI_F * 0.5f; G.cx = LECTERN_X; G.cy = LECTERN_Y - 2; }   /* before the Compendium */

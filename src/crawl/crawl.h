@@ -325,6 +325,7 @@ enum {
     SP_MOTH_A, SP_MOTH_B, SP_FLY_A, SP_FLY_B, SP_LF_BATROOST, SP_LF_BAT_A, SP_LF_BAT_B, SP_BEETLE_A, SP_BEETLE_B, SP_LOUSE_A, SP_LOUSE_B,
     SP_TOAD_SIT, SP_TOAD_HOP, SP_LF_FUNGUS_BIG, SP_LF_FUNGUS_SMALL, SP_SPORE, SP_PUDDLE, SP_RING_0, SP_RING_1, SP_RING_2, SP_PRINT_L, SP_PRINT_R,
     SP_DRIP, SP_NEYES_A, SP_NEYES_B, SP_SLSKULL_A, SP_SLSKULL_B, SP_SLHAND_A, SP_SLHAND_B,
+    SP_COMPASSWARE,                             /* the merchant's compass: a chipped disc of stone with bone studs, a bone needle, floating (docs/PLAN-compass.md) */
     NSPR
 };
 

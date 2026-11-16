@@ -818,6 +818,7 @@ static struct {
     int cx_page;                            /* the Codex's page open */
     int mer_look;                           /* the merchant herself, close enough for E */
     int map_look;                           /* the map floating beside her, looked at */
+    int compass_look;                       /* the compass floating at her right, looked at */
     int stone_look, stone_sel;              /* a stone in the plot looked at (-1 none); the one whose page is open */
 
     /* a person at the controls */

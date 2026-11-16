@@ -145,6 +145,7 @@ static void update_portrait(void) {                                /* its card: 
 }
 
 #define BUY_MAP (-2)                        /* the buying screen's map, in place of a pedestal */
+#define BUY_COMPASS (-3)                    /* and the compass, after it */
 static void buy_open(int i);
 static void shop_human(float dt) {
     if (!RUN.cls) { G.vow_change = 0; open_ui(UI_CLASS); return; }   /* her question, before anything else */
@@ -194,9 +195,12 @@ static void shop_human(float dt) {
     float mdx = MAP_X - G.px, mdy = MAP_Y - G.py, md = hypotf(mdx, mdy);   /* the map at her left, until it is yours */
     G.map_look = !RUN.has_map && !g_map_kept && G.shop_look < 0 && !G.sh_look && !G.tot_look && !G.comp_look && !G.rep_look && !G.por_look && G.stone_look < 0
                  && md < 2.6f && fabsf(wrap_pi(atan2f(mdy, mdx) - G.ang)) < 0.25f + 0.25f / fmaxf(md, 0.3f);
-    G.pt_look = G.shop_look < 0 && !G.sh_look && !G.tot_look && !G.comp_look && !G.rep_look && !G.por_look && G.stone_look < 0 && !G.map_look
+    float kdx = COMPASS_X - G.px, kdy = COMPASS_Y - G.py, kd = hypotf(kdx, kdy);   /* the compass at her right, once the map is yours */
+    G.compass_look = COMPASS_FOR_SALE() && !G.map_look && G.shop_look < 0 && !G.sh_look && !G.tot_look && !G.comp_look && !G.rep_look && !G.por_look && G.stone_look < 0
+                     && kd < 2.6f && fabsf(wrap_pi(atan2f(kdy, kdx) - G.ang)) < 0.25f + 0.25f / fmaxf(kd, 0.3f);
+    G.pt_look = G.shop_look < 0 && !G.sh_look && !G.tot_look && !G.comp_look && !G.rep_look && !G.por_look && G.stone_look < 0 && !G.map_look && !G.compass_look
                 && !G.lamp_look && !G.bell_look && !G.font_look ? por_facing() : 0;   /* a portrait of the slain */
-    G.mer_look = G.shop_look < 0 && !G.sh_look && !G.tot_look && !G.comp_look && !G.rep_look && !G.por_look && G.stone_look < 0 && !G.map_look
+    G.mer_look = G.shop_look < 0 && !G.sh_look && !G.tot_look && !G.comp_look && !G.rep_look && !G.por_look && G.stone_look < 0 && !G.map_look && !G.compass_look
                  && !G.pt_look && hypotf(G.px - CAT_X, G.py - CAT_Y) < 1.8f;
 #ifdef CRAWL_DEBUG
     if (G.shop_look != was) fprintf(stderr, "EVENT shop_look %d t=%.2f at (%.2f,%.2f) ang %.3f\n", G.shop_look, G.t, G.px, G.py, G.ang);
@@ -220,6 +224,7 @@ static void shop_human(float dt) {
             else { G.pt_sel = p; open_ui(UI_PORTRAIT); snd_sfx_ex(SFX_PAGE, 0.5f, 0.5f); }
         }
         else if (G.map_look) { G.click_spent = CAST_HIT; buy_open(BUY_MAP); }
+        else if (G.compass_look) { G.click_spent = CAST_HIT; buy_open(BUY_COMPASS); }
         else if (!human_use() && G.mer_look) { open_ui(UI_MERCHANT); G.click_spent = CAST_HIT; }   /* her menu: the ledger, a pat */
     }
     human_cast(dt, !G.click_spent);
@@ -248,11 +253,11 @@ static void buy_open(int i) {
     open_ui(UI_BUY);
     snd_sfx_ex(SFX_PAGE, 0.5f, 0.5f);
 }
-static int buy_live(int i) { return i == BUY_MAP ? !RUN.has_map && !g_map_kept : i >= 0 && i < G.ped_n && !G.offer_gone[i]; }
-static int buy_next(int from, int dir) {                           /* the next ware still to be had, round the pedestals and the map */
-    int n = G.ped_n + 1, at = from == BUY_MAP ? G.ped_n : from;
+static int buy_live(int i) { return i == BUY_MAP ? !RUN.has_map && !g_map_kept : i == BUY_COMPASS ? COMPASS_FOR_SALE() : i >= 0 && i < G.ped_n && !G.offer_gone[i]; }
+static int buy_next(int from, int dir) {                           /* the next ware still to be had, round the pedestals, the map and the compass */
+    int n = G.ped_n + 2, at = from == BUY_MAP ? G.ped_n : from == BUY_COMPASS ? G.ped_n + 1 : from;
     for (int k = 1; k <= n; k++) {
-        int j = ((at + dir * k) % n + n) % n, w = j == G.ped_n ? BUY_MAP : j;
+        int j = ((at + dir * k) % n + n) % n, w = j == G.ped_n ? BUY_MAP : j == G.ped_n + 1 ? BUY_COMPASS : j;
         if (buy_live(w)) return w;
     }
     return from;
@@ -266,6 +271,18 @@ static void map_buy(void) {
     sfx_at(SFX_TRILL, CAT_X, CAT_Y, 1.2f); G.cat_trill = 0.5f; G.cat_slow = 1.4f; G.grin_t = 2.0f;
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "EVENT map_bought left %d t=%.2f\n", RUN.treasure, G.t);
+#endif
+}
+static void compass_buy(void) {
+    if (RUN.treasure < COMPASS_PRICE) { shop_say("YOU CAN'T AFFORD THAT"); G.cat_ear = 0.32f; G.cat_ear_side = rnd(2); return; }
+    RUN.treasure -= COMPASS_PRICE; RUN.has_compass = 1; RUN.compass_kind = WK_EXIT; RUN.compass_color = 0;   /* it leans toward the way out till it is asked otherwise */
+    G.compass_look = 0; G.grab_t = 1.0f;
+    G.ui = UI_NONE;
+    say("THE COMPASS IS YOURS: IT LEANS TOWARD THE WAY OUT");
+    snd_sfx_ex(SFX_COIN, 1.1f, 0.5f); snd_sfx_ex(SFX_SHIMMER, 0.8f, 0.5f);
+    sfx_at(SFX_TRILL, CAT_X, CAT_Y, 1.2f); G.cat_trill = 0.5f; G.cat_slow = 1.4f; G.grin_t = 2.0f;
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT compass_bought left %d t=%.2f\n", RUN.treasure, G.t);
 #endif
 }
 static int buy_worn(int i) {                                       /* the slot a ware would be worn in that is worn already; -1 none */
@@ -284,6 +301,7 @@ static void update_buy(void) {
         return;
     }
     if (i == BUY_MAP) { if (IN.hit[KEY_E] || IN.hit[KEY_ENTER]) map_buy(); return; }
+    if (i == BUY_COMPASS) { if (IN.hit[KEY_E] || IN.hit[KEY_ENTER]) compass_buy(); return; }
     if (IN.hit[KEY_Q] || IN.hit[KEY_SPACE] || IN.hit[KEY_BACK]) {  /* held for the next visit (Y or X on a controller) */
         if (G.shop_left <= 0) shop_say("NO MORE WARES THIS VISIT"); else shop_hold(i);
         return;
