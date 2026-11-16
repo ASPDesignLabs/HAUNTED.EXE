@@ -6,6 +6,8 @@
  *   host shot  <haunt|crawl> <t1,t2,...> prefix [scale]   (PNG frames, 1x scale by default)
  *   host dump  <haunt|crawl> <seconds> prefix <every_n_s> (frames + audio together)
  *   host apl   <haunt|crawl> <seconds>                    (average picture level)
+ *   host film  <haunt|crawl> <from> <to> <fps> out        (out.rgb: raw RGB24 frames from..to seconds, and out.wav
+ *                                                          the same stretch's audio; the size is printed. tools/social.sh)
  *
  * HOST_INPUT plays a person at the keys, e.g. "1:+H;4.2:-H;5:m300,0;6:+W;8:-W;9:+MOUSE1;9.2:-MOUSE1;
  * 10:w1" (+ press, - release, m mouse counts, w wheel notches); a controller's buttons are PAD_A ...
@@ -203,6 +205,39 @@ int main(int argc, char **argv) {
     if (getenv("HOST_MUSIC")) cfg.music = atoi(getenv("HOST_MUSIC"));          /* the Music and Effects sliders, 0-100 */
     if (getenv("HOST_EFFECTS")) cfg.effects = atoi(getenv("HOST_EFFECTS"));
 
+    if (!strcmp(cmd, "film") && argc >= 7) {          /* frames and sound for video: the game as it runs, 70 steps a second */
+        double from = atof(argv[3]), to = atof(argv[4]), fps = atof(argv[5]);
+        char name[512];
+        input_init();
+        app_init(&cfg, 1);
+        const double dt = 1.0 / 70.0;
+        int per = (int)(SND_RATE * dt), total = (int)((to - from) * SND_RATE) + per, pos = 0, tick = 0, frames = 0, w = 0, h = 0;
+        int16_t *pcm = malloc((size_t)total * 4), *scratch = malloc((size_t)per * 4);
+        uint8_t *rgb = malloc(FB_MAX_W * FB_MAX_H * 3);
+        snprintf(name, sizeof name, "%s.rgb", argv[6]);
+        FILE *vf = fopen(name, "wb");
+        double next = from;
+        while (tick * dt < to) {
+            input_step(tick * dt);
+            app_update(dt);
+            if (input_quit()) break;
+            int16_t *dst = (tick * dt >= from && pos + per <= total) ? pcm + pos * 2 : scratch;
+            snd_render(dst, per);
+            if (dst != scratch) pos += per;
+            tick++;
+            if (tick * dt >= next && vf) {
+                app_present_rgb(rgb, &w, &h);
+                fwrite(rgb, 3, (size_t)w * h, vf);
+                frames++; next = from + frames / fps;
+            }
+        }
+        if (vf) fclose(vf);
+        snprintf(name, sizeof name, "%s.wav", argv[6]);
+        write_wav(name, pcm, pos);
+        fprintf(stderr, "FILM %d %d %d\n", w, h, frames);
+        free(pcm); free(scratch); free(rgb);
+        return 0;
+    }
     if (!strcmp(cmd, "wav") || !strcmp(cmd, "dump")) {
         double secs = atof(argv[3]);
         const char *out = argv[4];

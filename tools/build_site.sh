@@ -21,6 +21,9 @@ rm "$OUT/card.txt"
 cp "site/cards/$CARD.png" "$OUT/card.png"
 cp media/previews/*.png "$OUT/img/"
 mkdir -p "$OUT/img/gallery" && cp media/gallery/*.png "$OUT/img/gallery/"   # the then-and-now gallery (tools/gallery.sh)
+mkdir -p "$OUT/media"                                               # the trailer and its poster (tools/social.py)
+cp media/social/video/haunted-trailer-16x9.mp4 "$OUT/media/haunted-trailer.mp4"
+cp media/social/images/16x9/title-16x9.png "$OUT/media/trailer-poster.png"
 cp third_party/font/Px437_IBM_VGA_8x16.ttf third_party/font/Px437_IBM_BIOS.ttf \
    third_party/font/LICENSE-oldschool-pc-font-pack.txt "$OUT/fonts/"
 sed -e "s/@VERSION@/$VERSION/g" -e "s/@CARD@/$CARD/g" -e "s|@CARD_ALT@|$ALT|g" site/index.html > "$OUT/index.html"

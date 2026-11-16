@@ -3,3 +3,7 @@ dist/
 _site/
 __pycache__/
 *.pyc
+
+# the package's big, re-creatable parts (python3 tools/social.py clips|music)
+media/social/clips/
+media/social/music-candidates/
