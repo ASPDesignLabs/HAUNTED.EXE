@@ -460,4 +460,5 @@ look like it fits with the theme of the game". The second, a relic of stone and 
 `claude/stoic-ramanujan-3iqb3m` (the state and its saved byte; her room's sale; the bearing; aiming it in the L list; the HUD plate, touch's
 tablet and the dial on her page; death; the proof), at the owner's word one step at a time, and harness only. The death card names it, last in its
 line, left so at their word. They also asked for the list of controls that appears on taking over or loading a save to be disabled for the time
-being, and for the release as "another minor update"; it went to main as one squashed commit.
+being, and for the release as "another minor update"; it went to main as one squashed commit. It was written as 1.0.0b21.8, and by the time
+it was to go out "The Antechamber" had taken that number from main, so it was merged on top of it and released as 1.0.0b21.9.
