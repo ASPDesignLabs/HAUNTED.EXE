@@ -417,6 +417,9 @@ static void run_unpack(const uint8_t *buf, int len) {
         const uint8_t *x = buf + SAVE_V3 + REC_BYTES;
         RUN.wisp_kind = clampi(x[0], WK_EXIT, WK_ALTAR); RUN.wisp_color = clampi(x[1], 0, NKEYS - 1); RUN.wisp_auto = x[2] != 0;
         RUN.has_compass = x[3] & 1;                                /* an older run wrote 0 here: no compass */
+#ifdef CRAWL_DEBUG
+        fprintf(stderr, "EVENT run_loaded compass %d\n", RUN.has_compass);
+#endif
         RUN.compass_kind = RUN.has_compass ? clampi(x[3] >> 1 & 3, WK_EXIT, WK_ALTAR) : WK_EXIT;
         RUN.compass_color = RUN.has_compass ? clampi(x[3] >> 3 & 3, 0, NKEYS - 1) : 0;
         if (v >= 5) shrine_unpack(x + SAVE_V4_EXTRA);
