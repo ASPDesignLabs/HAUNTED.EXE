@@ -6,7 +6,7 @@
 const N = 45;                                   /* MAPN */
 const DIRS = [[1, 0], [0, 1], [-1, 0], [0, -1]];   /* the game's DX, DY: east, south, west, north */
 const FRONT_ORDER = [3, 1, 2, 0];               /* drawn_front: north, south, west, east first */
-const DOORS = new Set(['D', 'G', 'C', '=']);
+const DOORS = new Set(['D', 'G', 'C', '=', 'B']);   /* B: barred till an event opens it (docs/PLAN-events.md) */
 const WALLS = new Set(['#', 'X', 'h', 'c']);    /* stone, and the three things set in it */
 const LANE_OF = { '.': '+', 'F': 'f', 'I': 'i', 'q': 'Q' };
 const BASE_OF = { '+': '.', 'f': 'F', 'i': 'I', 'Q': 'q' };
@@ -25,7 +25,7 @@ const isOpen = ch => !WALLS.has(ch);            /* is_open: a cell one may stand
 
 function blank(level) {
     return { v: 1, name: 'Untitled level', level: level || 3, face: 0, seed: '', lattice: true, corrupt: false,
-             grid: new Array(N * N).fill('#'), lane: new Array(N * N).fill(0), rooms: [], things: [], stamps: [], next: 1 };
+             grid: new Array(N * N).fill('#'), lane: new Array(N * N).fill(0), rooms: [], things: [], stamps: [], torches: [], events: [], next: 1 };
 }
 function clone(m) { return JSON.parse(JSON.stringify(m)); }
 
@@ -130,8 +130,11 @@ function exportDrawn(DATA, m, n) {
         rows.push(s);
     }
     const P = 'DRAWN' + n, out = [];
-    const things = [], spawns = [];
+    const things = [], spawns = [], thingNo = {}, relicList = m.things.filter(t => t.t === 'relic');
+    const relicNo = id => relicList.findIndex(r => r.id === id);
+    const wakes = wakeGroups(m), groups = torchGroups(m);
     m.things.forEach(t => {
+        if (t.t !== 'spawn') thingNo[t.id] = things.length;   /* the index it takes in _THING, for the triggers */
         const x = t.x - b.x0, y = t.y - b.y0, [cx, cy] = thingCell(t), sec = inMap(cx, cy) && cells[idx(cx, cy)] === 'q';
         switch (t.t) {
         case 'gold': things.push(`{ ${sec ? 'DT_SGOLD' : 'DT_GOLD'}, ${t.k}, ${f2(x)}, ${f2(y)} }`); break;
@@ -141,7 +144,10 @@ function exportDrawn(DATA, m, n) {
         case 'switch': things.push(`{ DT_SWITCH, 0, ${f2(x)}, ${f2(y)} }`); break;
         case 'gseal': things.push(`{ DT_GSEAL, 0, ${f2(x)}, ${f2(y)} }`); break;
         case 'map': things.push(`{ DT_MAP, 0, ${f2(x)}, ${f2(y)} }`); break;
-        case 'spawn': spawns.push(`{ ${f2(x)}, ${f2(y)}, ${t.k || -1}, ${t.chance == null ? 100 : t.chance}, ${t.echance == null ? -1 : t.echance}, ${t.el || -1}, ${t.rank === '' || t.rank == null ? -1 : 'RK_' + t.rank} }`); break;
+        case 'compass': things.push(`{ DT_COMPASS, 0, ${f2(x)}, ${f2(y)} }`); break;
+        case 'relic': things.push(`{ DT_RELIC, ${relicNo(t.id)}, ${f2(x)}, ${f2(y)} }`); break;
+        case 'socket': things.push(`{ DT_SOCKET, ${t.accepts ? relicNo(t.accepts) : -1}, ${f2(x)}, ${f2(y)} }`); break;
+        case 'spawn': spawns.push(`{ ${f2(x)}, ${f2(y)}, ${t.k || -1}, ${t.chance == null ? 100 : t.chance}, ${t.echance == null ? -1 : t.echance}, ${t.el || -1}, ${t.rank === '' || t.rank == null ? -1 : 'RK_' + t.rank}${t.wake ? ', ' + wakes.indexOf(t.wake) : ''} }`); break;
         }
     });
     const marks = compose(DATA, m).marks.filter(k => k.g === 's' && cells[idx(k.x, k.y)] !== 'q');
@@ -168,14 +174,66 @@ function exportDrawn(DATA, m, n) {
         for (let i = 0; i < spawns.length; i += 2) out.push('    ' + spawns.slice(i, i + 2).join(', ') + ',');
         out.push('};');
     }
+    const ev = m.events || [], tor = m.torches || [], acts = [], trigs = [], q = v => JSON.stringify(String(v || '')).replace(/\\u[0-9a-f]{4}/gi, '?');
+    ev.forEach(e => {
+        const first = acts.length;
+        (e.actions || []).forEach(a => {
+            const A = ACTIONS[a.kind]; if (!A) return;
+            const arg = A.arg === 'group' ? groups.indexOf(a.group) : A.arg === 'spawn' ? wakes.indexOf(a.group) : A.arg === 'sound' ? (a.sound || 'SFX_DEEPCHIME') : 0;
+            const dx = a.door ? a.door[0] - b.x0 : 0, dy = a.door ? a.door[1] - b.y0 : 0;
+            acts.push(`{ TA_${a.kind.toUpperCase()}, ${arg}, ${dx}, ${dy}, ${f2(+a.after || 0)}, ${a.kind === 'line' ? q(String(a.text || '').toUpperCase()) : 'NULL'} }`);
+        });
+        let needs = 0; (e.needs || []).forEach(n => { const k = ev.findIndex(o => o.id === n); if (k >= 0) needs |= 1 << k; });
+        const tg = e.target != null && thingNo[e.target] != null ? thingNo[e.target] : -1, A = e.area || { x0: b.x0, y0: b.y0, x1: b.x0 - 1, y1: b.y0 - 1 };
+        trigs.push(`{ TG_${e.kind.toUpperCase()}, ${e.kind === 'enter' || e.kind === 'all' ? -1 : tg}, ${A.x0 - b.x0}, ${A.y0 - b.y0}, ${A.x1 - b.x0}, ${A.y1 - b.y0}, 0x${(needs >>> 0).toString(16)}u, ${first}, ${acts.length - first} },    /* ${String(e.name || 'untitled').replace(/\*\//g, '')} */`);
+    });
+    if (tor.length) {
+        out.push(`/* torches: x, y of the wall in the drawing; the face (0 east, 1 south, 2 west, 3 north); the group (${groups.map((g, i) => i + ' ' + g.replace(/\*\//g, '')).join(', ')}); lit at the start */`);
+        out.push(`static const DrawnTorch ${P}_TORCH[] = {`);
+        const tl = tor.map(t => `{ ${t.x - b.x0}, ${t.y - b.y0}, ${t.d}, ${groups.indexOf(t.group)}, ${t.lit ? 1 : 0} }`);
+        for (let i = 0; i < tl.length; i += 4) out.push('    ' + tl.slice(i, i + 4).join(', ') + ',');
+        out.push('};');
+    }
+    if (relicList.length) out.push(`static const char *const ${P}_RELIC[] = { ${relicList.map(r => q(String(r.name || 'A RELIC').toUpperCase())).join(', ')} };`);
+    if (trigs.length) {
+        out.push(`/* triggers: the kind; its thing (an index in ${P}_THING) or -1; its box (x0, y0, x1, y1); what it waits on, a bit a trigger; its actions */`);
+        out.push(`static const DrawnTrig ${P}_TRIG[] = {`); trigs.forEach(t => out.push('    ' + t)); out.push('};');
+        out.push(`/* actions: the kind; the group or the sound; a door's cell in the drawing; after how long, s; the line */`);
+        out.push(`static const DrawnAct ${P}_ACT[] = {`); acts.forEach(a => out.push('    ' + a + ',')); if (!acts.length) out.push('    { TA_LINE, 0, 0, 0, 0.0f, NULL },'); out.push('};');
+    }
+    const evTail = trigs.length || tor.length || relicList.length
+        ? `, ${tor.length ? P + '_TORCH' : 'NULL'}, ${tor.length}, ${trigs.length ? P + '_TRIG' : 'NULL'}, ${trigs.length}, ${trigs.length ? P + '_ACT' : 'NULL'}, ${trigs.length ? Math.max(1, acts.length) : 0}, ${relicList.length ? P + '_RELIC' : 'NULL'}, ${relicList.length}` : '';
     out.push(`/* its row in DRAWN[] */`);
     out.push(`    { ${P}_MAP, ${b.w}, ${b.h}, ${b.x0}, ${b.y0}, ${m.face}, ${P}_ROOM, (int)(sizeof ${P}_ROOM / sizeof ${P}_ROOM[0]), { ${vault.join(', ')} },`);
-    out.push(`      ${P}_THING, (int)(sizeof ${P}_THING / sizeof ${P}_THING[0]), ${seed}u, ${m.level}, ${spawns.length ? P + '_SPAWN' : 'NULL'}, ${spawns.length ? `(int)(sizeof ${P}_SPAWN / sizeof ${P}_SPAWN[0])` : 0} },`);
-    return { text: out.join('\n') + '\n', ok: true, rows, b, things, spawns, vault, seed };
+    out.push(`      ${P}_THING, (int)(sizeof ${P}_THING / sizeof ${P}_THING[0]), ${seed}u, ${m.level}, ${spawns.length ? P + '_SPAWN' : 'NULL'}, ${spawns.length ? `(int)(sizeof ${P}_SPAWN / sizeof ${P}_SPAWN[0])` : 0}${evTail} },`);
+    return { text: out.join('\n') + '\n', ok: true, rows, b, things, spawns, vault, seed, events: !!evTail };
 }
 
-/* ---- the dream's walk: lanes only, a key opens its doors, the seal opens the gate; the nearest thing it wants next, then the exit.
- * An approximation of the dream (goals.c), not the game's own code: it shows what can be reached and in what order. ---- */
+/* What the events are (docs/PLAN-events.md): each trigger's and action's name and the editor's guidance for it */
+const TRIGGERS = {
+    pickup: { label: 'Picked up', target: 'thing', guide: 'Fires when the player (or the dream) picks up the thing you choose: the compass, a relic, a key, gold, the map. Use it to answer a find: the lights change, a door opens, the dead wake.' },
+    place: { label: 'Set in a socket', target: 'socket', guide: 'Fires when a relic is set in the socket you choose. The socket takes only the relic bound to it (or any, if you leave it open). Use it for "bring this back and put it here".' },
+    strike: { label: 'Struck with a spell', target: 'mark', guide: 'Fires when a spell lands on the thing you choose: a bound coffer, a cage, a class\'s own, the switch or a seal. Use it for "shoot this to open the way".' },
+    enter: { label: 'Walked into', target: 'area', guide: 'Fires the first time the player steps into the box of cells you draw. Use it for a room that answers being found, or an ambush.' },
+    all: { label: 'All of these done', target: 'none', guide: 'Fires once every trigger ticked under "Only after" has fired. Use it to join two or more paths: both relics set, both seals struck.' },
+};
+const ACTIONS = {
+    flicker_on: { label: 'Torches flicker to life', arg: 'group', guide: 'The group\'s torches stutter and catch, one after another. The way it lights is the way you mean them to go.' },
+    flicker_off: { label: 'Torches flicker out', arg: 'group', guide: 'The group\'s torches gutter and die. Use it to close a path that has served its turn.' },
+    light_on: { label: 'Torches light', arg: 'group', guide: 'The group\'s torches light at once, without the stutter.' },
+    light_off: { label: 'Torches go out', arg: 'group', guide: 'The group\'s torches go dark at once.' },
+    flicker_all: { label: 'Every light flickers', arg: 'none', guide: 'Every light on the level stutters for a moment, as if something passed. A good first beat before the real change.' },
+    door_open: { label: 'A door opens', arg: 'door', guide: 'The door you choose opens, a barred door (B) included. Use it to let the player on once the trigger is done.' },
+    door_unlock: { label: 'A door unlocks', arg: 'door', guide: 'The door you choose stops being locked or barred, but stays shut till the player opens it.' },
+    door_shut: { label: 'A door shuts', arg: 'door', guide: 'The door you choose slams and bars. The dream will not plan through it again unless another action opens it.' },
+    wake: { label: 'Spawn points wake', arg: 'spawn', guide: 'Every spawn point given this wake group is filled now, not when the level is laid. Use it for an ambush that answers a find.' },
+    secret: { label: 'A secret\'s wall slides', arg: 'secret', guide: 'The level\'s secret wall (c) slides open as if found.' },
+    line: { label: 'A line on screen', arg: 'text', guide: 'A caption at the top of the view, in capitals, as the game\'s own are ("THE TORCHES TO THE NORTH CATCH"). Keep it short: about 40 characters.' },
+    sound: { label: 'A sound', arg: 'sound', guide: 'One of the game\'s own sounds.' },
+};
+const SOUNDS = ['SFX_DEEPCHIME', 'SFX_SHIMMER', 'SFX_KNOCK', 'SFX_KEYGET', 'SFX_BONES', 'SFX_WAIL'];
+const SOUND_NAMES = ['a deep chime', 'a shimmer', 'a knock', 'a key\'s ring', 'bones', 'a wail'];
+
 function frontOf(cells, x, y) {                 /* drawn_front: a wall's open side, north, south, west, east first */
     for (const d of FRONT_ORDER) {
         const fx = x + DIRS[d][0], fy = y + DIRS[d][1];
@@ -183,30 +241,125 @@ function frontOf(cells, x, y) {                 /* drawn_front: a wall's open si
     }
     return null;
 }
+function torchGroups(m) { const g = []; (m.torches || []).forEach(t => { if (t.group && !g.includes(t.group)) g.push(t.group); }); return g; }
+function wakeGroups(m) { const g = []; m.things.forEach(t => { if (t.t === 'spawn' && t.wake && !g.includes(t.wake)) g.push(t.wake); }); return g; }
+/* The dream's walk: lanes only; a key opens its doors, the seal the gate; a relic carried to the socket that takes it, one at a time;
+ * a trigger fires when its thing is reached and what it waits on has fired, and its actions open and shut doors. The nearest thing
+ * it wants next, then the exit. A copy of the dream's rules for reaching things (goals.c), not the game's own code. */
 function dream(DATA, m, opts) {
     opts = opts || {};
-    const { cells } = compose(DATA, m), L = lanes(m, cells);
-    const st = { keys: [0, 0, 0], gate: false, secret: !!opts.secrets };
+    const { cells } = compose(DATA, m), L = lanes(m, cells), evs = m.events || [];
+    const st = { keys: [0, 0, 0], gate: false, secret: !!opts.secrets, doors: new Map(), carry: null, fired: new Set(), placed: new Set() };
     const pass = (x, y) => {
         if (!inMap(x, y)) return false;
         const i = idx(x, y), ch = cells[i];
         if (!L[i]) return false;
+        if (st.doors.has(i)) return st.doors.get(i);
         if (ch === 'G') return !!st.keys[0];
         if (ch === 'C') return !!st.keys[2];
         if (ch === '=') return st.gate;
+        if (ch === 'B') return false;
         if (ch === 'c' || ch === 'q') return st.secret;
         return true;
     };
     let start = null;
     for (let i = 0; i < N * N; i++) if (cells[i] === 'S') { start = [i % N, (i / N) | 0]; break; }
-    const res = { route: [], events: [], ok: false, reached: new Set(), missed: [], exit: null, steps: 0 };
+    const res = { route: [], events: [], ok: false, reached: new Set(), missed: [], unfired: [], exit: null, steps: 0, lights: [] };
+    (m.torches || []).forEach(t => res.lights.push({ at: 0, group: t.group, on: !!t.lit, init: true }));
     if (!start) { res.events.push({ at: 0, msg: 'There is no start (S): the dream has nowhere to begin.' }); return res; }
     let exit = null;
     for (let i = 0; i < N * N; i++) if (cells[i] === 'X') { exit = frontOf(cells, i % N, (i / N) | 0); }
     res.exit = exit;
-    const goals = m.things.filter(t => ['gold', 'key', 'map', 'gseal', 'switch'].includes(t.t))
-        .map(t => ({ t, c: thingCell(t), secret: (() => { const [x, y] = thingCell(t); return inMap(x, y) && cells[idx(x, y)] === 'q'; })() }));
-    const near = (x, y, g) => Math.abs(x - g.c[0]) + Math.abs(y - g.c[1]) <= 1;
+    const at = () => res.route.length - 1;
+    const ready = e => (e.needs || []).every(n => st.fired.has(n));
+    const trigOf = (kind, id) => evs.filter(e => e.kind === kind && e.target === id);
+    const fire = e => {
+        if (st.fired.has(e.id) || !ready(e)) return;
+        st.fired.add(e.id);
+        res.events.push({ at: at(), msg: `Trigger "${e.name || 'untitled'}" fires.`, trig: e.id });
+        (e.actions || []).forEach(a => {
+            const A = ACTIONS[a.kind]; if (!A) return;
+            let msg = A.label;
+            if (A.arg === 'group') { msg += `: ${a.group || '(no group)'}`; res.lights.push({ at: at(), group: a.group, on: a.kind === 'flicker_on' || a.kind === 'light_on' }); }
+            if (A.arg === 'door' && a.door) {
+                const i = idx(a.door[0], a.door[1]);
+                st.doors.set(i, a.kind !== 'door_shut');
+                msg += ` at (${a.door[0]},${a.door[1]})`;
+            }
+            if (a.kind === 'secret') st.secret = true;
+            if (A.arg === 'spawn') msg += `: ${a.group || '(no group)'}`;
+            if (a.kind === 'line') msg += `: "${a.text || ''}"`;
+            if (a.after) msg += ` (after ${a.after} s)`;
+            res.events.push({ at: at(), msg: '  ' + msg + '.' });
+        });
+        evs.forEach(o => { if (o.kind === 'all' && !st.fired.has(o.id) && (o.needs || []).length && ready(o)) fire(o); });
+    };
+    const cellOf = t => thingCell(t), sec = c => inMap(c[0], c[1]) && cells[idx(c[0], c[1])] === 'q';
+    const relics = m.things.filter(t => t.t === 'relic'), sockets = m.things.filter(t => t.t === 'socket');
+    const takes = (s, r) => !s.accepts || s.accepts === r.id;
+    /* what it wants now: a list of { cells it may stand on, what happens there } */
+    const wants = () => {
+        const w = [];
+        const near = c => [[0, 0], ...DIRS].map(([dx, dy]) => [c[0] + dx, c[1] + dy]);
+        m.things.forEach(t => {
+            if (res.reached.has(t.id)) return;
+            const c = cellOf(t);
+            if (sec(c) && !st.secret) return;
+            if (['gold', 'key', 'map', 'gseal', 'switch', 'compass'].includes(t.t)) {
+                const tr = trigOf('pickup', t.id).concat(trigOf('strike', t.id));
+                if (tr.length && !tr.every(ready)) return;   /* it waits till taking it would count */
+                w.push({ cells: near(c), t, why: 'take' });
+            } else if (t.t === 'relic') {
+                if (st.carry || !sockets.some(s => !st.placed.has(s.id) && takes(s, t))) return;
+                const tr = trigOf('pickup', t.id);
+                if (tr.length && !tr.every(ready)) return;
+                w.push({ cells: near(c), t, why: 'relic' });
+            } else if (t.t === 'socket') {
+                if (!st.carry || st.placed.has(t.id) || !takes(t, st.carry)) return;
+                const tr = trigOf('place', t.id);
+                if (tr.length && !tr.every(ready)) return;
+                w.push({ cells: near(c), t, why: 'socket' });
+            } else if (t.t === 'mark') {
+                const tr = trigOf('strike', t.id).filter(e => !st.fired.has(e.id));
+                if (tr.length && tr.some(ready)) w.push({ cells: near(c), t, why: 'strike' });
+            }
+        });
+        evs.forEach(e => {
+            if (e.kind !== 'enter' || st.fired.has(e.id) || !ready(e) || !e.area) return;
+            const c = [];
+            for (let y = e.area.y0; y <= e.area.y1; y++) for (let x = e.area.x0; x <= e.area.x1; x++) c.push([x, y]);
+            w.push({ cells: c, e, why: 'enter' });
+        });
+        return w;
+    };
+    const arrive = (x, y) => {                  /* what happens where it stands */
+        evs.forEach(e => { if (e.kind === 'enter' && e.area && !st.fired.has(e.id) && x >= e.area.x0 && x <= e.area.x1 && y >= e.area.y0 && y <= e.area.y1) fire(e); });
+        for (const w of wants()) {
+            if (!w.t || !w.cells.some(c => c[0] === x && c[1] === y)) continue;
+            const t = w.t, where = `(${Math.floor(t.x)},${Math.floor(t.y)})`;
+            if (w.why === 'take') {
+                res.reached.add(t.id);
+                if (t.t === 'key') { st.keys[t.k] = 1; res.events.push({ at: at(), msg: `Takes the ${KEY_NAMES[t.k].toLowerCase()} key at ${where}.` }); }
+                else if (t.t === 'gseal') { st.gate = true; res.events.push({ at: at(), msg: `Strikes the gate's seal at ${where}: the gate opens.` }); }
+                else if (t.t === 'map') res.events.push({ at: at(), msg: `Takes the map at ${where}.` });
+                else if (t.t === 'switch') res.events.push({ at: at(), msg: `Strikes the switch at ${where}.` });
+                else if (t.t === 'compass') res.events.push({ at: at(), msg: `Takes the compass at ${where}.` });
+                trigOf('pickup', t.id).forEach(fire); trigOf('strike', t.id).forEach(fire);
+            } else if (w.why === 'relic') {
+                res.reached.add(t.id); st.carry = t;
+                res.events.push({ at: at(), msg: `Takes up ${t.name || 'the relic'} at ${where}.` });
+                trigOf('pickup', t.id).forEach(fire);
+            } else if (w.why === 'socket') {
+                res.reached.add(t.id); st.placed.add(t.id);
+                res.events.push({ at: at(), msg: `Sets ${st.carry.name || 'the relic'} in ${t.name || 'the socket'} at ${where}.` });
+                st.carry = null;
+                trigOf('place', t.id).forEach(fire);
+            } else if (w.why === 'strike') {
+                res.events.push({ at: at(), msg: `Strikes ${label(DATA, t).toLowerCase()} at ${where}.` });
+                trigOf('strike', t.id).forEach(fire);
+            }
+        }
+    };
     const bfs = (sx, sy) => {
         const dist = new Int32Array(N * N).fill(-1), prev = new Int32Array(N * N).fill(-1), q = [idx(sx, sy)];
         dist[idx(sx, sy)] = 0;
@@ -221,51 +374,41 @@ function dream(DATA, m, opts) {
         return { dist, prev };
     };
     const pathTo = (prev, i) => { const p = []; while (i >= 0) { p.push([i % N, (i / N) | 0]); i = prev[i]; } return p.reverse(); };
-    const pick = (cur, g) => {                  /* what it gathers standing here */
-        if (res.reached.has(g.t.id)) return;
-        res.reached.add(g.t.id);
-        const at = res.route.length - 1, where = `(${g.c[0]},${g.c[1]})`;
-        if (g.t.t === 'key') { st.keys[g.t.k] = 1; res.events.push({ at, msg: `Takes the ${KEY_NAMES[g.t.k].toLowerCase()} key at ${where}.` }); }
-        else if (g.t.t === 'gseal') { st.gate = true; res.events.push({ at, msg: `Strikes the gate's seal at ${where}: the gate opens.` }); }
-        else if (g.t.t === 'map') res.events.push({ at, msg: `Takes the map at ${where}.` });
-        else if (g.t.t === 'switch') res.events.push({ at, msg: `Strikes the switch at ${where}.` });
-    };
     let cur = start; res.route.push(cur.slice());
-    const gatherHere = () => goals.forEach(g => { if (near(cur[0], cur[1], g) && (!g.secret || st.secret)) pick(cur, g); });
-    gatherHere();
-    for (let guard = 0; guard < 400; guard++) {
+    arrive(cur[0], cur[1]);
+    const step = c => {
+        const was = cells[idx(c[0], c[1])];
+        cur = c; res.route.push(c.slice());
+        if (was === 'G' || was === 'C') res.events.push({ at: at(), msg: `Opens the ${was === 'G' ? 'gold' : 'crimson'} door at (${c[0]},${c[1]}).` });
+        arrive(c[0], c[1]);
+    };
+    for (let guard = 0; guard < 600; guard++) {
         const { dist, prev } = bfs(cur[0], cur[1]);
         let best = null, bd = 1e9;
-        for (const g of goals) {
-            if (res.reached.has(g.t.id) || (g.secret && !st.secret)) continue;
-            for (let k = -1; k < 4; k++) {      /* the cells it may stand on to take it: its own and the four beside it */
-                const x = g.c[0] + (k < 0 ? 0 : DIRS[k][0]), y = g.c[1] + (k < 0 ? 0 : DIRS[k][1]);
-                if (!inMap(x, y)) continue;
-                const d = dist[idx(x, y)];
-                if (d >= 0 && d < bd) { bd = d; best = idx(x, y); }
-            }
+        for (const w of wants()) for (const [x, y] of w.cells) {
+            if (!inMap(x, y)) continue;
+            const d = dist[idx(x, y)];
+            if (d > 0 && d < bd) { bd = d; best = idx(x, y); }
         }
         if (best === null) break;
-        const p = pathTo(prev, best);
-        for (let k = 1; k < p.length; k++) {
-            cur = p[k]; res.route.push(cur.slice());
-            const ch = cells[idx(cur[0], cur[1])];
-            if (ch === 'G' || ch === 'C') res.events.push({ at: res.route.length - 1, msg: `Opens the ${ch === 'G' ? 'gold' : 'crimson'} door at (${cur[0]},${cur[1]}).` });
-            gatherHere();
-        }
+        pathTo(prev, best).slice(1).forEach(step);
     }
     if (exit) {
         const { dist, prev } = bfs(cur[0], cur[1]);
         if (dist[idx(exit[0], exit[1])] >= 0) {
-            pathTo(prev, idx(exit[0], exit[1])).slice(1).forEach(c => { cur = c; res.route.push(c.slice()); gatherHere(); });
-            res.events.push({ at: res.route.length - 1, msg: `Reaches the exit at (${exit[0]},${exit[1]}).` });
+            pathTo(prev, idx(exit[0], exit[1])).slice(1).forEach(step);
+            res.events.push({ at: at(), msg: `Reaches the exit at (${exit[0]},${exit[1]}).` });
             res.ok = true;
-        } else res.events.push({ at: res.route.length - 1, msg: 'Cannot reach the exit from here: the level cannot be finished.' });
-    } else res.events.push({ at: res.route.length - 1, msg: 'There is no exit (X) with an open side.' });
-    res.missed = goals.filter(g => !res.reached.has(g.t.id)).map(g => g.t);
+        } else res.events.push({ at: at(), msg: 'Cannot reach the exit from here: the level cannot be finished.' });
+    } else res.events.push({ at: at(), msg: 'There is no exit (X) with an open side.' });
+    if (st.carry) res.events.push({ at: at(), msg: `Still carries ${st.carry.name || 'a relic'}: no socket would take it.` });
+    res.missed = m.things.filter(t => ['gold', 'key', 'map', 'gseal', 'switch', 'compass', 'relic', 'socket'].includes(t.t) && !res.reached.has(t.id));
+    res.unfired = evs.filter(e => !st.fired.has(e.id));
     res.steps = res.route.length - 1;
     return res;
 }
+/* whether a torch is lit at a step of the walk: as placed, then as the last action on its group says */
+function torchLit(res, t, step) { let on = !!t.lit; (res ? res.lights : []).forEach(l => { if (!l.init && l.at <= step && l.group === t.group) on = l.on; }); return on; }
 
 /* ---- budgets: the dead's cost against the level's, gold in the open and in the secrets ---- */
 function levelInfo(DATA, level) {
@@ -457,6 +600,48 @@ function check(DATA, m) {
     });
     comp.marks.filter(k => 'abct'.includes(k.g)).length &&
         add('info', 'The stamps\' altar, brazier, loot and torch marks (a, b, c, t) are not laid on drawn levels yet; their spawn marks (s) are exported.');
+    /* the events (docs/PLAN-events.md) */
+    const ev = m.events || [], tor = m.torches || [], byId = id => m.things.find(t => t.id === id);
+    if (ev.length > 32) add('error', `${ev.length} triggers: a level holds 32 at most (what a trigger waits on is a bit each).`);
+    tor.forEach(t => {
+        const f = [t.x + DIRS[t.d][0], t.y + DIRS[t.d][1]];
+        if (WALLS.has(at(t.x, t.y)) === false || at(t.x, t.y) !== '#') add('error', 'A torch must hang on plain stone.', [[t.x, t.y]]);
+        else if (!isOpen(at(f[0], f[1]))) add('error', 'A torch faces into stone: turn it toward the floor.', [[t.x, t.y]]);
+        if (!t.group) add('info', 'A torch with no group: no event can light or snuff it.', [[t.x, t.y]]);
+    });
+    const relics = m.things.filter(t => t.t === 'relic'), sockets = m.things.filter(t => t.t === 'socket');
+    relics.forEach(r => { if (!sockets.some(s => !s.accepts || s.accepts === r.id)) add('warn', `${label(DATA, r)} has no socket that takes it.`, [thingCell(r)]); });
+    sockets.forEach(s => { if (s.accepts && !relics.some(r => r.id === s.accepts)) add('error', `${label(DATA, s)} is bound to a relic that is no longer on the map.`, [thingCell(s)]); });
+    if (m.things.filter(t => t.t === 'compass').length > 1) add('warn', 'More than one compass: the second is gold in its place, as a held compass is.');
+    const groups = torchGroups(m), wakes = wakeGroups(m);
+    ev.forEach(e => {
+        const nm = `"${e.name || 'untitled'}"`, T = TRIGGERS[e.kind];
+        if (!T) { add('error', `Trigger ${nm} has no kind.`); return; }
+        if (T.target !== 'none' && T.target !== 'area') {
+            const t = byId(e.target);
+            if (!t) add('error', `Trigger ${nm} has nothing to watch: choose its ${T.target === 'socket' ? 'socket' : T.target === 'mark' ? 'thing to strike' : 'thing'}.`);
+            else if (T.target === 'socket' && t.t !== 'socket') add('error', `Trigger ${nm} watches ${label(DATA, t).toLowerCase()}, which is not a socket.`, [thingCell(t)]);
+            else if (T.target === 'mark' && !['mark', 'switch', 'gseal'].includes(t.t)) add('error', `Trigger ${nm} watches ${label(DATA, t).toLowerCase()}, which no spell can strike.`, [thingCell(t)]);
+            else if (T.target === 'thing' && !['gold', 'key', 'map', 'compass', 'relic'].includes(t.t)) add('error', `Trigger ${nm} watches ${label(DATA, t).toLowerCase()}, which cannot be picked up.`, [thingCell(t)]);
+            if (t && e.kind === 'pickup' && (e.needs || []).length) add('info', `Trigger ${nm} waits on others, but the player may take its thing first; then it never fires. The dream waits.`, [thingCell(t)]);
+        }
+        if (e.kind === 'enter' && !e.area) add('error', `Trigger ${nm} has no box to walk into: draw it on the map.`);
+        if (e.kind === 'all' && !(e.needs || []).length) add('error', `Trigger ${nm} waits on nothing: tick what it joins under "Only after".`);
+        (e.needs || []).forEach(n => { if (!ev.some(o => o.id === n)) add('error', `Trigger ${nm} waits on a trigger that is gone.`); });
+        if (!(e.actions || []).length) add('warn', `Trigger ${nm} does nothing yet: give it an action.`);
+        (e.actions || []).forEach(a => {
+            const A = ACTIONS[a.kind]; if (!A) return;
+            if (A.arg === 'group' && !groups.includes(a.group)) add('error', `Trigger ${nm}: "${A.label}" names a torch group no torch is in.`);
+            if (A.arg === 'spawn' && !wakes.includes(a.group)) add('error', `Trigger ${nm}: "${A.label}" names a wake group no spawn point is in.`);
+            if (A.arg === 'door' && (!a.door || !DOORS.has(at(a.door[0], a.door[1])))) add('error', `Trigger ${nm}: "${A.label}" has no door chosen.`, a.door ? [a.door] : []);
+            if (A.arg === 'secret' && !find('c').length) add('error', `Trigger ${nm}: there is no secret's wall to slide.`);
+            if (a.kind === 'line' && String(a.text || '').length > 44) add('warn', `Trigger ${nm}: its line is ${String(a.text).length} characters; the view holds about 40.`);
+        });
+    });
+    const seen = new Set(), loop = id => { if (seen.has(id)) return true; seen.add(id); const e = ev.find(o => o.id === id); const r = e && (e.needs || []).some(loop); seen.delete(id); return r; };
+    ev.forEach(e => { if (loop(e.id)) add('error', `Trigger "${e.name || 'untitled'}" waits, through others, on itself: it can never fire.`); });
+    find('B').forEach(c => { if (!ev.some(e => (e.actions || []).some(a => (a.kind === 'door_open' || a.kind === 'door_unlock') && a.door && a.door[0] === c[0] && a.door[1] === c[1]))) add('warn', 'A barred door no event opens: it stays shut for good.', [c]); });
+    if (ev.length || tor.length) add('info', 'This level has events: its export needs the game\'s side of them (docs/PLAN-events.md, steps 3 to 5) before it compiles.');
     return out;
 }
 function label(DATA, t) {
@@ -469,11 +654,62 @@ function label(DATA, t) {
     case 'switch': return 'Switch';
     case 'gseal': return 'Gate\'s seal';
     case 'map': return 'The map';
+    case 'compass': return 'The compass';
+    case 'relic': return 'Relic' + (t.name ? ': ' + t.name.toLowerCase() : '');
+    case 'socket': return 'Socket' + (t.name ? ': ' + t.name.toLowerCase() : '');
     }
     return t.t;
 }
 
-const API = { N, DIRS, DOORS, WALLS, LANE_OF, BASE_OF, RUNS, RANKS, ELEM_FAV, GOLD_KINDS, KEY_NAMES, MARK_NAMES, MAX, idx, inMap, isOpen,
+/* The owner's example (docs/PLAN-events.md): the compass in a hub; taking it flickers every light and wakes path A's torches to the
+ * north; the bone found there and set in the hub's socket snuffs path A and lights path B to the east, whose barred door opens on
+ * the exit. Path C to the south lights itself when its room is walked into. */
+function sampleEvents() {
+    const m = blank(3); m.name = 'The compass (an example of events)';
+    const fill = (x0, y0, x1, y1, ch) => { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) m.grid[idx(x, y)] = ch; };
+    fill(5, 17, 11, 27, '.');        /* the start's room */
+    fill(12, 22, 16, 22, '.');       /* its way to the hub */
+    fill(17, 17, 27, 27, '.');       /* the hub */
+    fill(22, 12, 22, 16, '.'); fill(17, 5, 27, 11, '.');      /* path A, north, and the bone's room */
+    fill(28, 22, 31, 22, '.'); m.grid[idx(32, 22)] = 'B'; fill(33, 17, 39, 27, '.');   /* path B, east, its barred door, the exit's room */
+    fill(22, 28, 22, 32, '.'); fill(17, 33, 27, 39, '.');     /* path C, south, a room of gold */
+    m.grid[idx(6, 22)] = 'S'; m.grid[idx(40, 22)] = 'X'; m.grid[idx(12, 22)] = 'D';
+    m.rooms.push({ x: 5, y: 17, w: 7, h: 11, rt: 'RT_OSSUARY', vault: -1 }, { x: 17, y: 17, w: 11, h: 11, rt: 'RT_CHAPTER', vault: -1 },
+        { x: 17, y: 5, w: 11, h: 7, rt: 'RT_BURIAL', vault: -1 }, { x: 33, y: 17, w: 7, h: 11, rt: 'RT_KNIGHTS', vault: -1 },
+        { x: 17, y: 33, w: 11, h: 7, rt: 'RT_UNDER', vault: -1 });
+    let id = 1; const T = o => { const t = Object.assign({ id: id++ }, o); m.things.push(t); return t; };
+    const compass = T({ t: 'compass', x: 22.5, y: 22.5 });
+    const bone = T({ t: 'relic', name: 'A bone key', x: 22.5, y: 7.5 });
+    const socket = T({ t: 'socket', name: 'The empty reliquary', accepts: bone.id, x: 18.625, y: 18.625 });
+    T({ t: 'gold', k: 'IT_CHALICE', x: 18.375, y: 6.375 }); T({ t: 'gold', k: 'IT_GEMS', x: 26.625, y: 10.625 });
+    T({ t: 'gold', k: 'IT_CHEST', x: 22.5, y: 37.5 }); T({ t: 'gold', k: 'IT_COINS', x: 18.375, y: 34.375 }); T({ t: 'gold', k: 'IT_CROWN', x: 38.375, y: 26.375 });
+    T({ t: 'spawn', k: 'MOB_SKEL', chance: 100, x: 25.5, y: 6.5 }); T({ t: 'spawn', k: '', chance: 75, x: 26.5, y: 37.5 });
+    T({ t: 'spawn', k: 'MOB_SKEL', chance: 100, rank: 'II', wake: 'the reliquary\'s guard', x: 36.5, y: 18.5 });
+    m.torches = [
+        { x: 21, y: 13, d: 0, group: 'path A', lit: false }, { x: 23, y: 15, d: 2, group: 'path A', lit: false },
+        { x: 29, y: 21, d: 1, group: 'path B', lit: false }, { x: 31, y: 23, d: 3, group: 'path B', lit: false },
+        { x: 21, y: 30, d: 0, group: 'path C', lit: false }, { x: 23, y: 32, d: 2, group: 'path C', lit: false },
+        { x: 16, y: 21, d: 1, group: 'the hub', lit: true }, { x: 16, y: 23, d: 3, group: 'the hub', lit: true },
+    ];
+    m.events = [
+        { id: 'e1', name: 'The compass taken', kind: 'pickup', target: compass.id, needs: [],
+          note: 'Every light flickers when the compass is picked up, and the torches down one path (north) catch: the way it wants you to go.',
+          actions: [{ kind: 'flicker_all' }, { kind: 'sound', sound: 'SFX_DEEPCHIME' }, { kind: 'flicker_on', group: 'path A', after: 0.8 }] },
+        { id: 'e2', name: 'The bone set', kind: 'place', target: socket.id, needs: ['e1'],
+          note: 'They come back with the bone and set it; the north path gutters out and the east path flickers to life, its bar lifting.',
+          actions: [{ kind: 'flicker_off', group: 'path A' }, { kind: 'flicker_on', group: 'path B', after: 1.0 }, { kind: 'door_open', door: [32, 22], after: 1.5 },
+                    { kind: 'wake', group: 'the reliquary\'s guard', after: 1.5 }, { kind: 'line', text: 'SOMETHING STIRS TO THE EAST', after: 1.0 }] },
+        { id: 'e3', name: 'The south room found', kind: 'enter', area: { x0: 17, y0: 33, x1: 27, y1: 39 }, needs: [],
+          note: 'The south room lights itself when it is found: a reward off the path, not the way on.',
+          actions: [{ kind: 'light_on', group: 'path C' }] },
+    ];
+    for (let y = 1; y < N - 1; y++) for (let x = 1; x < N - 1; x++)   /* lanes through the wide rooms, so nothing is out of the dream's reach */
+        if (m.grid[idx(x, y)] === '.' && m.rooms.some(r => x >= r.x && y >= r.y && x < r.x + r.w && y < r.y + r.h) && (x % 4 === 0 || y % 4 === 0)) m.lane[idx(x, y)] = 1;
+    m.next = id; m.slot = 3;
+    return m;
+}
+
+const API = { TRIGGERS, ACTIONS, SOUNDS, SOUND_NAMES, torchGroups, wakeGroups, torchLit, sampleEvents, N, DIRS, DOORS, WALLS, LANE_OF, BASE_OF, RUNS, RANKS, ELEM_FAV, GOLD_KINDS, KEY_NAMES, MARK_NAMES, MAX, idx, inMap, isOpen,
               blank, clone, xformRows, stampRows, stampDef, compose, laneAt, lanes, importDrawn, exportDrawn, bounds, frontOf, dream,
               levelInfo, rankCost, budget, elemDefault, check, label, thingCell };
 if (typeof module !== 'undefined' && module.exports) module.exports = API; else root.MapCore = API;

@@ -29,6 +29,27 @@ for (const D of DATA.drawn) {
     console.log(`  dream with the secret pressed: missed ${ds.missed.length}`);
     if (!dr.ok) fail(`level ${D.n}: the dream does not finish`);
 }
+/* the owner's example of events (docs/PLAN-events.md): it finishes, every trigger fires in order; without the door's action it cannot */
+{
+    const m = C.sampleEvents(), ch = C.check(DATA, m), d = C.dream(DATA, m);
+    const errs = ch.filter(c => c.sev === 'error'), warns = ch.filter(c => c.sev === 'warn');
+    console.log(`events sample: ${errs.length} errors, ${warns.length} warnings; dream ${d.ok ? 'finishes' : 'does NOT finish'} in ${d.steps} steps, ${d.unfired.length} triggers unfired`);
+    warns.concat(errs).forEach(c => console.log('  ' + c.sev + ' ' + c.msg));
+    if (errs.length || warns.length) fail('the events sample has errors or warnings');
+    if (!d.ok || d.unfired.length || d.missed.length) fail('the events sample should finish with every trigger fired and nothing missed');
+    const order = d.events.filter(e => e.trig).map(e => e.trig).join();
+    if (order !== 'e1,e3,e2') fail(`the triggers fired in the order ${order}`);
+    const cut = C.sampleEvents(); cut.events[1].actions = cut.events[1].actions.filter(a => a.kind !== 'door_open');
+    const dc = C.dream(DATA, cut);
+    if (dc.ok) fail('without the door opening, the sample should not finish');
+    if (!C.check(DATA, cut).some(c => c.msg.includes('barred door no event opens'))) fail('the check should say the barred door never opens');
+    const wrong = C.sampleEvents(); wrong.things.find(t => t.t === 'socket').accepts = 999;
+    if (!C.check(DATA, wrong).some(c => c.sev === 'error' && c.msg.includes('no longer on the map'))) fail('a socket bound to a missing relic should be an error');
+    if (C.dream(DATA, wrong).ok) fail('with the socket bound to nothing there, the sample should not finish');
+    const x = C.exportDrawn(DATA, m, 3).text;
+    ['DT_COMPASS', 'DT_RELIC, 0', 'DT_SOCKET, 0', 'DRAWN3_TORCH', 'DRAWN3_TRIG', 'DRAWN3_ACT', 'DRAWN3_RELIC', 'TG_PICKUP', 'TG_PLACE', 'TG_ENTER', 'TA_FLICKER_ON', 'TA_DOOR_OPEN']
+        .forEach(k => { if (!x.includes(k)) fail('the export lacks ' + k); });
+}
 /* a stamp laid and turned: the shapes stay whole */
 const s = DATA.stamps[0];
 for (let t = 0; t < 8; t++) {
