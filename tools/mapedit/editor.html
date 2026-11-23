@@ -1,0 +1,901 @@
+<title>Catacomb Map Editor</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=VT323&display=swap">
+<style>
+/* Layout: the game's carved stone round a 45 x 45 map: tools at the left, the map in the middle, the tablet of what is chosen,
+ * the budgets, the checks and the dream at the right. One look, dark, as mode 13h was. */
+:root {
+  --ground: #0c0a10;      /* the dark between the slabs */
+  --slab: #2e2a33;        /* carved stone */
+  --slab-hi: #4a4452;     /* its lit edge */
+  --slab-lo: #17141b;     /* its shadow */
+  --well: #1b1820;        /* a cut-in well */
+  --bone: #d8d0bd;        /* text */
+  --dim: #8f8698;         /* quieter text */
+  --gold: #e9c24c;        /* the game's gold capitals */
+  --ice: #8fc6dc;
+  --crimson: #d2473b;
+  --amber: #e89a3a;
+  --green: #79c15a;
+  --hood: #7d4fa8;        /* the caster's hood */
+  --display: "Silkscreen", "Courier New", monospace;
+  --body: "VT323", "Courier New", monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--ground); color: var(--bone); font-family: var(--body); font-size: 20px; line-height: 1.15; }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.app { display: grid; grid-template-rows: auto 1fr auto; height: 100%; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 10px; gap: 10px; }
+
+/* a slab: the bevel the game's tablets have */
+.slab { background: var(--slab); border: 2px solid; border-color: var(--slab-hi) var(--slab-lo) var(--slab-lo) var(--slab-hi); box-shadow: 0 0 0 2px var(--ground); }
+.well { background: var(--well); border: 2px solid; border-color: var(--slab-lo) var(--slab-hi) var(--slab-hi) var(--slab-lo); }
+h1, h2, h3 { font-family: var(--display); font-weight: 400; color: var(--gold); letter-spacing: 0.04em; margin: 0; text-wrap: balance; }
+h1 { font-size: 20px; }
+h2 { font-size: 14px; }
+h3 { font-size: 12px; color: var(--dim); }
+
+/* the header */
+.top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 8px 12px; }
+.top .name { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; flex: 1 1 260px; min-width: 0; }
+.top input[type=text] { min-width: 0; flex: 1 1 160px; }
+.saved { font-family: var(--display); font-size: 11px; padding: 3px 7px; border: 2px solid var(--slab-hi); color: var(--dim); white-space: nowrap; }
+.saved.dirty { color: var(--amber); border-color: var(--amber); }
+.saved.ok { color: var(--green); border-color: var(--green); }
+.bar { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.btn { font-family: var(--display); font-size: 12px; letter-spacing: 0.04em; padding: 6px 10px; cursor: pointer; background: var(--slab); color: var(--bone);
+  border: 2px solid; border-color: var(--slab-hi) var(--slab-lo) var(--slab-lo) var(--slab-hi); }
+.btn:hover { color: var(--gold); }
+.btn:active, .btn[aria-pressed=true] { border-color: var(--slab-lo) var(--slab-hi) var(--slab-hi) var(--slab-lo); background: var(--well); color: var(--gold); }
+.btn.warn { color: var(--crimson); }
+.btn:disabled { opacity: 0.45; cursor: default; }
+input[type=text], input[type=number], select, textarea { background: var(--well); border: 2px solid; border-color: var(--slab-lo) var(--slab-hi) var(--slab-hi) var(--slab-lo); padding: 3px 6px; }
+input[type=number] { width: 5.5em; }
+label { color: var(--dim); }
+
+/* the three columns */
+.main { display: grid; grid-template-columns: 230px minmax(0, 1fr) 330px; gap: 10px; min-height: 0; }
+.col { min-height: 0; overflow: auto; padding: 10px; display: flex; flex-direction: column; gap: 12px; }
+.mapwrap { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.maptools { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px 8px; }
+.maptools .sep { flex: 1; }
+.scroller { flex: 1; overflow: auto; min-height: 280px; position: relative; }
+#map { display: block; image-rendering: pixelated; image-rendering: crisp-edges; cursor: crosshair; touch-action: none; }
+
+/* the tool palette */
+.tools { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 4px; }
+.tool { display: flex; align-items: center; gap: 6px; padding: 3px 5px; cursor: pointer; background: var(--slab); border: 2px solid transparent; text-align: left; font-size: 18px; line-height: 1; min-height: 30px; }
+.tool:hover { border-color: var(--slab-hi); }
+.tool[aria-pressed=true] { border-color: var(--gold); background: var(--well); color: var(--gold); }
+.tool canvas { width: 20px; height: 20px; image-rendering: pixelated; flex: none; }
+.stamps { display: flex; flex-direction: column; gap: 4px; }
+.stamp { display: flex; gap: 8px; align-items: center; padding: 4px; cursor: pointer; background: var(--slab); border: 2px solid transparent; text-align: left; font-size: 17px; }
+.stamp:hover { border-color: var(--slab-hi); }
+.stamp[aria-pressed=true] { border-color: var(--gold); background: var(--well); }
+.stamp canvas { image-rendering: pixelated; flex: none; background: var(--ground); }
+.stamp small { color: var(--dim); display: block; }
+details > summary { cursor: pointer; font-family: var(--display); font-size: 12px; color: var(--gold); letter-spacing: 0.04em; list-style: none; }
+details > summary::before { content: "+ "; color: var(--dim); }
+details[open] > summary::before { content: "- "; }
+
+/* the tablet at the right */
+.tabs { display: flex; flex-wrap: wrap; gap: 4px; }
+.tab { font-family: var(--display); font-size: 11px; padding: 5px 7px; cursor: pointer; background: var(--slab); border: 2px solid; border-color: var(--slab-hi) var(--slab-lo) var(--slab-lo) var(--slab-hi); color: var(--dim); }
+.tab[aria-selected=true] { color: var(--gold); background: var(--well); border-color: var(--slab-lo) var(--slab-hi) var(--slab-hi) var(--slab-lo); }
+.tab .n { color: var(--crimson); }
+.pane { display: flex; flex-direction: column; gap: 10px; }
+.row { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
+.row > label { min-width: 6.2em; }
+.field { display: grid; grid-template-columns: 6.4em minmax(0, 1fr); gap: 6px; align-items: center; }
+.field select, .field input[type=text] { width: 100%; min-width: 0; }
+.note { color: var(--dim); font-size: 18px; }
+.meter { height: 12px; background: var(--well); border: 2px solid var(--slab-lo); position: relative; }
+.meter i { position: absolute; inset: 0 auto 0 0; background: var(--gold); }
+.meter i.over { background: var(--crimson); }
+.meter b { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--bone); }
+.num { font-variant-numeric: tabular-nums; }
+.kv { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; }
+.kv span:nth-child(even) { color: var(--gold); text-align: right; font-variant-numeric: tabular-nums; }
+.checks { display: flex; flex-direction: column; gap: 4px; }
+.check { text-align: left; background: var(--well); border: 2px solid transparent; padding: 5px 7px; cursor: pointer; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; font-size: 18px; }
+.check:hover, .check[aria-pressed=true] { border-color: var(--slab-hi); }
+.pip { font-family: var(--display); font-size: 10px; padding: 1px 4px; align-self: start; margin-top: 2px; }
+.pip.error { background: var(--crimson); color: var(--ground); }
+.pip.warn { background: var(--amber); color: var(--ground); }
+.pip.info { background: var(--slab-hi); color: var(--bone); }
+.pip.ok { background: var(--green); color: var(--ground); }
+.log { display: flex; flex-direction: column; gap: 2px; max-height: 240px; overflow: auto; }
+.log button { text-align: left; background: none; border: 0; padding: 2px 4px; cursor: pointer; font-size: 18px; color: var(--bone); }
+.log button.past { color: var(--dim); }
+.log button:hover { color: var(--gold); }
+input[type=range] { width: 100%; accent-color: var(--gold); }
+
+.status { display: flex; flex-wrap: wrap; gap: 4px 18px; padding: 5px 12px; font-size: 18px; color: var(--dim); }
+.status b { color: var(--bone); font-weight: 400; }
+
+/* the modal: every question the page asks, in the page */
+.veil { position: fixed; inset: 0; background: rgba(5, 4, 8, 0.78); display: grid; place-items: center; padding: 16px; z-index: 20; }
+.dialog { width: min(720px, 100%); max-height: calc(100% - 32px); overflow: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.dialog textarea { width: 100%; min-height: 300px; font-size: 16px; line-height: 1.2; white-space: pre; overflow: auto; }
+.list { display: flex; flex-direction: column; gap: 4px; }
+.list .item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 6px 8px; background: var(--well); }
+.list .item small { color: var(--dim); display: block; }
+.toast { position: fixed; left: 50%; bottom: calc(64px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); padding: 8px 14px; z-index: 30; font-family: var(--display); font-size: 12px; color: var(--gold); }
+
+@media (max-width: 1100px) {
+  .main { grid-template-columns: 200px minmax(0, 1fr); }
+  .right { grid-column: 1 / -1; }
+}
+@media (max-width: 720px) {
+  .app { height: auto; }
+  .main { grid-template-columns: minmax(0, 1fr); }
+  .scroller { max-height: 70vh; }
+  .left { max-height: 340px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<div class="app" id="app">
+  <header class="top slab">
+    <h1>CATACOMB MAP EDITOR</h1>
+    <div class="name">
+      <input type="text" id="mapName" aria-label="Map name" value="">
+      <label for="mapLevel">Level</label><input type="number" id="mapLevel" min="1" max="160" value="3">
+      <span class="saved" id="saved">NOT SAVED</span>
+    </div>
+    <div class="bar">
+      <button class="btn" id="bNew">NEW</button>
+      <button class="btn" id="bOpen">OPEN</button>
+      <button class="btn" id="bSave">SAVE</button>
+      <button class="btn" id="bBackup">BACKUP FILE</button>
+      <button class="btn" id="bLoadFile">LOAD FILE</button>
+      <button class="btn" id="bExport">EXPORT C</button>
+      <input type="file" id="fileIn" accept=".json,application/json" hidden>
+    </div>
+  </header>
+
+  <div class="main">
+    <aside class="col left slab" aria-label="Tools">
+      <div class="tools" id="modeTools"></div>
+      <details open><summary>TILES</summary><div class="tools" id="tileTools" style="margin-top:6px"></div></details>
+      <details open><summary>LANE BRUSH</summary><div class="tools" id="laneTools" style="margin-top:6px"></div></details>
+      <details open><summary>THINGS</summary><div class="tools" id="thingTools" style="margin-top:6px"></div></details>
+      <details><summary>SECRET ROOMS</summary><div class="stamps" id="stampSecret" style="margin-top:6px"></div></details>
+      <details><summary>JOINERS</summary><div class="stamps" id="stampJoiner" style="margin-top:6px"></div></details>
+      <details><summary>PLACES</summary><div class="stamps" id="stampPlace" style="margin-top:6px"></div></details>
+    </aside>
+
+    <section class="mapwrap slab" aria-label="Map">
+      <div class="maptools">
+        <button class="btn" id="bUndo" title="Undo (Ctrl+Z)">UNDO</button>
+        <button class="btn" id="bRedo" title="Redo (Ctrl+Y)">REDO</button>
+        <button class="btn" id="bLattice" aria-pressed="true" title="Snap to the block lattice (G)">LATTICE</button>
+        <button class="btn" id="bLanes" aria-pressed="true" title="Show the dream's lanes (L)">LANES</button>
+        <button class="btn" id="bGrid" aria-pressed="true" title="Show the cell grid">GRID</button>
+        <span class="sep"></span>
+        <button class="btn" id="bZoomOut" title="Zoom out (-)">-</button>
+        <span class="num" id="zoomLabel">16 PX</span>
+        <button class="btn" id="bZoomIn" title="Zoom in (+)">+</button>
+      </div>
+      <div class="scroller well" id="scroller"><canvas id="map"></canvas></div>
+    </section>
+
+    <aside class="col right slab" aria-label="Details">
+      <div class="tabs" role="tablist">
+        <button class="tab" role="tab" data-tab="inspect" aria-selected="true">CHOSEN</button>
+        <button class="tab" role="tab" data-tab="budget" aria-selected="false">BUDGET</button>
+        <button class="tab" role="tab" data-tab="checks" aria-selected="false">CHECKS <span class="n" id="checkN"></span></button>
+        <button class="tab" role="tab" data-tab="dream" aria-selected="false">DREAM</button>
+      </div>
+      <div class="pane" id="pane"></div>
+    </aside>
+  </div>
+
+  <footer class="status slab" id="status"><span>Cell <b id="sCell">-</b></span><span>Block <b id="sBlock">-</b></span><span>Lane <b id="sLane">-</b></span><span id="sHint">Choose a tool at the left.</span></footer>
+</div>
+<div id="modal"></div>
+
+<script>
+/*@CORE@*/
+</script>
+<script>
+const DATA = /*@DATA@*/;
+(function () {
+'use strict';
+const C = window.MapCore, N = C.N, $ = s => document.getElementById(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+
+/* ---------- the palette and the tiles, cut as the game cuts its own: 16 x 16, a few shades each ---------- */
+const PAL = { stone: ['#2a2630', '#36313d', '#1d1a22', '#433d4b'], floor: ['#6b5642', '#5d4a39', '#7a6450', '#4d3d2f'],
+  fire: ['#e2541f', '#f39a2a', '#ffd34d', '#9e2b14'], ice: ['#3e7d98', '#5fa6c2', '#a9dcee', '#2b5a70'],
+  door: ['#6d3f22', '#8a5530', '#3d2213'], gdoor: ['#b58a1e', '#e9c24c', '#6d5210'], cdoor: ['#7e1d1a', '#b8352b', '#45100e'],
+  gate: ['#8a8f99', '#c9ccd4', '#3a3d44'], secret: ['#4a3260', '#5e4078', '#3a254d', '#6f4d8c'],
+  exit: '#4fa8ff', mend: '#5fd36a', crack: '#c86ee0', lane: '#a7a0ff', start: '#e9c24c' };
+function rng(seed) { let s = seed >>> 0 || 1; return () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296; }
+function tileCanvas(draw) { const c = document.createElement('canvas'); c.width = c.height = 16; draw(c.getContext('2d'), rng(draw.length * 977 + 7)); return c; }
+function noise(g, r, cols, wts) { for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) { const v = r(); let k = 0, a = wts[0]; while (v > a && k < wts.length - 1) a += wts[++k]; g.fillStyle = cols[k]; g.fillRect(x, y, 1, 1); } }
+const TILES = {
+  '#': tileCanvas((g, r) => { noise(g, r, PAL.stone, [0.6, 0.25, 0.1, 0.05]); g.fillStyle = PAL.stone[2]; g.fillRect(0, 7, 16, 1); g.fillRect(0, 15, 16, 1); g.fillRect(7, 0, 1, 7); g.fillRect(3, 8, 1, 7); g.fillRect(12, 8, 1, 7); g.fillStyle = PAL.stone[3]; g.fillRect(0, 0, 16, 1); g.fillRect(0, 8, 16, 1); }),
+  '.': tileCanvas((g, r) => { noise(g, r, PAL.floor, [0.55, 0.25, 0.12, 0.08]); g.fillStyle = PAL.floor[3]; g.fillRect(0, 0, 16, 1); g.fillRect(0, 0, 1, 16); g.fillRect(8, 0, 1, 8); g.fillRect(0, 8, 16, 1); }),
+  'F': tileCanvas((g, r) => { noise(g, r, PAL.floor, [0.5, 0.3, 0.1, 0.1]); for (let x = 0; x < 16; x += 2) { const h = 6 + ((r() * 8) | 0); g.fillStyle = PAL.fire[3]; g.fillRect(x, 16 - h, 2, h); g.fillStyle = PAL.fire[0]; g.fillRect(x, 16 - h + 2, 2, h - 2); g.fillStyle = PAL.fire[1]; g.fillRect(x, 16 - h + 4, 1, Math.max(0, h - 6)); g.fillStyle = PAL.fire[2]; g.fillRect(x, 13, 1, 2); } }),
+  'I': tileCanvas((g, r) => { noise(g, r, PAL.ice, [0.45, 0.3, 0.1, 0.15]); g.fillStyle = PAL.ice[2]; for (let k = 0; k < 4; k++) g.fillRect((r() * 15) | 0, (r() * 15) | 0, 1, 1); g.fillStyle = PAL.ice[3]; g.fillRect(2, 11, 6, 1); g.fillRect(9, 4, 5, 1); }),
+  'q': tileCanvas((g, r) => { noise(g, r, PAL.secret, [0.5, 0.25, 0.15, 0.1]); g.fillStyle = PAL.secret[2]; g.fillRect(0, 0, 16, 1); g.fillRect(0, 0, 1, 16); g.fillRect(8, 0, 1, 8); g.fillRect(0, 8, 16, 1); }),
+};
+function doorTile(p) { return tileCanvas((g, r) => { noise(g, r, PAL.floor, [0.6, 0.2, 0.1, 0.1]); g.fillStyle = p[2]; g.fillRect(1, 1, 14, 14); g.fillStyle = p[0]; g.fillRect(2, 2, 12, 12); g.fillStyle = p[1]; for (let x = 3; x < 14; x += 3) g.fillRect(x, 2, 1, 12); g.fillStyle = p[2]; g.fillRect(10, 7, 2, 2); }); }
+TILES.D = doorTile(PAL.door); TILES.G = doorTile(PAL.gdoor); TILES.C = doorTile(PAL.cdoor);
+TILES['='] = tileCanvas((g, r) => { noise(g, r, PAL.floor, [0.6, 0.2, 0.1, 0.1]); g.fillStyle = PAL.gate[2]; g.fillRect(0, 2, 16, 2); g.fillRect(0, 12, 16, 2); g.fillStyle = PAL.gate[0]; for (let x = 1; x < 16; x += 3) g.fillRect(x, 0, 2, 16); g.fillStyle = PAL.gate[1]; for (let x = 1; x < 16; x += 3) g.fillRect(x, 0, 1, 16); });
+TILES.S = TILES['.'];
+function wallMark(col) { return tileCanvas((g, r) => { g.drawImage(TILES['#'], 0, 0); g.fillStyle = col; g.fillRect(3, 3, 10, 10); g.fillStyle = PAL.stone[2]; g.fillRect(5, 5, 6, 6); g.fillStyle = col; g.fillRect(7, 5, 2, 6); g.fillRect(5, 7, 6, 2); }); }
+TILES.X = wallMark(PAL.exit); TILES.h = wallMark(PAL.mend);
+TILES.c = tileCanvas((g, r) => { g.drawImage(TILES['#'], 0, 0); g.fillStyle = PAL.crack; [[3, 2], [4, 3], [5, 4], [5, 5], [6, 6], [7, 7], [8, 7], [9, 8], [9, 9], [10, 10], [11, 11], [11, 12], [7, 8], [6, 9], [5, 10]].forEach(([x, y]) => g.fillRect(x, y, 1, 1)); });
+
+/* the things, as 8 x 8 sprites in a few letters */
+const SPR = {
+  IT_COINS: ['........', '..yyyy..', '.yYyyYy.', '.yyyyyy.', '..yyyy..', '.yyyyyy.', '..yyyy..', '........'],
+  IT_CHALICE: ['.yyyyyy.', '.yYyyyy.', '..yyyy..', '...yy...', '...yy...', '..yyyy..', '.yyyyyy.', '........'],
+  IT_GEMS: ['...cc...', '..cCcc..', '.ccccrr.', '..ccrRr.', '...rrr..', '..gg....', '.gGgg...', '..gg....'],
+  IT_CROWN: ['........', 'y..y..y.', 'yy.yy.yy', 'yyyyyyyy', 'yrryyccy', 'yyyyyyyy', '........', '........'],
+  IT_CHEST: ['.bbbbbb.', 'bBBBBBBb', 'byyyyyyb', 'bbbyybbb', 'bBByyBBb', 'bBBBBBBb', 'bbbbbbbb', '........'],
+  key0: ['........', '.yyy....', 'y...y...', '.yyyyyyy', '.....y.y', '.....y.y', '........', '........'],
+  dead: ['..wwww..', '.wwwwww.', '.wkwwkw.', '.wwwwww.', '..wkkw..', '..wwww..', '.w.ww.w.', '........'],
+  spawn: ['..rrrr..', '.r....r.', 'r..rr..r', 'r.rRRr.r', 'r.rRRr.r', 'r..rr..r', '.r....r.', '..rrrr..'],
+  mark0: ['........', '.bbbbbb.', 'bmmmmmmb', 'bmbbbbmb', 'bmbBBbmb', 'bmmmmmmb', '.bbbbbb.', '........'],
+  mark1: ['.gggggg.', '.g.g.g.g', '.g.g.g.g', '.g.g.g.g', '.g.g.g.g', '.g.g.g.g', '.gggggg.', '........'],
+  mark2: ['...mm...', '..mMMm..', '.mMmmMm.', 'mMmmmmMm', '.mMmmMm.', '..mMMm..', '...mm...', '........'],
+  switch: ['...rr...', '..rRRr..', '.rRrrRr.', 'rRr..rRr', 'rRr..rRr', '.rRrrRr.', '..rRRr..', '...rr...'],
+  gseal: ['...yy...', '..yYYy..', '.yYyyYy.', 'yYy..yYy', 'yYy..yYy', '.yYyyYy.', '..yYYy..', '...yy...'],
+  map: ['.wwwwww.', 'wWWWWWWw', 'wWbWWbWw', 'wWWbbWWw', 'wWbWWWWw', 'wWWWWbWw', '.wwwwww.', '........'],
+};
+const SPC = { y: '#e9c24c', Y: '#fff1a6', c: '#4fd0e0', C: '#c8f6ff', r: '#d2473b', R: '#ff9a8a', g: '#79c15a', G: '#c6f2a8', b: '#6d3f22', B: '#9a6236',
+  w: '#d8d0bd', W: '#fff7e6', k: '#17141b', m: '#7d4fa8', M: '#c79bf0' };
+const KEYCOL = ['#e9c24c', '#c9ccd4', '#d2473b'];
+function sprite(rows, tint) { const c = document.createElement('canvas'); c.width = c.height = 8; const g = c.getContext('2d');
+  rows.forEach((r, y) => [...r].forEach((ch, x) => { if (ch === '.') return; g.fillStyle = tint && ch === 'y' ? tint : SPC[ch]; g.fillRect(x, y, 1, 1); })); return c; }
+const SPRITES = {}; Object.keys(SPR).forEach(k => { SPRITES[k] = sprite(SPR[k]); });
+SPRITES.key1 = sprite(SPR.key0, KEYCOL[1]); SPRITES.key2 = sprite(SPR.key0, KEYCOL[2]);
+function spriteOf(t) {
+  if (t.t === 'gold') return SPRITES[t.k] || SPRITES.IT_COINS;
+  if (t.t === 'key') return SPRITES['key' + t.k];
+  if (t.t === 'mark') return SPRITES['mark' + t.k];
+  return SPRITES[t.t] || SPRITES.dead;
+}
+
+/* ---------- state ---------- */
+const S = { map: null, id: null, hist: [], fut: [], dirty: false, savedAt: null, zoom: 16, lattice: true, showLanes: true, showGrid: true,
+  tool: { kind: 'select' }, sel: null, tab: 'inspect', checks: [], hl: null, dream: null, dstep: 0, playing: null, stampT: 0,
+  db: null, dl: null, example: false, hover: null };
+const TILE_TOOLS = [['#', 'Stone'], ['.', 'Floor'], ['F', 'Burning floor'], ['I', 'Ice'], ['D', 'Door'], ['G', 'Gold door'], ['C', 'Crimson door'],
+  ['=', 'One-way gate'], ['S', 'Start'], ['X', 'Exit'], ['h', 'Place to mend'], ['c', 'Secret wall'], ['q', 'Secret room']];
+const THING_TOOLS = [
+  [{ t: 'gold', k: 'IT_COINS' }, 'Coins 10'], [{ t: 'gold', k: 'IT_CHALICE' }, 'Chalice 25'], [{ t: 'gold', k: 'IT_GEMS' }, 'Gems 50'],
+  [{ t: 'gold', k: 'IT_CROWN' }, 'Crown 100'], [{ t: 'gold', k: 'IT_CHEST' }, 'Chest 250'],
+  [{ t: 'key', k: 0 }, 'Gold key'], [{ t: 'key', k: 2 }, 'Crimson key'], [{ t: 'key', k: 1 }, 'Silver key'],
+  [{ t: 'spawn', k: '', chance: 100 }, 'Spawn point'], [{ t: 'dead', k: 'MOB_SKEL' }, 'Fixed dead'],
+  [{ t: 'map' }, 'The map'], [{ t: 'mark', k: 0 }, 'Coffer'], [{ t: 'mark', k: 1 }, 'Cage'], [{ t: 'mark', k: 2 }, "Class's own"],
+  [{ t: 'switch' }, 'Switch'], [{ t: 'gseal' }, "Gate's seal"]];
+const RT_NAMES = DATA.rooms.map(r => r.slice(3).toLowerCase());
+const KINDS = DATA.kinds.filter(k => k.cost != null && !k.unique && k.id !== 'MOB_SAC');
+
+/* ---------- history: every change is undoable; a change marks the map unsaved ---------- */
+function snapshot() { return JSON.stringify(S.map); }
+function change(fn, quiet) {
+  const before = snapshot();
+  fn();
+  if (snapshot() === before) return;
+  S.hist.push(before); if (S.hist.length > 200) S.hist.shift(); S.fut = [];
+  S.dirty = true; S.dream = null; stopPlay();
+  refresh(quiet);
+  draftSave();
+}
+function undo() { if (!S.hist.length) return; S.fut.push(snapshot()); S.map = JSON.parse(S.hist.pop()); S.sel = null; S.dirty = true; S.dream = null; refresh(); toast('UNDONE'); }
+function redo() { if (!S.fut.length) return; S.hist.push(snapshot()); S.map = JSON.parse(S.fut.pop()); S.sel = null; S.dirty = true; S.dream = null; refresh(); toast('REDONE'); }
+
+/* ---------- the map's canvas ---------- */
+const cv = $('map'), g = cv.getContext('2d');
+let composed = null, laneMask = null;
+function recompose() { composed = C.compose(DATA, S.map); laneMask = C.lanes(S.map, composed.cells); }
+function draw() {
+  const z = S.zoom, W = N * z;
+  if (cv.width !== W) { cv.width = cv.height = W; cv.style.width = cv.style.height = W + 'px'; }
+  g.imageSmoothingEnabled = false;
+  const cells = composed.cells;
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const ch = cells[y * N + x];
+    g.drawImage(TILES[ch] || TILES['#'], x * z, y * z, z, z);
+  }
+  /* the start's arrow, by its facing */
+  for (let i = 0; i < N * N; i++) if (cells[i] === 'S') {
+    const x = (i % N) * z, y = ((i / N) | 0) * z, d = C.DIRS[S.map.face];
+    g.fillStyle = PAL.start; const cx = x + z / 2, cy = y + z / 2;
+    g.beginPath(); g.moveTo(cx + d[0] * z * 0.38, cy + d[1] * z * 0.38);
+    g.lineTo(cx - d[0] * z * 0.3 + d[1] * z * 0.3, cy - d[1] * z * 0.3 + d[0] * z * 0.3);
+    g.lineTo(cx - d[0] * z * 0.3 - d[1] * z * 0.3, cy - d[1] * z * 0.3 - d[0] * z * 0.3); g.closePath(); g.fill();
+  }
+  if (S.showGrid) {
+    g.fillStyle = 'rgba(0,0,0,0.28)';
+    for (let k = 0; k <= N; k++) { g.fillRect(k * z, 0, 1, W); g.fillRect(0, k * z, W, 1); }
+    if (S.map.lattice) { g.fillStyle = 'rgba(233,194,76,0.07)'; for (let k = 0; k <= N; k += 4) { g.fillRect(k * z, 0, z, W); g.fillRect(0, k * z, W, z); } }
+  }
+  if (S.showLanes) {
+    g.fillStyle = PAL.lane; const s = Math.max(2, Math.round(z / 6));
+    for (let i = 0; i < N * N; i++) if (laneMask[i] && cells[i] !== '#') g.fillRect((i % N) * z + (z - s) / 2, ((i / N) | 0) * z + (z - s) / 2, s, s);
+  }
+  /* rooms */
+  g.lineWidth = 1; g.font = `${Math.max(10, Math.round(z * 0.75))}px VT323, monospace`; g.textBaseline = 'top';
+  S.map.rooms.forEach((r, i) => {
+    const sel = S.sel && S.sel.kind === 'room' && S.sel.i === i;
+    g.strokeStyle = sel ? PAL.start : r.vault >= 0 ? KEYCOL[r.vault] : '#d8d0bd';
+    g.setLineDash(sel ? [] : [4, 3]); g.lineWidth = sel ? 2 : 1;
+    g.strokeRect(r.x * z + 1.5, r.y * z + 1.5, r.w * z - 3, r.h * z - 3);
+    g.setLineDash([]);
+    g.fillStyle = 'rgba(12,10,16,0.72)'; const lbl = (i + 1) + ' ' + RT_NAMES[DATA.rooms.indexOf(r.rt)];
+    const tw = g.measureText(lbl).width; g.fillRect(r.x * z + 3, r.y * z + 3, tw + 4, Math.round(z * 0.75) + 2);
+    g.fillStyle = sel ? PAL.start : '#d8d0bd'; g.fillText(lbl, r.x * z + 5, r.y * z + 3);
+  });
+  /* stamps */
+  S.map.stamps.forEach((st, i) => {
+    const rows = C.stampRows(DATA, st), sel = S.sel && S.sel.kind === 'stamp' && S.sel.i === i;
+    g.strokeStyle = sel ? PAL.start : 'rgba(233,194,76,0.55)'; g.lineWidth = sel ? 2 : 1; g.setLineDash(sel ? [] : [2, 2]);
+    g.strokeRect(st.x * z + 0.5, st.y * z + 0.5, rows[0].length * z - 1, rows.length * z - 1); g.setLineDash([]);
+  });
+  composed.marks.forEach(mk => {
+    if (mk.g === 'P' || mk.g === 'p') { g.strokeStyle = mk.g === 'P' ? PAL.start : 'rgba(233,194,76,0.6)'; g.lineWidth = 1; g.strokeRect(mk.x * z + 3.5, mk.y * z + 3.5, z - 7, z - 7); return; }
+    g.fillStyle = 'rgba(12,10,16,0.7)'; g.fillRect(mk.x * z + z * 0.2, mk.y * z + z * 0.15, z * 0.6, z * 0.7);
+    g.fillStyle = mk.g === 's' ? '#d2473b' : '#c79bf0'; g.fillText(mk.g, mk.x * z + z * 0.33, mk.y * z + z * 0.1);
+  });
+  /* things */
+  const ts = Math.max(8, Math.round(z * 0.5));
+  S.map.things.forEach((t, i) => {
+    const px = t.x * z - ts / 2, py = t.y * z - ts / 2, sel = S.sel && S.sel.kind === 'thing' && S.sel.id === t.id;
+    g.drawImage(spriteOf(t), Math.round(px), Math.round(py), ts, ts);
+    if (t.t === 'spawn' && t.k) { g.fillStyle = '#ff9a8a'; g.fillRect(Math.round(px + ts - 3), Math.round(py), 3, 3); }
+    if (sel) { g.strokeStyle = PAL.start; g.lineWidth = 2; g.strokeRect(Math.round(px) - 2, Math.round(py) - 2, ts + 4, ts + 4); }
+  });
+  /* the check being looked at */
+  if (S.hl) {
+    g.lineWidth = 2;
+    g.strokeStyle = S.hl.sev === 'error' ? '#ff5b4d' : S.hl.sev === 'warn' ? '#ffb347' : '#c9ccd4';
+    S.hl.cells.forEach(([x, y]) => g.strokeRect(x * z + 1, y * z + 1, z - 2, z - 2));
+  }
+  /* the dream's walk, as far as the step shown */
+  if (S.dream && S.dream.route.length) {
+    const R = S.dream.route, n = Math.min(S.dstep, R.length - 1);
+    g.strokeStyle = 'rgba(199,155,240,0.95)'; g.lineWidth = Math.max(2, z / 6); g.lineJoin = 'round';
+    g.beginPath(); R.slice(0, n + 1).forEach(([x, y], k) => { const px = x * z + z / 2, py = y * z + z / 2; k ? g.lineTo(px, py) : g.moveTo(px, py); }); g.stroke();
+    const [wx, wy] = R[n];
+    g.fillStyle = 'rgba(255,241,166,0.35)'; g.beginPath(); g.arc(wx * z + z / 2, wy * z + z / 2, z * 0.62, 0, 7); g.fill();
+    g.fillStyle = '#fff1a6'; g.beginPath(); g.arc(wx * z + z / 2, wy * z + z / 2, z * 0.25, 0, 7); g.fill();
+    if (S.dream.exit) { g.strokeStyle = PAL.exit; g.lineWidth = 2; g.strokeRect(S.dream.exit[0] * z + 2, S.dream.exit[1] * z + 2, z - 4, z - 4); }
+    g.strokeStyle = '#ff5b4d'; g.lineWidth = 2;
+    S.dream.missed.forEach(t => { const px = t.x * z, py = t.y * z; g.beginPath(); g.moveTo(px - 5, py - 5); g.lineTo(px + 5, py + 5); g.moveTo(px + 5, py - 5); g.lineTo(px - 5, py + 5); g.stroke(); });
+  }
+  /* what the armed tool would lay, under the pointer */
+  if (S.hover && S.tool.kind === 'stamp') {
+    const rows = C.xformRows(C.stampDef(DATA, S.tool.name).rows, S.stampT), p = stampSnap(S.hover.cx, S.hover.cy, S.tool.name);
+    g.globalAlpha = 0.55;
+    rows.forEach((r, y) => [...r].forEach((ch, x) => { const L = ch === '#' ? '#' : C.stampDef(DATA, S.tool.name).kind === 'secret' ? (ch === 'E' ? 'c' : ch === 'D' ? '#' : 'q') : '.'; g.drawImage(TILES[L], (p.x + x) * z, (p.y + y) * z, z, z); }));
+    g.globalAlpha = 1; g.strokeStyle = PAL.start; g.lineWidth = 2; g.strokeRect(p.x * z, p.y * z, rows[0].length * z, rows.length * z);
+  } else if (S.hover && S.tool.kind === 'room' && S.drag && S.drag.room) {
+    const r = S.drag.room; g.strokeStyle = PAL.start; g.lineWidth = 2; g.strokeRect(r.x * z, r.y * z, r.w * z, r.h * z);
+  } else if (S.hover && (S.tool.kind === 'tile' || S.tool.kind === 'lane')) {
+    g.strokeStyle = PAL.start; g.lineWidth = 1;
+    if (S.drag && S.drag.rect) { const r = S.drag.rect; g.strokeRect(r.x0 * z + 0.5, r.y0 * z + 0.5, (r.x1 - r.x0 + 1) * z - 1, (r.y1 - r.y0 + 1) * z - 1); }
+    else g.strokeRect(S.hover.cx * z + 0.5, S.hover.cy * z + 0.5, z - 1, z - 1);
+  }
+}
+
+/* ---------- the pointer on the map ---------- */
+function at(e) { const r = cv.getBoundingClientRect(), x = (e.clientX - r.left) / S.zoom, y = (e.clientY - r.top) / S.zoom; return { x, y, cx: Math.floor(x), cy: Math.floor(y) }; }
+const quarter = v => Math.min(N - 0.125, Math.max(0.125, Math.floor(v * 4) / 4 + 0.125));   /* the middle of the quarter cell it is in */
+function stampSnap(cx, cy, name) {
+  const d = C.stampDef(DATA, name), rows = C.xformRows(d.rows, S.stampT);
+  let x = cx - (rows[0].length >> 1), y = cy - (rows.length >> 1);
+  if (S.map.lattice && d.kind !== 'secret') { x = Math.round((x - 1) / 4) * 4 + 1; y = Math.round((y - 1) / 4) * 4 + 1; }
+  return { x, y };
+}
+function hit(p) {
+  const r = Math.max(0.3, 6 / S.zoom);
+  for (let i = S.map.things.length - 1; i >= 0; i--) { const t = S.map.things[i]; if (Math.abs(t.x - p.x) <= r && Math.abs(t.y - p.y) <= r) return { kind: 'thing', id: t.id }; }
+  for (let i = S.map.stamps.length - 1; i >= 0; i--) { const st = S.map.stamps[i], rows = C.stampRows(DATA, st); if (p.cx >= st.x && p.cy >= st.y && p.cx < st.x + rows[0].length && p.cy < st.y + rows.length) return { kind: 'stamp', i }; }
+  for (let i = S.map.rooms.length - 1; i >= 0; i--) { const rm = S.map.rooms[i]; if (p.cx >= rm.x && p.cy >= rm.y && p.cx < rm.x + rm.w && p.cy < rm.y + rm.h) return { kind: 'room', i }; }
+  return null;
+}
+function paintCell(cx, cy) {
+  if (!C.inMap(cx, cy)) return;
+  const i = C.idx(cx, cy);
+  if (composed.owner[i] >= 0 && S.tool.kind === 'tile') { if (!S.warnedStamp) { S.warnedStamp = true; toast('UNDER A STAMP: BAKE IT TO PAINT THERE'); setTimeout(() => { S.warnedStamp = false; }, 3000); } return; }   /* a stamp's cells are the stamp's: bake it first */
+  if (S.tool.kind === 'tile') {
+    if (S.tool.ch === 'S') for (let k = 0; k < N * N; k++) if (S.map.grid[k] === 'S') S.map.grid[k] = '.';   /* one start */
+    S.map.grid[i] = S.tool.ch;
+  } else if (S.tool.kind === 'lane') S.map.lane[i] = S.tool.v;
+}
+cv.addEventListener('pointerdown', e => {
+  if (e.button !== 0) return;
+  cv.setPointerCapture(e.pointerId);
+  const p = at(e);
+  if (!C.inMap(p.cx, p.cy)) return;
+  const T = S.tool;
+  if (T.kind === 'tile' || T.kind === 'lane') {
+    if (e.shiftKey) { S.drag = { rect: { x0: p.cx, y0: p.cy, x1: p.cx, y1: p.cy, sx: p.cx, sy: p.cy } }; draw(); return; }
+    S.drag = { paint: true, before: snapshot() }; paintCell(p.cx, p.cy); recompose(); draw(); return;
+  }
+  if (T.kind === 'thing') {
+    change(() => { const o = Object.assign({ id: S.map.next++ }, JSON.parse(JSON.stringify(T.proto)), { x: quarter(p.x), y: quarter(p.y) }); S.map.things.push(o); S.sel = { kind: 'thing', id: o.id }; });
+    return;
+  }
+  if (T.kind === 'stamp') {
+    const q = stampSnap(p.cx, p.cy, T.name);
+    change(() => { S.map.stamps.push({ name: T.name, t: S.stampT, x: q.x, y: q.y, entry: 0 }); S.sel = { kind: 'stamp', i: S.map.stamps.length - 1 }; });
+    return;
+  }
+  if (T.kind === 'room') { S.drag = { room: { x: p.cx, y: p.cy, w: 1, h: 1 }, sx: p.cx, sy: p.cy }; draw(); return; }
+  /* select, and drag what was chosen */
+  const h = hit(p); S.sel = h; S.hl = null;
+  if (h) S.drag = { move: h, from: p, before: snapshot(), orig: JSON.parse(JSON.stringify(h.kind === 'thing' ? S.map.things.find(t => t.id === h.id) : h.kind === 'stamp' ? S.map.stamps[h.i] : S.map.rooms[h.i])) };
+  setTab('inspect'); refresh(true);
+});
+cv.addEventListener('pointermove', e => {
+  const p = at(e); S.hover = C.inMap(p.cx, p.cy) ? p : null; status(p);
+  const D = S.drag;
+  if (D && D.paint) { paintCell(p.cx, p.cy); recompose(); }
+  else if (D && D.rect) { const r = D.rect; r.x0 = Math.min(r.sx, p.cx); r.x1 = Math.max(r.sx, p.cx); r.y0 = Math.min(r.sy, p.cy); r.y1 = Math.max(r.sy, p.cy); }
+  else if (D && D.room) { D.room = { x: Math.min(D.sx, p.cx), y: Math.min(D.sy, p.cy), w: Math.abs(p.cx - D.sx) + 1, h: Math.abs(p.cy - D.sy) + 1 }; }
+  else if (D && D.move) {
+    const dx = p.x - D.from.x, dy = p.y - D.from.y, o = D.orig;
+    if (D.move.kind === 'thing') { const t = S.map.things.find(t => t.id === D.move.id); t.x = quarter(o.x + dx); t.y = quarter(o.y + dy); }
+    else if (D.move.kind === 'stamp') { const st = S.map.stamps[D.move.i]; let nx = o.x + Math.round(dx), ny = o.y + Math.round(dy);
+      if (S.map.lattice && C.stampDef(DATA, st.name).kind !== 'secret') { nx = Math.round((nx - 1) / 4) * 4 + 1; ny = Math.round((ny - 1) / 4) * 4 + 1; } st.x = nx; st.y = ny; recompose(); }
+    else { const rm = S.map.rooms[D.move.i]; rm.x = o.x + Math.round(dx); rm.y = o.y + Math.round(dy); }
+  }
+  draw();
+});
+function endDrag() {
+  const D = S.drag; S.drag = null;
+  if (!D) return;
+  if (D.paint || D.move) {
+    if (snapshot() !== D.before) { S.hist.push(D.before); S.fut = []; S.dirty = true; S.dream = null; stopPlay(); draftSave(); }
+    refresh(); return;
+  }
+  if (D.rect) { change(() => { for (let y = D.rect.y0; y <= D.rect.y1; y++) for (let x = D.rect.x0; x <= D.rect.x1; x++) paintCell(x, y); }); return; }
+  if (D.room) { change(() => { S.map.rooms.push(Object.assign({ rt: 'RT_OSSUARY', vault: -1 }, D.room)); S.sel = { kind: 'room', i: S.map.rooms.length - 1 }; }); setTab('inspect'); }
+}
+cv.addEventListener('pointerup', endDrag);
+cv.addEventListener('pointercancel', endDrag);
+cv.addEventListener('pointerleave', () => { S.hover = null; draw(); });
+
+function status(p) {
+  const ok = p && C.inMap(p.cx, p.cy);
+  $('sCell').textContent = ok ? `${p.cx}, ${p.cy}` + (S.tool.kind === 'thing' ? `  (${quarter(p.x).toFixed(3)}, ${quarter(p.y).toFixed(3)})` : '') : '-';
+  $('sBlock').textContent = ok ? (p.cx % 4 === 0 || p.cy % 4 === 0 ? 'wall line' : `${p.cx >> 2}, ${p.cy >> 2}`) : '-';
+  $('sLane').textContent = ok ? (laneMask[C.idx(p.cx, p.cy)] ? 'yes' : 'no') : '-';
+}
+
+/* ---------- the tools ---------- */
+function iconCanvas(drawer) { const c = document.createElement('canvas'); c.width = c.height = 16; const x = c.getContext('2d'); x.imageSmoothingEnabled = false; drawer(x); return c; }
+function toolButton(host, label, icon, tool, hint) {
+  const b = document.createElement('button'); b.className = 'tool'; b.type = 'button'; b.setAttribute('aria-pressed', 'false'); b.title = hint || label;
+  if (icon) b.appendChild(icon);
+  b.appendChild(document.createTextNode(label));
+  b.addEventListener('click', () => setTool(tool, b, hint));
+  host.appendChild(b); return b;
+}
+let pressed = null;
+function setTool(tool, btn, hint) {
+  S.tool = tool; if (pressed) pressed.setAttribute('aria-pressed', 'false'); pressed = btn; if (btn) btn.setAttribute('aria-pressed', 'true');
+  $('sHint').textContent = hint || '';
+  cv.style.cursor = tool.kind === 'select' ? 'default' : 'crosshair';
+  draw();
+}
+const selectBtn = toolButton($('modeTools'), 'Select', iconCanvas(x => { x.fillStyle = '#e9c24c'; x.fillRect(3, 2, 2, 11); x.fillRect(5, 4, 2, 2); x.fillRect(7, 6, 2, 2); x.fillRect(9, 8, 2, 2); x.fillRect(5, 10, 5, 2); }), { kind: 'select' }, 'Choose a thing, stamp or room; drag it to move it. Delete removes it.');
+toolButton($('modeTools'), 'Room', iconCanvas(x => { x.strokeStyle = '#d8d0bd'; x.setLineDash([2, 2]); x.strokeRect(2.5, 3.5, 11, 9); }), { kind: 'room' }, 'Drag a box over the cells a room covers. Its type sets the walls\' look.');
+TILE_TOOLS.forEach(([ch, name]) => toolButton($('tileTools'), name, iconCanvas(x => x.drawImage(TILES[ch], 0, 0)), { kind: 'tile', ch }, `${name} (${ch}). Drag to paint; hold Shift and drag to fill a box.`));
+toolButton($('laneTools'), 'Lane on', iconCanvas(x => { x.drawImage(TILES['.'], 0, 0); x.fillStyle = PAL.lane; x.fillRect(6, 6, 4, 4); }), { kind: 'lane', v: 1 }, 'Paint cells the dream may walk. Doors, the start and a secret\'s wall are always lanes.');
+toolButton($('laneTools'), 'Lane off', iconCanvas(x => { x.drawImage(TILES['.'], 0, 0); x.strokeStyle = '#d2473b'; x.beginPath(); x.moveTo(4, 4); x.lineTo(12, 12); x.moveTo(12, 4); x.lineTo(4, 12); x.stroke(); }), { kind: 'lane', v: 2 }, 'Take cells off the lattice\'s lanes.');
+toolButton($('laneTools'), 'Lane auto', iconCanvas(x => { x.drawImage(TILES['.'], 0, 0); x.fillStyle = 'rgba(167,160,255,0.5)'; x.fillRect(6, 6, 4, 4); }), { kind: 'lane', v: 0 }, 'Back to the lattice\'s own lanes (every x or y that is 2 more than a multiple of 4).');
+THING_TOOLS.forEach(([proto, name]) => toolButton($('thingTools'), name, iconCanvas(x => x.drawImage(spriteOf(proto), 0, 0, 16, 16)), { kind: 'thing', proto }, `${name}: click to set it down. It sits in quarters of a cell.`));
+function stampPreview(rows, kind, max) {
+  const h = rows.length, w = rows[0].length, s = Math.max(1, Math.floor(max / Math.max(w, h))), c = document.createElement('canvas');
+  c.width = w * s; c.height = h * s; const x = c.getContext('2d');
+  rows.forEach((r, y) => [...r].forEach((ch, i) => {
+    x.fillStyle = ch === '#' ? '#2a2630' : ch === 'E' ? PAL.crack : ch === 'D' ? '#4fd0e0' : ch === 'P' ? '#e9c24c' : ch === 'p' ? '#a8892e' : 'abcst'.includes(ch) ? '#c79bf0' : kind === 'secret' ? '#5e4078' : '#7a6450';
+    x.fillRect(i * s, y * s, s, s);
+  }));
+  c.style.width = c.width + 'px'; c.style.height = c.height + 'px';
+  return c;
+}
+[['secret', 'stampSecret'], ['joiner', 'stampJoiner'], ['place', 'stampPlace']].forEach(([kind, host]) => {
+  DATA.stamps.filter(s => s.kind === kind).forEach(s => {
+    const b = document.createElement('button'); b.className = 'stamp'; b.type = 'button'; b.setAttribute('aria-pressed', 'false');
+    b.appendChild(stampPreview(s.rows, kind, 44));
+    const t = document.createElement('span'); t.innerHTML = `${esc(s.name.replace(/^(secret|joiner|place)_/, '').replace(/_/g, ' '))}<small>${s.w} x ${s.h} · steps ${s.minstep + 1}-${s.maxstep + 1}</small>`;
+    b.appendChild(t);
+    b.addEventListener('click', () => { S.stampT = 0; setTool({ kind: 'stamp', name: s.name }, b, `${s.name}: click the map to lay it. R turns it, M mirrors it.${kind !== 'secret' ? ' It snaps to the lattice.' : ''}`); });
+    $(host).appendChild(b);
+  });
+});
+
+/* ---------- the tablet ---------- */
+function setTab(t) { S.tab = t; document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === t))); pane(); }
+document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => setTab(b.dataset.tab)));
+function opt(v, label, cur) { return `<option value="${esc(v)}"${String(v) === String(cur) ? ' selected' : ''}>${esc(label)}</option>`; }
+function selected() {
+  if (!S.sel) return null;
+  if (S.sel.kind === 'thing') return S.map.things.find(t => t.id === S.sel.id) || null;
+  if (S.sel.kind === 'stamp') return S.map.stamps[S.sel.i] || null;
+  return S.map.rooms[S.sel.i] || null;
+}
+function pane() {
+  const P = $('pane');
+  if (S.tab === 'inspect') P.innerHTML = paneInspect();
+  else if (S.tab === 'budget') P.innerHTML = paneBudget();
+  else if (S.tab === 'checks') P.innerHTML = paneChecks();
+  else P.innerHTML = paneDream();
+  wirePane();
+}
+function paneInspect() {
+  const o = selected(), m = S.map, L = C.levelInfo(DATA, m.level);
+  if (!o) return `<h2>THE LEVEL</h2>
+    <div class="field"><label for="iLevel">Level</label><input type="number" id="iLevel" min="1" max="160" value="${m.level}"></div>
+    <p class="note">${esc(L.runName)}, step ${L.step + 1} of 10${L.boss ? ' (its boss\'s level)' : ''}${L.loop ? `, descent ${L.loop + 1}` : ''}.</p>
+    <div class="field"><label for="iSlot">drawn.c slot</label><input type="number" id="iSlot" min="1" max="40" value="${m.slot || 3}"></div>
+    <div class="field"><label for="iFace">Start faces</label><select id="iFace">${['East', 'South', 'West', 'North'].map((n, i) => opt(i, n, m.face)).join('')}</select></div>
+    <div class="field"><label for="iSeed">Seed</label><input type="text" id="iSeed" placeholder="0x7D1A0003 by the slot" value="${esc(m.seed || '')}"></div>
+    <div class="row"><label><input type="checkbox" id="iCorrupt"${m.corrupt ? ' checked' : ''}> Corrupted (budget x1.4)</label></div>
+    <p class="note">The seed lays the level's look, dressing and torches; the same seed gives the same look every time.</p>
+    <h2>KEYS</h2>
+    <div class="kv note"><span>Undo, redo</span><span>Ctrl+Z, Ctrl+Y</span><span>Select</span><span>V</span><span>Turn, mirror a stamp</span><span>R, M</span>
+    <span>Delete what is chosen</span><span>Delete</span><span>Lattice, lanes</span><span>G, L</span><span>Zoom</span><span>+ -</span><span>Fill a box</span><span>Shift+drag</span><span>Put down a tool</span><span>Esc</span></div>`;
+  if (S.sel.kind === 'thing') return paneThing(o);
+  if (S.sel.kind === 'stamp') {
+    const d = C.stampDef(DATA, o.name), ne = d.rows.join('').split('E').length - 1;
+    return `<h2>STAMP</h2><p>${esc(o.name)}</p><p class="note">${esc(d.kind)}, ${d.w} x ${d.h}; at (${o.x}, ${o.y}); steps ${d.minstep + 1} to ${d.maxstep + 1}, weight ${d.weight}.</p>
+      <div class="row"><button class="btn" id="sRot">TURN</button><button class="btn" id="sMir">MIRROR</button><span class="note">turn ${o.t & 3}, ${o.t & 4 ? 'mirrored' : 'as drawn'}</span></div>
+      ${ne > 1 ? `<div class="field"><label for="sEntry">Entrance</label><select id="sEntry">${Array.from({ length: ne }, (_, k) => opt(k, 'Entrance ' + (k + 1), o.entry || 0)).join('')}</select></div>
+      <p class="note">A secret room's drawing offers ${ne} ways in; the game picks one a level. A drawn level keeps the one chosen here.</p>` : ''}
+      <div class="row"><button class="btn" id="sBake">BAKE INTO MAP</button><button class="btn warn" id="sDel">REMOVE</button></div>
+      <p class="note">Bake writes the stamp's cells into the map so you can change them by hand; it stops being a stamp.</p>`;
+  }
+  return `<h2>ROOM ${S.sel.i + 1}</h2>
+    <div class="row"><label>x</label><input type="number" id="rX" value="${o.x}"><label>y</label><input type="number" id="rY" value="${o.y}"></div>
+    <div class="row"><label>width</label><input type="number" id="rW" min="1" value="${o.w}"><label>height</label><input type="number" id="rH" min="1" value="${o.h}"></div>
+    <div class="field"><label for="rT">Type</label><select id="rT">${DATA.rooms.map((r, i) => opt(r, RT_NAMES[i], o.rt)).join('')}</select></div>
+    <div class="field"><label for="rV">Vault of</label><select id="rV">${opt(-1, 'no key', o.vault)}${opt(0, 'the gold key', o.vault)}${opt(2, 'the crimson key', o.vault)}${opt(1, 'the silver key', o.vault)}</select></div>
+    <div class="row"><button class="btn warn" id="rDel">REMOVE</button></div>`;
+}
+function paneThing(t) {
+  const L = C.levelInfo(DATA, S.map.level);
+  let h = `<h2>${esc(C.label(DATA, t).toUpperCase())}</h2>
+    <div class="row"><label>x</label><input type="number" id="tX" step="0.25" value="${t.x}"><label>y</label><input type="number" id="tY" step="0.25" value="${t.y}"></div>`;
+  if (t.t === 'gold') h += `<div class="field"><label for="tK">Kind</label><select id="tK">${C.GOLD_KINDS.map(k => opt(k, `${C.label(DATA, { t: 'gold', k })} (${DATA.items[k]})`, t.k)).join('')}</select></div>`;
+  if (t.t === 'key') h += `<div class="field"><label for="tK">Colour</label><select id="tK">${[0, 2, 1].map(k => opt(k, C.KEY_NAMES[k].toLowerCase(), t.k)).join('')}</select></div>`;
+  if (t.t === 'mark') h += `<div class="field"><label for="tK">Kind</label><select id="tK">${[0, 1, 2].map(k => opt(k, ['a bound coffer (any spell)', 'a cage (any spell)', "the class's own"][k], t.k)).join('')}</select></div>`;
+  const kindOpts = cur => KINDS.map(k => opt(k.id, `${k.name.toLowerCase()} · ${k.cost} · from ${k.debut}${k.debut > S.map.level ? ' (early)' : ''}`, cur)).join('');
+  if (t.t === 'dead') h += `<div class="field"><label for="tK">Kind</label><select id="tK">${kindOpts(t.k)}</select></div>
+    <p class="note">One of the dead, set where drawn at rank I, as the tutorial's are. It is not drawn from the budget.</p>`;
+  if (t.t === 'spawn') {
+    const ri = t.rank ? C.RANKS.indexOf(t.rank) : -1, def = ri >= 0 ? C.elemDefault(S.map.level, ri) : null, fav = C.ELEM_FAV[L.set].map(e => e.slice(3).toLowerCase()).join(' and ');
+    h += `<div class="field"><label for="tK">Creature</label><select id="tK">${opt('', "budget's choice", t.k)}${kindOpts(t.k)}</select></div>
+      <div class="field"><label for="tCh">Chance</label><div class="row"><input type="range" id="tCh" min="0" max="100" step="5" value="${t.chance == null ? 100 : t.chance}" style="flex:1"><span class="num" id="tChV">${t.chance == null ? 100 : t.chance}%</span></div></div>
+      <div class="field"><label for="tR">Rank</label><select id="tR">${opt('', "level's usual", t.rank || '')}${C.RANKS.map(r => opt(r, r === 'GILDED' ? 'gilded' : 'rank ' + r, t.rank || '')).join('')}</select></div>
+      <h3>RESISTANCE</h3>
+      <div class="field"><label for="tEm">Element</label><select id="tEm">${opt('rank', 'by rank', t.echance == null ? 'rank' : 'set')}${opt('set', 'my chance', t.echance == null ? 'rank' : 'set')}</select></div>
+      ${t.echance == null ? `<p class="note">${ri >= 0 ? `At rank ${esc(t.rank)} the game gives ${Math.round(def * 100)}%.` : 'Rank I none; II 15%, III 25%, IV 35%, V 45%; gilded none.'} On ${esc(L.runName.toLowerCase())} it favours ${esc(fav)}.</p>`
+        : `<div class="field"><label for="tEc">Chance</label><div class="row"><input type="range" id="tEc" min="0" max="100" step="5" value="${t.echance}" style="flex:1"><span class="num" id="tEcV">${t.echance}%</span></div></div>`}
+      <div class="field"><label for="tEl">Which</label><select id="tEl">${opt('', "run's favourite", t.el || '')}${DATA.elems.map(e => opt(e, e.slice(3).toLowerCase(), t.el || '')).join('')}</select></div>
+      <p class="note">The budget fills this point when the level is laid. Spawn points need part 2 in the game; drawn levels take every element alike until then.</p>`;
+  }
+  return h + `<div class="row"><button class="btn" id="tDup">COPY</button><button class="btn warn" id="tDel">REMOVE</button></div>`;
+}
+function paneBudget() {
+  const b = C.budget(DATA, S.map), pct = v => Math.min(100, (v / Math.max(0.01, b.budget)) * 100);
+  const hp = v => Math.min(100, v / C.MAX.heads * 100);
+  const g = b.gold, kinds = C.GOLD_KINDS.filter(k => g.byKind[k]).map(k => `<span>${esc(C.label(DATA, { t: 'gold', k }))} (${DATA.items[k]})</span><span>${g.byKind[k]}</span>`).join('');
+  return `<h2>LEVEL ${S.map.level}</h2><p class="note">${esc(b.L.runName)}, step ${b.L.step + 1}${b.L.boss ? ', a boss\'s level (budget halved)' : ''}${S.map.corrupt ? ', corrupted' : ''}.</p>
+    <h2>THE DEAD</h2>
+    <div class="kv"><span>The level's budget</span><span>${b.budget.toFixed(1)}</span><span>Expected cost</span><span>${b.expect.toFixed(1)}</span><span>If every point fills</span><span>${b.most.toFixed(1)}</span></div>
+    <div class="meter" title="expected cost against the budget"><i class="${b.expect > b.budget ? 'over' : ''}" style="width:${pct(b.expect)}%"></i></div>
+    <div class="kv"><span>Heads, expected</span><span>${b.heads.toFixed(1)}</span><span>Heads at most</span><span>${b.headsMost} of ${C.MAX.heads}</span></div>
+    <div class="meter"><i class="${b.headsMost > C.MAX.heads ? 'over' : ''}" style="width:${hp(b.headsMost)}%"></i></div>
+    <p class="note">A head costs by its kind (a skeleton 1, a knight 2) and a fifth more a rank. A point with the budget's choice is counted as a skeleton. The budget is the generator's for this level; the tutorial's levels hold more than theirs.</p>
+    <h2>GOLD</h2>
+    <div class="kv"><span>In the open</span><span>${g.open} in ${g.n}</span><span>In secrets</span><span>${g.secret} in ${g.ns}</span><span>All told</span><span>${g.open + g.secret}</span>${kinds}</div>
+    <h2>SECRETS</h2>
+    ${b.secrets.length ? `<div class="kv">${b.secrets.map((s, i) => `<span>Secret ${i + 1} at (${s.x},${s.y}), ${s.cells} cells</span><span>${s.gold} in ${s.n}</span>`).join('')}<span>Running total</span><span>${b.secrets.reduce((a, s) => a + s.gold, 0)}</span></div>` : '<p class="note">No secret yet: a cracked wall (c) with its room (q) behind it, or a secret room stamp.</p>'}
+    <p class="note">Gold in a secret is kept out of the level's count, as the game keeps it.</p>`;
+}
+function paneChecks() {
+  const c = S.checks, n = s => c.filter(x => x.sev === s).length;
+  if (!c.length) return '<h2>CHECKS</h2><p><span class="pip ok">CLEAR</span> Nothing found that would break the level. Walk the dream to see it played.</p>';
+  return `<h2>CHECKS</h2><p class="note">${n('error')} that break the level, ${n('warn')} to look at, ${n('info')} notes. Choose one to see its cells.</p>
+    <div class="checks">${c.map((x, i) => `<button class="check" data-check="${i}" aria-pressed="${S.hl === x}"><span class="pip ${x.sev}">${x.sev === 'error' ? 'BREAKS' : x.sev === 'warn' ? 'LOOK' : 'NOTE'}</span><span>${esc(x.msg)}</span></button>`).join('')}</div>`;
+}
+function paneDream() {
+  const d = S.dream;
+  let h = `<h2>THE DREAM'S WALK</h2><p class="note">The dream walks only lanes, takes a key to its door, strikes the gate's seal, gathers what it passes within a step and makes for the exit. This copies the game's rules for reaching things; it is not the game's own code, so a run in the harness is still the proof.</p>
+    <div class="row"><label><input type="checkbox" id="dSec"${S.dsec ? ' checked' : ''}> Press the secrets</label><button class="btn" id="dRun">WALK IT</button></div>`;
+  if (!d) return h;
+  const now = d.events.filter(e => e.at <= S.dstep).length;
+  h += `<p>${d.ok ? '<span class="pip ok">FINISHES</span>' : '<span class="pip error">CANNOT FINISH</span>'} <span class="num">${d.steps} steps</span>${d.missed.length ? `, misses ${d.missed.length}` : ', misses nothing'}.</p>
+    <div class="row"><button class="btn" id="dPlay">${S.playing ? 'PAUSE' : 'PLAY'}</button><button class="btn" id="dBack" title="Step back">&lt;</button><button class="btn" id="dFwd" title="Step on">&gt;</button><span class="num note">step ${S.dstep} of ${d.steps}</span></div>
+    <input type="range" id="dStep" min="0" max="${d.steps}" value="${S.dstep}" aria-label="Step">
+    <div class="log well">${d.events.map((e, i) => `<button data-at="${e.at}" class="${i < now ? 'past' : ''}">${String(e.at).padStart(3)} · ${esc(e.msg)}</button>`).join('')}</div>`;
+  if (d.missed.length) h += `<h3>MISSED</h3><p class="note">${d.missed.map(t => esc(C.label(DATA, t)) + ` (${Math.floor(t.x)},${Math.floor(t.y)})`).join(', ')}</p>`;
+  return h;
+}
+function wirePane() {
+  const on = (id, ev, fn) => { const el = $(id); if (el) el.addEventListener(ev, fn); };
+  const o = selected();
+  on('iLevel', 'change', e => change(() => { S.map.level = Math.max(1, Math.min(160, +e.target.value || 1)); }));
+  on('iSlot', 'change', e => change(() => { S.map.slot = Math.max(1, Math.min(40, +e.target.value || 3)); }));
+  on('iFace', 'change', e => change(() => { S.map.face = +e.target.value; }));
+  on('iSeed', 'change', e => change(() => { S.map.seed = e.target.value.trim(); }));
+  on('iCorrupt', 'change', e => change(() => { S.map.corrupt = e.target.checked; }));
+  if (o && S.sel.kind === 'thing') {
+    on('tX', 'change', e => change(() => { o.x = Math.max(0.125, Math.min(N - 0.125, +e.target.value)); }));
+    on('tY', 'change', e => change(() => { o.y = Math.max(0.125, Math.min(N - 0.125, +e.target.value)); }));
+    on('tK', 'change', e => change(() => { o.k = o.t === 'key' || o.t === 'mark' ? +e.target.value : e.target.value; }));
+    on('tCh', 'input', e => { $('tChV').textContent = e.target.value + '%'; });
+    on('tCh', 'change', e => change(() => { o.chance = +e.target.value; }));
+    on('tR', 'change', e => change(() => { o.rank = e.target.value; }));
+    on('tEm', 'change', e => change(() => { if (e.target.value === 'rank') delete o.echance; else o.echance = 25; }));
+    on('tEc', 'input', e => { $('tEcV').textContent = e.target.value + '%'; });
+    on('tEc', 'change', e => change(() => { o.echance = +e.target.value; }));
+    on('tEl', 'change', e => change(() => { o.el = e.target.value; }));
+    on('tDup', 'click', () => change(() => { const c = JSON.parse(JSON.stringify(o)); c.id = S.map.next++; c.x = Math.min(N - 0.125, c.x + 0.5); S.map.things.push(c); S.sel = { kind: 'thing', id: c.id }; }));
+    on('tDel', 'click', () => removeSelected());
+  }
+  if (o && S.sel.kind === 'stamp') {
+    on('sRot', 'click', () => change(() => { o.t = (o.t & 4) | ((o.t + 1) & 3); }));
+    on('sMir', 'click', () => change(() => { o.t ^= 4; }));
+    on('sEntry', 'change', e => change(() => { o.entry = +e.target.value; }));
+    on('sBake', 'click', () => ask('Bake this stamp into the map?', 'Its cells are written into the map and it stops being a stamp you can move. Undo brings it back.', 'BAKE', () => change(() => {
+      const comp = C.compose(DATA, { ...S.map, stamps: [o] });
+      for (let i = 0; i < N * N; i++) if (comp.owner[i] === 0) S.map.grid[i] = comp.cells[i];
+      comp.marks.filter(k => k.g === 's').forEach(k => S.map.things.push({ id: S.map.next++, t: 'spawn', k: '', chance: 65, x: k.x + 0.625, y: k.y + 0.625 }));
+      S.map.stamps.splice(S.sel.i, 1); S.sel = null;
+    })));
+    on('sDel', 'click', () => removeSelected());
+  }
+  if (o && S.sel.kind === 'room') {
+    [['rX', 'x'], ['rY', 'y'], ['rW', 'w'], ['rH', 'h']].forEach(([id, k]) => on(id, 'change', e => change(() => { o[k] = Math.max(k === 'w' || k === 'h' ? 1 : 0, Math.min(N, +e.target.value | 0)); })));
+    on('rT', 'change', e => change(() => { o.rt = e.target.value; }));
+    on('rV', 'change', e => change(() => { const v = +e.target.value; if (v >= 0) S.map.rooms.forEach(r => { if (r.vault === v) r.vault = -1; }); o.vault = v; }));
+    on('rDel', 'click', () => removeSelected());
+  }
+  document.querySelectorAll('[data-check]').forEach(b => b.addEventListener('click', () => {
+    const c = S.checks[+b.dataset.check]; S.hl = S.hl === c ? null : c; draw(); pane();
+    if (S.hl && S.hl.cells.length) scrollToCell(S.hl.cells[0]);
+  }));
+  on('dSec', 'change', e => { S.dsec = e.target.checked; if (S.dream) runDream(); });
+  on('dRun', 'click', runDream);
+  on('dPlay', 'click', () => { if (S.playing) stopPlay(); else play(); pane(); });
+  on('dBack', 'click', () => { stopPlay(); S.dstep = Math.max(0, S.dstep - 1); draw(); pane(); });
+  on('dFwd', 'click', () => { stopPlay(); S.dstep = Math.min(S.dream.steps, S.dstep + 1); draw(); pane(); });
+  on('dStep', 'input', e => { stopPlay(); S.dstep = +e.target.value; draw(); });
+  on('dStep', 'change', () => pane());
+  document.querySelectorAll('[data-at]').forEach(b => b.addEventListener('click', () => { stopPlay(); S.dstep = +b.dataset.at; draw(); pane(); scrollToCell(S.dream.route[S.dstep]); }));
+}
+function scrollToCell([x, y]) { const s = $('scroller'); s.scrollTo({ left: x * S.zoom - s.clientWidth / 2, top: y * S.zoom - s.clientHeight / 2, behavior: 'smooth' }); }
+function removeSelected() {
+  if (!S.sel) return;
+  change(() => {
+    if (S.sel.kind === 'thing') S.map.things = S.map.things.filter(t => t.id !== S.sel.id);
+    else if (S.sel.kind === 'stamp') S.map.stamps.splice(S.sel.i, 1);
+    else S.map.rooms.splice(S.sel.i, 1);
+    S.sel = null;
+  });
+  toast('REMOVED: UNDO BRINGS IT BACK');
+}
+function runDream() { stopPlay(); S.dream = C.dream(DATA, S.map, { secrets: !!S.dsec }); S.dstep = 0; draw(); pane(); }
+function play() {
+  if (!S.dream) return;
+  if (S.dstep >= S.dream.steps) S.dstep = 0;
+  S.playing = setInterval(() => {
+    S.dstep++;
+    if (S.dstep >= S.dream.steps) { S.dstep = S.dream.steps; stopPlay(); pane(); }
+    draw();
+    const sl = $('dStep'); if (sl) sl.value = S.dstep;
+  }, 70);
+}
+function stopPlay() { if (S.playing) { clearInterval(S.playing); S.playing = null; } }
+
+/* ---------- refreshing what depends on the map ---------- */
+let checkTimer = null;
+function refresh(quiet) {
+  recompose(); draw();
+  $('mapName').value = S.map.name; $('mapLevel').value = S.map.level;
+  $('bUndo').disabled = !S.hist.length; $('bRedo').disabled = !S.fut.length;
+  $('bLattice').setAttribute('aria-pressed', String(!!S.map.lattice));
+  savedBadge();
+  clearTimeout(checkTimer);
+  checkTimer = setTimeout(() => {
+    S.checks = C.check(DATA, S.map);
+    if (S.hl && !S.checks.some(c => c.msg === S.hl.msg)) S.hl = null;
+    const e = S.checks.filter(c => c.sev === 'error').length; $('checkN').textContent = e ? e : '';
+    if (S.tab !== 'inspect' || !quiet) pane();
+  }, 120);
+  if (S.tab === 'inspect') pane();
+}
+function savedBadge() {
+  const b = $('saved');
+  b.className = 'saved' + (S.example ? '' : S.dirty ? ' dirty' : S.savedAt ? ' ok' : '');
+  b.textContent = S.example && !S.dirty ? 'EXAMPLE: NOT SAVED' : S.dirty ? 'UNSAVED CHANGES' : S.savedAt ? 'SAVED ' + new Date(S.savedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'NOT SAVED';
+}
+
+/* ---------- the header's fields and buttons ---------- */
+$('mapName').addEventListener('change', e => change(() => { S.map.name = e.target.value.trim() || 'Untitled level'; }, true));
+$('mapLevel').addEventListener('change', e => change(() => { S.map.level = Math.max(1, Math.min(160, +e.target.value || 1)); }));
+$('bUndo').addEventListener('click', undo); $('bRedo').addEventListener('click', redo);
+$('bLattice').addEventListener('click', () => change(() => { S.map.lattice = !S.map.lattice; }));
+$('bLanes').addEventListener('click', e => { S.showLanes = !S.showLanes; e.target.setAttribute('aria-pressed', String(S.showLanes)); draw(); });
+$('bGrid').addEventListener('click', e => { S.showGrid = !S.showGrid; e.target.setAttribute('aria-pressed', String(S.showGrid)); draw(); });
+const ZOOMS = [8, 12, 16, 20, 24, 32];
+function zoom(d) { const i = Math.max(0, Math.min(ZOOMS.length - 1, ZOOMS.indexOf(S.zoom) + d)); S.zoom = ZOOMS[i]; $('zoomLabel').textContent = S.zoom + ' PX'; draw(); try { localStorage.setItem('cme.zoom', S.zoom); } catch (e) {} }
+$('bZoomIn').addEventListener('click', () => zoom(1)); $('bZoomOut').addEventListener('click', () => zoom(-1));
+
+document.addEventListener('keydown', e => {
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || tag === 'select' || $('modal').firstChild) return;
+  const k = e.key.toLowerCase();
+  if ((e.ctrlKey || e.metaKey) && k === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
+  if ((e.ctrlKey || e.metaKey) && k === 'y') { e.preventDefault(); redo(); return; }
+  if ((e.ctrlKey || e.metaKey) && k === 's') { e.preventDefault(); save(); return; }
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (k === 'delete' || k === 'backspace') { e.preventDefault(); removeSelected(); }
+  else if (k === 'escape') { setTool({ kind: 'select' }, selectBtn, ''); S.sel = null; S.hl = null; refresh(); }
+  else if (k === 'v') setTool({ kind: 'select' }, selectBtn, 'Choose a thing, stamp or room; drag it to move it.');
+  else if (k === 'r' || k === 'm') {
+    const flip = t => k === 'r' ? (t & 4) | ((t + 1) & 3) : t ^ 4;
+    if (S.tool.kind === 'stamp') { S.stampT = flip(S.stampT); draw(); }
+    else if (S.sel && S.sel.kind === 'stamp') change(() => { const o = selected(); o.t = flip(o.t); });
+  }
+  else if (k === 'g') $('bLattice').click();
+  else if (k === 'l') $('bLanes').click();
+  else if (k === '+' || k === '=') zoom(1);
+  else if (k === '-') zoom(-1);
+});
+
+/* ---------- questions, asked in the page ---------- */
+function ask(title, body, yes, fn, no) {
+  $('modal').innerHTML = `<div class="veil" role="dialog" aria-modal="true" aria-labelledby="askT"><div class="dialog slab"><h2 id="askT">${esc(title)}</h2><p>${esc(body)}</p>
+    <div class="row"><button class="btn" id="askYes">${esc(yes)}</button><button class="btn" id="askNo">${esc(no || 'CANCEL')}</button></div></div></div>`;
+  $('askYes').focus();
+  $('askYes').addEventListener('click', () => { close(); fn(); });
+  $('askNo').addEventListener('click', close);
+}
+function close() { $('modal').innerHTML = ''; }
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('modal').firstChild) close(); });
+let toastT = null;
+function toast(msg) { let t = document.querySelector('.toast'); if (!t) { t = document.createElement('div'); t.className = 'toast slab'; t.setAttribute('role', 'status'); document.body.appendChild(t); } t.textContent = msg; clearTimeout(toastT); toastT = setTimeout(() => t.remove(), 2600); }
+
+/* ---------- keeping the maps: the artifact's store, a draft in this browser, files of your own ---------- */
+const pack = m => ({ ...m, grid: m.grid.join(''), lane: m.lane.join('') });
+const unpack = p => ({ ...C.blank(), ...p, grid: typeof p.grid === 'string' ? p.grid.split('') : p.grid, lane: typeof p.lane === 'string' ? p.lane.split('').map(Number) : p.lane });
+const newId = () => 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+function draftSave() { try { localStorage.setItem('cme.draft', JSON.stringify({ id: S.id, map: pack(S.map), t: Date.now() })); } catch (e) {} }
+function draftClear() { try { localStorage.removeItem('cme.draft'); } catch (e) {} }
+async function save() {
+  if (!S.id) S.id = newId();
+  const body = { name: S.map.name, level: S.map.level, updated: Date.now(), map: pack(S.map) };
+  try {
+    if (S.db) {
+      await S.db.doc('maps/' + S.id).set(body);
+      await S.db.doc('maps/' + S.id).collection('versions').doc(String(body.updated)).set({ saved: body.updated, name: body.name, map: body.map });
+    } else {
+      const all = JSON.parse(localStorage.getItem('cme.maps') || '{}'); all[S.id] = body; localStorage.setItem('cme.maps', JSON.stringify(all));
+      const v = JSON.parse(localStorage.getItem('cme.v.' + S.id) || '[]'); v.push({ saved: body.updated, name: body.name, map: body.map }); while (v.length > 30) v.shift();
+      localStorage.setItem('cme.v.' + S.id, JSON.stringify(v));
+    }
+    S.dirty = false; S.example = false; S.savedAt = body.updated; savedBadge(); draftClear();
+    toast(S.db ? 'SAVED, WITH A SAVE POINT' : 'SAVED IN THIS BROWSER ONLY');
+  } catch (e) { toast('NOT SAVED: ' + (e && e.code === 'quota_exceeded' ? 'THE STORE IS FULL' : 'TRY AGAIN')); }
+}
+$('bSave').addEventListener('click', save);
+async function listMaps() {
+  if (S.db) { const q = await S.db.collection('maps').orderBy('updated', 'desc').limit(200).get(); return q.docs.map(d => ({ id: d.id, ...d.data() })); }
+  try { const all = JSON.parse(localStorage.getItem('cme.maps') || '{}'); return Object.keys(all).map(id => ({ id, ...all[id] })).sort((a, b) => b.updated - a.updated); } catch (e) { return []; }
+}
+async function listVersions(id) {
+  if (S.db) { const q = await S.db.doc('maps/' + id).collection('versions').orderBy('saved', 'desc').limit(50).get(); return q.docs.map(d => ({ vid: d.id, ...d.data() })); }
+  try { return JSON.parse(localStorage.getItem('cme.v.' + id) || '[]').map((v, i) => ({ vid: String(i), ...v })).reverse(); } catch (e) { return []; }
+}
+function load(id, body, example) {
+  S.id = id; S.map = unpack(body.map || body); S.hist = []; S.fut = []; S.sel = null; S.hl = null; S.dream = null; stopPlay();
+  S.dirty = false; S.example = !!example; S.savedAt = example ? null : body.updated || null;
+  refresh(); close();
+}
+function guard(fn) { if (S.dirty) ask('Leave the unsaved changes?', 'This map has changes that are not saved. Save first, or carry on and lose them.', 'LOSE THEM', fn, 'KEEP EDITING'); else fn(); }
+$('bNew').addEventListener('click', () => guard(() => {
+  const m = C.blank(S.map ? S.map.level : 3); m.name = 'New level';
+  for (let y = 1; y < N - 1; y++) for (let x = 1; x < N - 1; x++) m.grid[C.idx(x, y)] = '#';
+  load(null, { map: pack(m) }, false); S.dirty = true; savedBadge(); toast('A NEW MAP OF STONE');
+}));
+const fmt = t => t ? new Date(t).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : '';
+$('bOpen').addEventListener('click', async () => {
+  $('modal').innerHTML = `<div class="veil" role="dialog" aria-modal="true"><div class="dialog slab"><h2>OPEN A MAP</h2><p class="note">Reading the store...</p></div></div>`;
+  let maps = [];
+  try { maps = await listMaps(); } catch (e) { maps = null; }
+  const ex = DATA.drawn.map(D => `<div class="item"><span>Tutorial level ${D.n}<small>from drawn.c, ${D.w} x ${D.h}: opens as an unsaved copy</small></span><button class="btn" data-ex="${D.n}">OPEN</button></div>`).join('');
+  $('modal').innerHTML = `<div class="veil" role="dialog" aria-modal="true" aria-labelledby="openT"><div class="dialog slab"><h2 id="openT">OPEN A MAP</h2>
+    ${S.db ? '' : '<p class="note">The shared store is not reachable here, so these are the maps kept in this browser.</p>'}
+    <h3>YOUR MAPS</h3><div class="list">${maps === null ? '<p class="note">The store did not answer. Try again in a moment.</p>' : maps.length ? maps.map(m => `<div class="item"><span>${esc(m.name)}<small>level ${m.level} · saved ${esc(fmt(m.updated))}</small></span><span class="row"><button class="btn" data-open="${esc(m.id)}">OPEN</button><button class="btn" data-vers="${esc(m.id)}">SAVE POINTS</button><button class="btn warn" data-del="${esc(m.id)}">DELETE</button></span></div>`).join('') : '<p class="note">None saved yet. SAVE keeps the map you are drawing.</p>'}</div>
+    <h3>EXAMPLES</h3><div class="list">${ex}</div>
+    <div class="row"><button class="btn" id="askNo">CLOSE</button></div></div></div>`;
+  $('askNo').addEventListener('click', close);
+  document.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => guard(() => { const m = maps.find(x => x.id === b.dataset.open); load(m.id, m); toast('OPENED'); })));
+  document.querySelectorAll('[data-ex]').forEach(b => b.addEventListener('click', () => guard(() => { const D = DATA.drawn.find(d => d.n === +b.dataset.ex); const m = C.importDrawn(D, D.n); m.slot = D.n; load(null, { map: pack(m) }, true); toast('THE EXAMPLE, UNSAVED'); })));
+  document.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => {
+    const m = maps.find(x => x.id === b.dataset.del);
+    ask(`Delete "${m.name}"?`, 'The map is taken out of the list. Its save points stay in the store, but nothing here will show them again. Make a backup file first if you may want it.', 'DELETE IT', async () => {
+      try { if (S.db) await S.db.doc('maps/' + m.id).delete(); else { const all = JSON.parse(localStorage.getItem('cme.maps') || '{}'); delete all[m.id]; localStorage.setItem('cme.maps', JSON.stringify(all)); }
+        if (S.id === m.id) { S.id = null; S.dirty = true; savedBadge(); } toast('DELETED'); } catch (e) { toast('NOT DELETED: TRY AGAIN'); }
+    });
+  }));
+  document.querySelectorAll('[data-vers]').forEach(b => b.addEventListener('click', async () => {
+    const m = maps.find(x => x.id === b.dataset.vers); let v = [];
+    try { v = await listVersions(m.id); } catch (e) {}
+    $('modal').innerHTML = `<div class="veil" role="dialog" aria-modal="true"><div class="dialog slab"><h2>SAVE POINTS: ${esc(m.name.toUpperCase())}</h2>
+      <p class="note">Every SAVE keeps one. Restoring opens that save as the map; the newer ones stay.</p>
+      <div class="list">${v.length ? v.map(x => `<div class="item"><span>${esc(fmt(x.saved))}<small>${esc(x.name)}</small></span><button class="btn" data-vid="${esc(x.vid)}">RESTORE</button></div>`).join('') : '<p class="note">No save points found.</p>'}</div>
+      <div class="row"><button class="btn" id="askNo">CLOSE</button></div></div></div>`;
+    $('askNo').addEventListener('click', close);
+    document.querySelectorAll('[data-vid]').forEach(bb => bb.addEventListener('click', () => {
+      const x = v.find(y => y.vid === bb.dataset.vid);
+      ask('Restore this save point?', `The map as it was saved on ${fmt(x.saved)} opens in its place. It is not saved until you SAVE.`, 'RESTORE', () => guard(() => { load(m.id, { map: x.map, updated: null }); S.dirty = true; savedBadge(); toast('RESTORED: SAVE TO KEEP IT'); }));
+    }));
+  }));
+});
+async function offer(filename, text) {
+  if (S.dl) { try { await S.dl.save({ filename, data: text }); toast('FILE OFFERED'); return; } catch (e) { if (e && e.code === 'declined') return; } }
+  showText(filename.toUpperCase(), 'Saving a file is not offered here. Copy the text and keep it in a file of your own.', text, filename);
+}
+function showText(title, note, text, filename) {
+  $('modal').innerHTML = `<div class="veil" role="dialog" aria-modal="true" aria-labelledby="txtT"><div class="dialog slab"><h2 id="txtT">${esc(title)}</h2><p class="note">${esc(note)}</p>
+    <textarea id="txt" readonly spellcheck="false"></textarea>
+    <div class="row"><button class="btn" id="txCopy">COPY</button>${filename && S.dl ? '<button class="btn" id="txSave">SAVE AS FILE</button>' : ''}<button class="btn" id="askNo">CLOSE</button></div></div></div>`;
+  $('txt').value = text;
+  $('askNo').addEventListener('click', close);
+  $('txCopy').addEventListener('click', () => { navigator.clipboard.writeText(text).then(() => toast('COPIED'), () => { $('txt').select(); toast('SELECTED: COPY IT BY HAND'); }); });
+  const sv = $('txSave'); if (sv) sv.addEventListener('click', () => offer(filename, text));
+}
+$('bBackup').addEventListener('click', () => {
+  const slug = S.map.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'map';
+  offer(`catacomb-level-${S.map.level}-${slug}.json`, JSON.stringify({ format: 'catacomb-map-editor', v: 1, saved: Date.now(), map: pack(S.map) }, null, 1));
+});
+$('bLoadFile').addEventListener('click', () => guard(() => $('fileIn').click()));
+$('fileIn').addEventListener('change', e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  f.text().then(t => {
+    const j = JSON.parse(t);
+    if (j.format !== 'catacomb-map-editor' || !j.map || !j.map.grid) throw new Error('format');
+    load(null, { map: j.map }, false); S.dirty = true; savedBadge(); toast('LOADED: SAVE TO KEEP IT HERE');
+  }).catch(() => toast('THAT FILE IS NOT A MAP FROM THIS EDITOR'));
+});
+$('bExport').addEventListener('click', () => {
+  const errs = S.checks.filter(c => c.sev === 'error').length, n = S.map.slot || 3, x = C.exportDrawn(DATA, S.map, n);
+  showText(`EXPORT FOR DRAWN.C (SLOT ${n})`, (errs ? `${errs} check${errs > 1 ? 's say' : ' says'} this level would break: see CHECKS before pasting. ` : '') +
+    `Paste the arrays above DRAWN[] in src/crawl/game/drawn.c and the last two lines into DRAWN[], then raise NDRAWN. Which level it plays on is set by drawn_level(), part 2's table.`, x.text, `drawn-level-${S.map.level}-slot-${n}.txt`);
+});
+
+/* ---------- starting ---------- */
+try { const z = +localStorage.getItem('cme.zoom'); if (ZOOMS.includes(z)) S.zoom = z; } catch (e) {}
+$('zoomLabel').textContent = S.zoom + ' PX';
+function startWith(m, example) { S.map = m; S.example = example; refresh(); }
+const D1 = DATA.drawn[0], first = C.importDrawn(D1, D1.n); first.slot = D1.n;
+startWith(first, true);
+setTool({ kind: 'select' }, selectBtn, 'This is the tutorial\'s first level, as an example. NEW starts a blank map; OPEN lists your maps.');
+setTimeout(() => scrollToCell([22, 20]), 50);
+let draft = null;
+try { draft = JSON.parse(localStorage.getItem('cme.draft') || 'null'); } catch (e) {}
+if (draft && draft.map) ask('Pick up where you left off?', `There is unsaved work from ${fmt(draft.t)} in this browser ("${draft.map.name}").`, 'PICK IT UP', () => { load(draft.id, { map: draft.map }, false); S.dirty = true; savedBadge(); }, 'NOT NOW');
+(async () => {
+  if (!window.claude || !window.claude.use) return;
+  try { S.db = await window.claude.use('db'); } catch (e) { S.db = null; }
+  try { S.dl = await window.claude.use('downloads'); } catch (e) { S.dl = null; }
+})();
+})();
+</script>
