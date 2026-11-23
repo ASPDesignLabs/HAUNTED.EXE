@@ -73,3 +73,13 @@ seed). Both pass the checks; the dream finishes both (level 1 in 220 steps, leve
 the secret is pressed). The budget panel shows the tutorial levels hold more dead than the generator's budget (11 against 4.3 on level
 1): a fact about the drawings. Tested in Playwright's Chromium (no page errors; no sideways scroll at 400 px) and by `test.js`. Not yet
 used by the owner. Part 2 not begun.
+
+**Session 1, part 2 (23 November 2026).** Part 2 built. Proof that nothing else moved: the dream's log (`CRAWL_SEED` 1 to 8,
+`CRAWL_RUNID=7`, `apl crawl 3000`, levels 1 to 7, 8 or 9) against the build before, line for line: the same in all eight but the line
+that prints a time taken (`PORTRAITS ... kept in`). The seeds fell in pairs that gave the same log (2 and 3, 4 and 5, 6 and 7), so it
+is five runs that differ, not eight. Saves are untouched: creatures are not saved, and nothing else saved changed. The spawn points
+proved on a test level 3 drawn in the editor and pasted in as its export says (in a worktree, never committed): three of four points
+filled (the 0% one never), the rank III skeleton set to frost born to frost, the dead's cost 3.40 against level 3's 7.50, the dream
+through to level 4 on seeds 1 to 3; `make asan` on it with `ASAN_OPTIONS=detect_leaks=0`, seeds 1 and 4, 400 s: clean. The test
+level found a hole in the editor's checks: the exit's front must be on a lane, or the dream can never leave; that is now an error
+(and a place to mend's a warning). Not played by hand; nothing run under Wine; the Windows and browser builds not compiled here.
