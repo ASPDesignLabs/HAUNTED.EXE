@@ -253,6 +253,8 @@ const SPR = {
   compass: ['..wwww..', '.wbbbbw.', 'wbbrbbbw', 'wbbrbbbw', 'wbbybbbw', 'wbbybbbw', '.wbbbbw.', '..wwww..'],
   relic: ['......ww', '.....wWw', '....wWw.', '...wWw..', '.wwWw...', 'wWww....', 'wWw.....', '.w......'],
   socket: ['........', '........', '.mmmmmm.', 'mkkkkkkm', 'mMmmmmMm', '.mmmmmm.', '..mmmm..', '.mmmmmm.'],
+  lever: ['......b.', '.....b..', '....b...', '...b....', '..b.....', '.gggggg.', 'gGGGGGGg', 'gggggggg'],
+  plate: ['........', '........', '........', '........', '.gggggg.', 'gGGGGGGg', 'gkgkgkgg', '.gggggg.'],
   map: ['.wwwwww.', 'wWWWWWWw', 'wWbWWbWw', 'wWWbbWWw', 'wWbWWWWw', 'wWWWWbWw', '.wwwwww.', '........'],
 };
 const SPC = { y: '#e9c24c', Y: '#fff1a6', c: '#4fd0e0', C: '#c8f6ff', r: '#d2473b', R: '#ff9a8a', g: '#79c15a', G: '#c6f2a8', b: '#6d3f22', B: '#9a6236',
@@ -280,7 +282,8 @@ const THING_TOOLS = [
   [{ t: 'gold', k: 'IT_CROWN' }, 'Crown 100'], [{ t: 'gold', k: 'IT_CHEST' }, 'Chest 250'],
   [{ t: 'key', k: 0 }, 'Gold key'], [{ t: 'key', k: 2 }, 'Crimson key'], [{ t: 'key', k: 1 }, 'Silver key'],
   [{ t: 'spawn', k: '', chance: 100 }, 'Spawn point'], [{ t: 'dead', k: 'MOB_SKEL' }, 'Fixed dead'],
-  [{ t: 'map' }, 'The map'], [{ t: 'compass' }, 'The compass'], [{ t: 'relic', name: 'A relic' }, 'Relic'], [{ t: 'socket', name: 'A socket', accepts: 0 }, 'Socket'], [{ t: 'mark', k: 0 }, 'Coffer'], [{ t: 'mark', k: 1 }, 'Cage'], [{ t: 'mark', k: 2 }, "Class's own"],
+  [{ t: 'map' }, 'The map'], [{ t: 'compass' }, 'The compass'], [{ t: 'relic', name: 'A relic' }, 'Relic'], [{ t: 'socket', name: 'A socket', accepts: 0 }, 'Socket'],
+  [{ t: 'lever', name: '' }, 'Lever'], [{ t: 'plate', name: '' }, 'Pressure plate'], [{ t: 'mark', k: 0 }, 'Coffer'], [{ t: 'mark', k: 1 }, 'Cage'], [{ t: 'mark', k: 2 }, "Class's own"],
   [{ t: 'switch' }, 'Switch'], [{ t: 'gseal' }, "Gate's seal"]];
 const RT_NAMES = DATA.rooms.map(r => r.slice(3).toLowerCase());
 const KINDS = DATA.kinds.filter(k => k.cost != null && !k.unique && k.id !== 'MOB_SAC');
@@ -377,8 +380,16 @@ function draw() {
   if (S.pick && S.drag && S.drag.pickArea) { const r = S.drag.pickArea; g.strokeStyle = '#c79bf0'; g.lineWidth = 2; g.strokeRect(r.x0 * z, r.y0 * z, (r.x1 - r.x0 + 1) * z, (r.y1 - r.y0 + 1) * z); }
   /* things */
   const ts = Math.max(8, Math.round(z * 0.5));
+  const st0 = S.sel && S.sel.kind === 'thing' ? S.map.things.find(t => t.id === S.sel.id) : null;
+  if (st0 && (st0.inRooms || []).length) {                         /* where the dice may lay it: a ghost in each room */
+    g.globalAlpha = 0.45;
+    st0.inRooms.forEach(ri => { const p = C.roomSpot(S.map, composed.cells, laneMask, st0, ri, null); if (p) { g.drawImage(spriteOf(st0), Math.round(p[0] * z - ts / 2), Math.round(p[1] * z - ts / 2), ts, ts); g.strokeStyle = '#c79bf0'; g.strokeRect(Math.round(p[0] * z - ts / 2) - 2, Math.round(p[1] * z - ts / 2) - 2, ts + 4, ts + 4); } });
+    g.globalAlpha = 1;
+  }
   S.map.things.forEach((t, i) => {
-    const px = t.x * z - ts / 2, py = t.y * z - ts / 2, sel = S.sel && S.sel.kind === 'thing' && S.sel.id === t.id;
+    const dp = S.dream && S.dream.pos && S.dream.pos.get(t.id), tx = dp ? dp[0] : t.x, ty = dp ? dp[1] : t.y;
+    const px = tx * z - ts / 2, py = ty * z - ts / 2, sel = S.sel && S.sel.kind === 'thing' && S.sel.id === t.id;
+    if ((t.inRooms || []).length) { g.fillStyle = '#c79bf0'; g.fillRect(Math.round(px - 2), Math.round(py + ts - 1), 3, 3); }
     g.drawImage(spriteOf(t), Math.round(px), Math.round(py), ts, ts);
     if (t.t === 'spawn' && t.k) { g.fillStyle = '#ff9a8a'; g.fillRect(Math.round(px + ts - 3), Math.round(py), 3, 3); }
     if (sel) { g.strokeStyle = PAL.start; g.lineWidth = 2; g.strokeRect(Math.round(px) - 2, Math.round(py) - 2, ts + 4, ts + 4); }
@@ -663,6 +674,14 @@ function paneThing(t) {
     h += `<div class="field"><label for="tN">Name</label><input type="text" id="tN" value="${esc(t.name || '')}"></div>
     <div class="field"><label for="tAc">Takes</label><select id="tAc">${opt(0, 'any relic', t.accepts || 0)}${rel.map(r => opt(r.id, r.name || 'a relic', t.accepts || 0)).join('')}</select></div>
     <p class="note">A place to set a relic. A trigger "Set in a socket" fires when it is filled.</p>`; }
+  if (t.t === 'lever' || t.t === 'plate') h += `<div class="field"><label for="tN">Name</label><input type="text" id="tN" placeholder="for your own lists" value="${esc(t.name || '')}"></div>
+    <p class="note">${t.t === 'lever' ? 'Worked with the use key, as a door. Bind it to a trigger "Pulled or pressed".' : 'Fires when stepped on. Bind it to a trigger "Stepped on"; a timed trigger holds while it is stood on and for its duration after.'}</p>`;
+  if (!['spawn', 'dead'].includes(t.t) && S.map.rooms.length) {
+    const inR = t.inRooms || [];
+    h += `<h3>APPEARS IN ONE OF THESE ROOMS</h3>
+      <div class="row">${S.map.rooms.map((r, i) => `<label><input type="checkbox" data-inroom="${i}"${inR.includes(i) ? ' checked' : ''}> ${i + 1} ${esc(RT_NAMES[DATA.rooms.indexOf(r.rt)] || '')}</label>`).join('')}</div>
+      <p class="note">${inR.length ? `Each play the dice choose one of ${inR.length}. In a room that holds its own spot it stands there; in the others, on the floor nearest the room's middle that the dream can reach. The ghosts on the map show where.` : 'Tick rooms to let it turn up in any one of them, a different one each play. Leave all clear to keep it where it is.'}</p>`;
+  }
   if (t.t === 'compass') h += `<p class="note">Picked up, the compass is the player's as if bought; a death takes it, as now. One already held is worth her price in gold here.</p>`;
   if (t.t === 'spawn') h += `<div class="field"><label for="tW">Wakes with</label><input type="text" id="tW" list="wkGroups" placeholder="at the start" value="${esc(t.wake || '')}"></div>
     <datalist id="wkGroups">${C.wakeGroups(S.map).map(g => `<option value="${esc(g)}">`).join('')}</datalist>
@@ -698,7 +717,7 @@ function paneEvents() {
   let h = `<h2>EVENTS</h2><p class="note">A trigger is what the player does; its actions are what the level does back. Choose a trigger to bind it; its thing, box and doors show on the map in violet.</p>
     <div class="row"><button class="btn" id="evAdd">ADD A TRIGGER</button></div>`;
   if (!ev.length) return h + `<p class="note">No events yet. OPEN has an example: the compass, three paths of torches, a bone carried back to a socket.</p>`;
-  h += `<div class="checks">${ev.map((e, i) => `<button class="check" data-ev="${i}" aria-pressed="${S.evSel === i}"><span class="pip ${S.evSel === i ? 'ok' : 'info'}">${i + 1}</span><span>${esc(e.name || 'untitled')}<small class="note" style="display:block">${esc((C.TRIGGERS[e.kind] || {}).label || '')}, ${(e.actions || []).length} action${(e.actions || []).length === 1 ? '' : 's'}</small></span></button>`).join('')}</div>`;
+  h += `<div class="checks">${ev.map((e, i) => `<button class="check" data-ev="${i}" aria-pressed="${S.evSel === i}"><span class="pip ${S.evSel === i ? 'ok' : 'info'}">${i + 1}</span><span>${esc(e.name || 'untitled')}<small class="note" style="display:block">${esc((C.TRIGGERS[e.kind] || {}).label || '')}, ${esc(C.TRIG_TYPES[e.type || 'once'].label.toLowerCase())}${+e.hold > 0 ? ' ' + e.hold + ' s' : ''}, ${(e.actions || []).length} action${(e.actions || []).length === 1 ? '' : 's'}</small></span></button>`).join('')}</div>`;
   const e = ev[S.evSel];
   if (!e) return h;
   const T = C.TRIGGERS[e.kind], tt = S.map.things.find(t => t.id === e.target);
@@ -706,24 +725,40 @@ function paneEvents() {
     <div class="field"><label for="evN">Name</label><input type="text" id="evN" value="${esc(e.name || '')}"></div>
     <div class="field"><label for="evK">When</label><select id="evK">${Object.keys(C.TRIGGERS).map(k => opt(k, C.TRIGGERS[k].label, e.kind)).join('')}</select></div>
     <p class="note">${esc(T.guide)}</p>`;
-  if (T.target !== 'none') h += `<div class="row"><span>${T.target === 'area' ? (e.area ? `Box (${e.area.x0},${e.area.y0}) to (${e.area.x1},${e.area.y1})` : 'No box yet') : tt ? esc(C.label(DATA, tt)) + ` at (${Math.floor(tt.x)},${Math.floor(tt.y)})` : 'Nothing chosen'}</span><button class="btn" id="evPick">${T.target === 'area' ? 'DRAW THE BOX' : 'CHOOSE ON THE MAP'}</button></div>`;
+  if (T.target === 'area') h += `<div class="row"><span>${e.area ? `Box (${e.area.x0},${e.area.y0}) to (${e.area.x1},${e.area.y1})` : 'No box yet'}</span><button class="btn" id="evPick">DRAW THE BOX</button></div>`;
+  else if (T.target !== 'none') {
+    const can = S.map.things.filter(t => C.canWatch(e.kind, t));
+    h += `<div class="field"><label for="evT">Bound to</label><select id="evT">${opt('', can.length ? 'choose' : 'none on the map yet', e.target || '')}${can.map(t => opt(t.id, `${C.label(DATA, t)} (${Math.floor(t.x)},${Math.floor(t.y)})`, e.target || '')).join('')}</select></div>
+      <div class="row"><button class="btn" id="evPick">CHOOSE ON THE MAP</button>${tt ? `<span class="note">${esc(C.label(DATA, tt))}</span>` : ''}</div>`;
+  }
+  const ty = e.type || 'once';
+  h += `<div class="field"><label for="evY">Type</label><select id="evY">${Object.keys(C.TRIG_TYPES).map(k => opt(k, C.TRIG_TYPES[k].label, ty)).join('')}</select></div>
+    <p class="note">${esc(C.TRIG_TYPES[ty].guide)}</p>`;
+  if (ty === 'toggle' || ty === 'timed') h += `<div class="row"><label for="evH">${ty === 'timed' ? 'Holds for' : 'Goes back after'}</label><input type="number" id="evH" min="0" max="600" step="0.5" value="${+e.hold || 0}"><span class="note">s${ty === 'toggle' ? ' (0: till touched again)' : ''}</span></div>
+    <div class="row"><label><input type="checkbox" id="evU"${e.undo === false ? '' : ' checked'}> Its torches and doors go back with it</label></div>`;
   const others = ev.filter(o => o.id !== e.id);
   if (others.length) h += `<h3>ONLY AFTER</h3><div class="row">${others.map(o => `<label><input type="checkbox" data-need="${esc(o.id)}"${(e.needs || []).includes(o.id) ? ' checked' : ''}> ${esc(o.name || 'untitled')}</label>`).join('')}</div>`;
   h += `<h3>YOUR NOTE</h3><textarea id="evNote" rows="3" style="width:100%;min-height:0;white-space:normal" placeholder="What should this feel like? Your words, kept with the trigger.">${esc(e.note || '')}</textarea>
     <h3>ACTIONS, IN ORDER</h3>`;
-  (e.actions || []).forEach((a, k) => {
+  h += actionList(e.actions || [], '');
+  if (ty === 'toggle' || ty === 'timed') h += `<h3>AS IT GOES BACK, ALSO</h3><p class="note">Over and above its torches and doors going back: a line, a sound, the dead waking.</p>` + actionList(e.back || [], 'b');
+  h += `<div class="row"><button class="btn" id="acAdd">ADD AN ACTION</button>${ty === 'toggle' || ty === 'timed' ? '<button class="btn" id="acAddB">ADD ONE FOR GOING BACK</button>' : ''}<span class="sep"></span><button class="btn warn" id="evDel">REMOVE THE TRIGGER</button></div>`;
+  return h;
+}
+function actionList(list, L) {
+  let h = '';
+  list.forEach((a, k) => {
     const A = C.ACTIONS[a.kind] || {};
     h += `<div class="well" style="padding:6px;display:flex;flex-direction:column;gap:6px">
-      <div class="field"><label for="acK${k}">${k + 1}.</label><select id="acK${k}" data-ak="${k}">${Object.keys(C.ACTIONS).map(x => opt(x, C.ACTIONS[x].label, a.kind)).join('')}</select></div>
+      <div class="field"><label for="acK${L}${k}">${k + 1}.</label><select id="acK${L}${k}" data-ak="${L}${k}">${Object.keys(C.ACTIONS).map(x => opt(x, C.ACTIONS[x].label, a.kind)).join('')}</select></div>
       <p class="note">${esc(A.guide || '')}</p>`;
-    if (A.arg === 'group') h += `<div class="field"><label>Group</label><select data-ag="${k}">${opt('', 'choose', a.group || '')}${C.torchGroups(S.map).map(g => opt(g, g, a.group || '')).join('')}</select></div>`;
-    if (A.arg === 'spawn') h += `<div class="field"><label>Wake group</label><select data-ag="${k}">${opt('', 'choose', a.group || '')}${C.wakeGroups(S.map).map(g => opt(g, g, a.group || '')).join('')}</select></div>`;
-    if (A.arg === 'door') h += `<div class="row"><span>${a.door ? `The door at (${a.door[0]},${a.door[1]})` : 'No door chosen'}</span><button class="btn" data-adoor="${k}">CHOOSE THE DOOR</button></div>`;
-    if (A.arg === 'text') h += `<div class="field"><label>Line</label><input type="text" data-at="${k}" maxlength="60" value="${esc(a.text || '')}"></div>`;
-    if (A.arg === 'sound') h += `<div class="field"><label>Sound</label><select data-as="${k}">${C.SOUNDS.map((x, i) => opt(x, C.SOUND_NAMES[i], a.sound || C.SOUNDS[0])).join('')}</select></div>`;
-    h += `<div class="row"><label>After</label><input type="number" min="0" max="30" step="0.1" data-aa="${k}" value="${a.after || 0}"><span class="note">s</span><span class="sep"></span><button class="btn" data-aup="${k}" title="Earlier"${k ? '' : ' disabled'}>UP</button><button class="btn warn" data-adel="${k}">REMOVE</button></div></div>`;
+    if (A.arg === 'group') h += `<div class="field"><label>Group</label><select data-ag="${L}${k}">${opt('', 'choose', a.group || '')}${C.torchGroups(S.map).map(g => opt(g, g, a.group || '')).join('')}</select></div>`;
+    if (A.arg === 'spawn') h += `<div class="field"><label>Wake group</label><select data-ag="${L}${k}">${opt('', 'choose', a.group || '')}${C.wakeGroups(S.map).map(g => opt(g, g, a.group || '')).join('')}</select></div>`;
+    if (A.arg === 'door') h += `<div class="row"><span>${a.door ? `The door at (${a.door[0]},${a.door[1]})` : 'No door chosen'}</span><button class="btn" data-adoor="${L}${k}">CHOOSE THE DOOR</button></div>`;
+    if (A.arg === 'text') h += `<div class="field"><label>Line</label><input type="text" data-atext="${L}${k}" maxlength="60" value="${esc(a.text || '')}"></div>`;
+    if (A.arg === 'sound') h += `<div class="field"><label>Sound</label><select data-as="${L}${k}">${C.SOUNDS.map((x, i) => opt(x, C.SOUND_NAMES[i], a.sound || C.SOUNDS[0])).join('')}</select></div>`;
+    h += `<div class="row"><label>After</label><input type="number" min="0" max="30" step="0.1" data-aa="${L}${k}" value="${a.after || 0}"><span class="note">s</span><span class="sep"></span><button class="btn" data-aup="${L}${k}" title="Earlier"${k ? '' : ' disabled'}>UP</button><button class="btn warn" data-adel="${L}${k}">REMOVE</button></div></div>`;
   });
-  h += `<div class="row"><button class="btn" id="acAdd">ADD AN ACTION</button><span class="sep"></span><button class="btn warn" id="evDel">REMOVE THE TRIGGER</button></div>`;
   return h;
 }
 function wireEvents(on) {
@@ -733,27 +768,34 @@ function wireEvents(on) {
   if (!e) return;
   on('evN', 'change', x => change(() => { e.name = x.target.value.trim(); }));
   on('evK', 'change', x => change(() => { e.kind = x.target.value; delete e.target; if (e.kind !== 'enter') delete e.area; }));
+  on('evT', 'change', x => change(() => { const v = +x.target.value; if (v) e.target = v; else delete e.target; }));
+  on('evY', 'change', x => change(() => { e.type = x.target.value; if (e.type === 'timed' && !(+e.hold > 0)) e.hold = 5; if (e.type === 'once' || e.type === 'every') { delete e.hold; delete e.back; } }));
+  on('evH', 'change', x => change(() => { e.hold = Math.max(0, Math.min(600, +x.target.value || 0)); }));
+  on('evU', 'change', x => change(() => { if (x.target.checked) delete e.undo; else e.undo = false; }));
+  on('acAddB', 'click', () => change(() => { e.back = e.back || []; e.back.push({ kind: 'line', text: '', after: 0 }); }));
   on('evNote', 'change', x => change(() => { e.note = x.target.value; }, true));
   on('evPick', 'click', () => {
     const T = C.TRIGGERS[e.kind];
     if (T.target === 'area') startPick('area', a => { e.area = a; }, 'Drag a box over the cells to walk into');
-    else startPick('thing', id => { e.target = id; },
-      T.target === 'socket' ? 'Click the socket' : T.target === 'mark' ? 'Click the thing to strike' : 'Click the thing to pick up',
-      t => T.target === 'socket' ? t.t === 'socket' : T.target === 'mark' ? ['mark', 'switch', 'gseal'].includes(t.t) : ['gold', 'key', 'map', 'compass', 'relic'].includes(t.t),
-      T.target === 'socket' ? 'CHOOSE A SOCKET' : T.target === 'mark' ? 'CHOOSE A THING A SPELL CAN STRIKE' : 'CHOOSE A THING TO PICK UP');
+    else {
+      const what = { socket: 'socket', mark: 'thing to strike', lever: 'lever', plate: 'pressure plate', thing: 'thing to pick up' }[T.target];
+      startPick('thing', id => { e.target = id; }, 'Click the ' + what, t => C.canWatch(e.kind, t), 'CHOOSE A ' + what.toUpperCase());
+    }
   });
   document.querySelectorAll('[data-need]').forEach(b => b.addEventListener('change', () => change(() => { const n = b.dataset.need; e.needs = (e.needs || []).filter(x => x !== n); if (b.checked) e.needs.push(n); })));
   on('acAdd', 'click', () => change(() => { e.actions = e.actions || []; e.actions.push({ kind: 'flicker_on', group: C.torchGroups(S.map)[0] || '', after: 0 }); }));
   on('evDel', 'click', () => ask(`Remove the trigger "${e.name || 'untitled'}"?`, 'Its actions and note go with it, and other triggers stop waiting on it. Undo brings it back.', 'REMOVE IT', () => change(() => {
     S.map.events.splice(S.evSel, 1); S.map.events.forEach(o => { o.needs = (o.needs || []).filter(n => n !== e.id); }); S.evSel = null; })));
-  document.querySelectorAll('[data-ak]').forEach(b => b.addEventListener('change', () => change(() => { const a = e.actions[+b.dataset.ak]; a.kind = b.value; delete a.door; delete a.text; if (C.ACTIONS[a.kind].arg !== 'group' && C.ACTIONS[a.kind].arg !== 'spawn') delete a.group; })));
-  document.querySelectorAll('[data-ag]').forEach(b => b.addEventListener('change', () => change(() => { e.actions[+b.dataset.ag].group = b.value; })));
-  document.querySelectorAll('[data-at]').forEach(b => b.addEventListener('change', () => change(() => { e.actions[+b.dataset.at].text = b.value.toUpperCase(); })));
-  document.querySelectorAll('[data-as]').forEach(b => b.addEventListener('change', () => change(() => { e.actions[+b.dataset.as].sound = b.value; })));
-  document.querySelectorAll('[data-aa]').forEach(b => b.addEventListener('change', () => change(() => { e.actions[+b.dataset.aa].after = Math.max(0, Math.min(30, +b.value || 0)); })));
-  document.querySelectorAll('[data-adel]').forEach(b => b.addEventListener('click', () => change(() => { e.actions.splice(+b.dataset.adel, 1); })));
-  document.querySelectorAll('[data-aup]').forEach(b => b.addEventListener('click', () => change(() => { const k = +b.dataset.aup; [e.actions[k - 1], e.actions[k]] = [e.actions[k], e.actions[k - 1]]; })));
-  document.querySelectorAll('[data-adoor]').forEach(b => b.addEventListener('click', () => { const a = e.actions[+b.dataset.adoor]; startPick('door', c => { a.door = c; }, 'Click the door'); }));
+  const ref = key => { const back = key[0] === 'b'; const list = back ? e.back : e.actions; return { list, k: +(back ? key.slice(1) : key) }; };   /* 'b2': the third going-back action */
+  const each = (attr, ev, fn) => document.querySelectorAll(`[data-${attr}]`).forEach(b => b.addEventListener(ev, () => fn(b, ref(b.dataset[attr.replace(/-./g, c => c[1].toUpperCase())]))));
+  each('ak', 'change', (b, { list, k }) => change(() => { const a = list[k]; a.kind = b.value; delete a.door; delete a.text; if (C.ACTIONS[a.kind].arg !== 'group' && C.ACTIONS[a.kind].arg !== 'spawn') delete a.group; }));
+  each('ag', 'change', (b, { list, k }) => change(() => { list[k].group = b.value; }));
+  each('atext', 'change', (b, { list, k }) => change(() => { list[k].text = b.value.toUpperCase(); }));
+  each('as', 'change', (b, { list, k }) => change(() => { list[k].sound = b.value; }));
+  each('aa', 'change', (b, { list, k }) => change(() => { list[k].after = Math.max(0, Math.min(30, +b.value || 0)); }));
+  each('adel', 'click', (b, { list, k }) => change(() => { list.splice(k, 1); }));
+  each('aup', 'click', (b, { list, k }) => change(() => { [list[k - 1], list[k]] = [list[k], list[k - 1]]; }));
+  each('adoor', 'click', (b, { list, k }) => { const a = list[k]; startPick('door', c => { a.door = c; }, 'Click the door'); });
 }
 function paneDream() {
   const d = S.dream;
@@ -761,10 +803,13 @@ function paneDream() {
     <div class="row"><label><input type="checkbox" id="dSec"${S.dsec ? ' checked' : ''}> Press the secrets</label><button class="btn" id="dRun">WALK IT</button></div>`;
   if (!d) return h;
   const now = d.events.filter(e => e.at <= S.dstep).length;
-  h += `<p>${d.ok ? '<span class="pip ok">FINISHES</span>' : '<span class="pip error">CANNOT FINISH</span>'} <span class="num">${d.steps} steps</span>${d.missed.length ? `, misses ${d.missed.length}` : ', misses nothing'}.</p>
+  const lay = Object.keys(d.layout || {});
+  h += `<p>${d.ok ? '<span class="pip ok">FINISHES</span>' : '<span class="pip error">CANNOT FINISH</span>'} <span class="num">${d.steps} steps, about ${Math.round(d.seconds)} s</span>${d.missed.length ? `, misses ${d.missed.length}` : ', misses nothing'}.</p>
+    ${d.layouts > 1 ? `<p class="note">${d.failed ? `${d.failed} of ${d.layouts} ways the dice can lay the level cannot be finished; this is the first of them.` : `Every one of the ${d.layouts} ways the dice can lay the level finishes; this is the first.`}${lay.length ? ' Here: ' + lay.map(id => { const t = S.map.things.find(x => x.id === +id); return t ? `${esc(C.label(DATA, t).toLowerCase())} in room ${d.layout[id] + 1}` : ''; }).filter(Boolean).join(', ') + '.' : ''}</p>` : ''}
+    ${d.shut ? `<p class="note"><span class="pip warn">LOOK</span> A timed door shut before the dream had been through it. Its pace is about 2 cells a second; a person sprints faster.</p>` : ''}
     <div class="row"><button class="btn" id="dPlay">${S.playing ? 'PAUSE' : 'PLAY'}</button><button class="btn" id="dBack" title="Step back">&lt;</button><button class="btn" id="dFwd" title="Step on">&gt;</button><span class="num note">step ${S.dstep} of ${d.steps}</span></div>
     <input type="range" id="dStep" min="0" max="${d.steps}" value="${S.dstep}" aria-label="Step">
-    <div class="log well">${d.events.map((e, i) => `<button data-at="${e.at}" class="${i < now ? 'past' : ''}">${String(e.at).padStart(3)} · ${esc(e.msg)}</button>`).join('')}</div>`;
+    <div class="log well">${d.events.map((e, i) => `<button data-at="${e.at}" class="${i < now ? 'past' : ''}"${e.warn ? ' style="color:var(--amber)"' : ''}>${String(e.at).padStart(3)} · ${esc(e.msg)}</button>`).join('')}</div>`;
   if (d.unfired && d.unfired.length) h += `<h3>TRIGGERS NEVER FIRED</h3><p class="note">${d.unfired.map(e => esc(e.name || 'untitled')).join(', ')}</p>`;
   if (d.missed.length) h += `<h3>MISSED</h3><p class="note">${d.missed.map(t => esc(C.label(DATA, t)) + ` (${Math.floor(t.x)},${Math.floor(t.y)})`).join(', ')}</p>`;
   return h;
@@ -789,6 +834,7 @@ function wirePane() {
     on('tEc', 'change', e => change(() => { o.echance = +e.target.value; }));
     on('tEl', 'change', e => change(() => { o.el = e.target.value; }));
     on('tN', 'change', e => change(() => { o.name = e.target.value.trim(); }));
+    document.querySelectorAll('[data-inroom]').forEach(b => b.addEventListener('change', () => change(() => { const ri = +b.dataset.inroom; o.inRooms = (o.inRooms || []).filter(x => x !== ri); if (b.checked) o.inRooms.push(ri); o.inRooms.sort((a, c) => a - c); if (!o.inRooms.length) delete o.inRooms; })));
     on('tAc', 'change', e => change(() => { o.accepts = +e.target.value; }));
     on('tW', 'change', e => change(() => { o.wake = e.target.value.trim(); }));
     on('tDup', 'click', () => change(() => { const c = JSON.parse(JSON.stringify(o)); c.id = S.map.next++; c.x = Math.min(N - 0.125, c.x + 0.5); S.map.things.push(c); S.sel = { kind: 'thing', id: c.id }; }));
@@ -839,12 +885,16 @@ function removeSelected() {
     if (S.sel.kind === 'thing') S.map.things = S.map.things.filter(t => t.id !== S.sel.id);
     else if (S.sel.kind === 'stamp') S.map.stamps.splice(S.sel.i, 1);
     else if (S.sel.kind === 'torch') S.map.torches.splice(S.sel.i, 1);
-    else S.map.rooms.splice(S.sel.i, 1);
+    else {
+      const gone = S.sel.i;
+      S.map.rooms.splice(gone, 1);
+      S.map.things.forEach(t => { if (t.inRooms) { t.inRooms = t.inRooms.filter(x => x !== gone).map(x => x > gone ? x - 1 : x); if (!t.inRooms.length) delete t.inRooms; } });
+    }
     S.sel = null;
   });
   toast('REMOVED: UNDO BRINGS IT BACK');
 }
-function runDream() { stopPlay(); S.dream = C.dream(DATA, S.map, { secrets: !!S.dsec }); S.dstep = 0; draw(); pane(); }
+function runDream() { stopPlay(); S.dream = C.dreamAll(DATA, S.map, { secrets: !!S.dsec }); S.dstep = 0; draw(); pane(); }
 function play() {
   if (!S.dream) return;
   if (S.dstep >= S.dream.steps) S.dstep = 0;

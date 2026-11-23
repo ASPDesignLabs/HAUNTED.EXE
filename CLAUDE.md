@@ -233,7 +233,7 @@ The plans, each with its hand-off log (`docs/HISTORY.md` has the account of each
 | `PLAN-compass.md` | A compass: bought once the map is yours, aimed in the L list, lost at a death; the dial cut as a relic of stone and bone | 1.0.0b21.9, harness only |
 | `PLAN-stamps.md` | Drawn secret rooms, joiners and intended places, as stamps; two agents on `claude/ecstatic-heisenberg-0ljx7r`, a track each | 1.0.0b21.7 and 1.0.0b21.8 (the antechamber); the owner's play of 1.0.0b21.8 and the dream's gap against 1.0.0b21.7 are open |
 | `PLAN-mapedit.md` | A map editor for drawn levels (an artifact), and the game's side: spawn points filled by the budget, the level a drawing is laid on | Parts 1 and 2 built, harness only |
-| `PLAN-events.md` | Scripted events on drawn levels, bound in the map editor: triggers (picked up, set in a socket, struck, walked into, all of these) and actions (torch groups, doors, spawn points, lines, sounds); the compass to be found; the unlit torch | Step 1 (the editor) done; step 2's sheet with the owner |
+| `PLAN-events.md` | Scripted events on drawn levels, bound in the map editor: triggers (picked up, set in a socket, struck, walked into, all of these) and actions (torch groups, doors, spawn points, lines, sounds); the compass to be found; the unlit torch | Steps 1 and 1b (the editor: picks, trigger types) done; step 2's sheet with the owner |
 | `CHANGES-1.0.0b14.md` | The full record of everything between 1.0.0b13 and 1.0.0b14 | |
 
 ## Releasing

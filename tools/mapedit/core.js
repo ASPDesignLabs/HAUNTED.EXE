@@ -17,7 +17,7 @@ const ELEM_FAV = [['EL_FIRE', 'EL_SPIRIT'], ['EL_FROST', 'EL_POISON'], ['EL_LIGH
 const GOLD_KINDS = ['IT_COINS', 'IT_CHALICE', 'IT_GEMS', 'IT_CROWN', 'IT_CHEST'];
 const KEY_NAMES = ['GOLD', 'SILVER', 'CRIMSON'];
 const MARK_NAMES = ['COFFER', 'CAGE', "THE CLASS'S OWN"];
-const MAX = { heads: 48, mobs: 64, items: 96, fire: 16, ice: 24, rooms: 12, rest: 2 };
+const MAX = { heads: 48, mobs: 64, items: 96, fire: 16, ice: 24, rooms: 24, rest: 2, secrets: 6 };
 
 const idx = (x, y) => y * N + x;
 const inMap = (x, y) => x >= 0 && y >= 0 && x < N && y < N;
@@ -147,6 +147,8 @@ function exportDrawn(DATA, m, n) {
         case 'compass': things.push(`{ DT_COMPASS, 0, ${f2(x)}, ${f2(y)} }`); break;
         case 'relic': things.push(`{ DT_RELIC, ${relicNo(t.id)}, ${f2(x)}, ${f2(y)} }`); break;
         case 'socket': things.push(`{ DT_SOCKET, ${t.accepts ? relicNo(t.accepts) : -1}, ${f2(x)}, ${f2(y)} }`); break;
+        case 'lever': things.push(`{ DT_LEVER, 0, ${f2(x)}, ${f2(y)} }`); break;
+        case 'plate': things.push(`{ DT_PLATE, 0, ${f2(x)}, ${f2(y)} }`); break;
         case 'spawn': spawns.push(`{ ${f2(x)}, ${f2(y)}, ${t.k || -1}, ${t.chance == null ? 100 : t.chance}, ${t.echance == null ? -1 : t.echance}, ${t.el || -1}, ${t.rank === '' || t.rank == null ? -1 : 'RK_' + t.rank}${t.wake ? ', ' + wakes.indexOf(t.wake) : ''} }`); break;
         }
     });
@@ -175,17 +177,21 @@ function exportDrawn(DATA, m, n) {
         out.push('};');
     }
     const ev = m.events || [], tor = m.torches || [], acts = [], trigs = [], q = v => JSON.stringify(String(v || '')).replace(/\\u[0-9a-f]{4}/gi, '?');
-    ev.forEach(e => {
+    const actOut = a => {
+        const A = ACTIONS[a.kind]; if (!A) return;
+        const arg = A.arg === 'group' ? groups.indexOf(a.group) : A.arg === 'spawn' ? wakes.indexOf(a.group) : A.arg === 'sound' ? (a.sound || 'SFX_DEEPCHIME') : 0;
+        const dx = a.door ? a.door[0] - b.x0 : 0, dy = a.door ? a.door[1] - b.y0 : 0;
+        acts.push(`{ TA_${a.kind.toUpperCase()}, ${arg}, ${dx}, ${dy}, ${f2(+a.after || 0)}, ${a.kind === 'line' ? q(String(a.text || '').toUpperCase()) : 'NULL'} }`);
+    };
+    ev.forEach(e => {                           /* its actions, then its actions as it goes back, each run in _ACT */
         const first = acts.length;
-        (e.actions || []).forEach(a => {
-            const A = ACTIONS[a.kind]; if (!A) return;
-            const arg = A.arg === 'group' ? groups.indexOf(a.group) : A.arg === 'spawn' ? wakes.indexOf(a.group) : A.arg === 'sound' ? (a.sound || 'SFX_DEEPCHIME') : 0;
-            const dx = a.door ? a.door[0] - b.x0 : 0, dy = a.door ? a.door[1] - b.y0 : 0;
-            acts.push(`{ TA_${a.kind.toUpperCase()}, ${arg}, ${dx}, ${dy}, ${f2(+a.after || 0)}, ${a.kind === 'line' ? q(String(a.text || '').toUpperCase()) : 'NULL'} }`);
-        });
+        (e.actions || []).forEach(actOut);
+        const nact = acts.length - first, back = acts.length;
+        (e.back || []).forEach(actOut);
+        const nback = acts.length - back;
         let needs = 0; (e.needs || []).forEach(n => { const k = ev.findIndex(o => o.id === n); if (k >= 0) needs |= 1 << k; });
         const tg = e.target != null && thingNo[e.target] != null ? thingNo[e.target] : -1, A = e.area || { x0: b.x0, y0: b.y0, x1: b.x0 - 1, y1: b.y0 - 1 };
-        trigs.push(`{ TG_${e.kind.toUpperCase()}, ${e.kind === 'enter' || e.kind === 'all' ? -1 : tg}, ${A.x0 - b.x0}, ${A.y0 - b.y0}, ${A.x1 - b.x0}, ${A.y1 - b.y0}, 0x${(needs >>> 0).toString(16)}u, ${first}, ${acts.length - first} },    /* ${String(e.name || 'untitled').replace(/\*\//g, '')} */`);
+        trigs.push(`{ TG_${e.kind.toUpperCase()}, TT_${(e.type || 'once').toUpperCase()}, ${f2(+e.hold || 0)}, ${e.undo === false ? 0 : 1}, ${e.kind === 'enter' || e.kind === 'all' ? -1 : tg}, ${A.x0 - b.x0}, ${A.y0 - b.y0}, ${A.x1 - b.x0}, ${A.y1 - b.y0}, 0x${(needs >>> 0).toString(16)}u, ${first}, ${nact}, ${back}, ${nback} },    /* ${String(e.name || 'untitled').replace(/\*\//g, '')} */`);
     });
     if (tor.length) {
         out.push(`/* torches: x, y of the wall in the drawing; the face (0 east, 1 south, 2 west, 3 north); the group (${groups.map((g, i) => i + ' ' + g.replace(/\*\//g, '')).join(', ')}); lit at the start */`);
@@ -196,13 +202,22 @@ function exportDrawn(DATA, m, n) {
     }
     if (relicList.length) out.push(`static const char *const ${P}_RELIC[] = { ${relicList.map(r => q(String(r.name || 'A RELIC').toUpperCase())).join(', ')} };`);
     if (trigs.length) {
-        out.push(`/* triggers: the kind; its thing (an index in ${P}_THING) or -1; its box (x0, y0, x1, y1); what it waits on, a bit a trigger; its actions */`);
+        out.push(`/* triggers: the kind; once, every time, a switch or timed; how long it holds, s (0 till touched again); whether its torches and doors go`);
+        out.push(` * back with it; its thing (an index in ${P}_THING) or -1; its box (x0, y0, x1, y1); what it waits on, a bit a trigger; its actions;`);
+        out.push(` * the actions as it goes back */`);
         out.push(`static const DrawnTrig ${P}_TRIG[] = {`); trigs.forEach(t => out.push('    ' + t)); out.push('};');
         out.push(`/* actions: the kind; the group or the sound; a door's cell in the drawing; after how long, s; the line */`);
         out.push(`static const DrawnAct ${P}_ACT[] = {`); acts.forEach(a => out.push('    ' + a + ',')); if (!acts.length) out.push('    { TA_LINE, 0, 0, 0, 0.0f, NULL },'); out.push('};');
     }
-    const evTail = trigs.length || tor.length || relicList.length
-        ? `, ${tor.length ? P + '_TORCH' : 'NULL'}, ${tor.length}, ${trigs.length ? P + '_TRIG' : 'NULL'}, ${trigs.length}, ${trigs.length ? P + '_ACT' : 'NULL'}, ${trigs.length ? Math.max(1, acts.length) : 0}, ${relicList.length ? P + '_RELIC' : 'NULL'}, ${relicList.length}` : '';
+    const pk = m.things.filter(t => (t.inRooms || []).length && thingNo[t.id] != null);
+    if (pk.length) {
+        out.push(`/* things that appear in one of a set of rooms, by the run's dice: the thing (an index in ${P}_THING), the rooms (a bit a room in ${P}_ROOM) */`);
+        out.push(`static const DrawnPick ${P}_PICK[] = {`);
+        pk.forEach(t => { let mask = 0; t.inRooms.forEach(ri => { mask |= 1 << ri; }); out.push(`    { ${thingNo[t.id]}, 0x${(mask >>> 0).toString(16)}u },    /* ${label(DATA, t).replace(/\*\//g, '')} */`); });
+        out.push('};');
+    }
+    const evTail = trigs.length || tor.length || relicList.length || pk.length
+        ? `, ${tor.length ? P + '_TORCH' : 'NULL'}, ${tor.length}, ${trigs.length ? P + '_TRIG' : 'NULL'}, ${trigs.length}, ${trigs.length ? P + '_ACT' : 'NULL'}, ${trigs.length ? Math.max(1, acts.length) : 0}, ${relicList.length ? P + '_RELIC' : 'NULL'}, ${relicList.length}, ${pk.length ? P + '_PICK' : 'NULL'}, ${pk.length}` : '';
     out.push(`/* its row in DRAWN[] */`);
     out.push(`    { ${P}_MAP, ${b.w}, ${b.h}, ${b.x0}, ${b.y0}, ${m.face}, ${P}_ROOM, (int)(sizeof ${P}_ROOM / sizeof ${P}_ROOM[0]), { ${vault.join(', ')} },`);
     out.push(`      ${P}_THING, (int)(sizeof ${P}_THING / sizeof ${P}_THING[0]), ${seed}u, ${m.level}, ${spawns.length ? P + '_SPAWN' : 'NULL'}, ${spawns.length ? `(int)(sizeof ${P}_SPAWN / sizeof ${P}_SPAWN[0])` : 0}${evTail} },`);
@@ -215,6 +230,8 @@ const TRIGGERS = {
     place: { label: 'Set in a socket', target: 'socket', guide: 'Fires when a relic is set in the socket you choose. The socket takes only the relic bound to it (or any, if you leave it open). Use it for "bring this back and put it here".' },
     strike: { label: 'Struck with a spell', target: 'mark', guide: 'Fires when a spell lands on the thing you choose: a bound coffer, a cage, a class\'s own, the switch or a seal. Use it for "shoot this to open the way".' },
     enter: { label: 'Walked into', target: 'area', guide: 'Fires the first time the player steps into the box of cells you draw. Use it for a room that answers being found, or an ambush.' },
+    use: { label: 'Pulled or pressed', target: 'lever', guide: 'Fires when the player uses the lever you choose (the use key, as a door). Use it for anything worked by hand.' },
+    step: { label: 'Stepped on', target: 'plate', guide: 'Fires when the player steps on the pressure plate you choose. Timed, it holds while they stand on it and for its duration after.' },
     all: { label: 'All of these done', target: 'none', guide: 'Fires once every trigger ticked under "Only after" has fired. Use it to join two or more paths: both relics set, both seals struck.' },
 };
 const ACTIONS = {
@@ -241,20 +258,75 @@ function frontOf(cells, x, y) {                 /* drawn_front: a wall's open si
     }
     return null;
 }
+/* what a trigger of each kind may watch */
+function canWatch(kind, t) {
+    switch ((TRIGGERS[kind] || {}).target) {
+    case 'thing': return ['gold', 'key', 'map', 'compass', 'relic'].includes(t.t);
+    case 'socket': return t.t === 'socket';
+    case 'mark': return ['mark', 'switch', 'gseal'].includes(t.t);
+    case 'lever': return t.t === 'lever';
+    case 'plate': return t.t === 'plate';
+    }
+    return false;
+}
 function torchGroups(m) { const g = []; (m.torches || []).forEach(t => { if (t.group && !g.includes(t.group)) g.push(t.group); }); return g; }
 function wakeGroups(m) { const g = []; m.things.forEach(t => { if (t.t === 'spawn' && t.wake && !g.includes(t.wake)) g.push(t.wake); }); return g; }
-/* The dream's walk: lanes only; a key opens its doors, the seal the gate; a relic carried to the socket that takes it, one at a time;
- * a trigger fires when its thing is reached and what it waits on has fired, and its actions open and shut doors. The nearest thing
- * it wants next, then the exit. A copy of the dream's rules for reaching things (goals.c), not the game's own code. */
+/* Where a thing stands in one play. A thing tagged with rooms appears in one of them, by the run's dice: on its own spot if that room
+ * holds it, else on the floor cell nearest the room's middle that is within a step of a lane, not a door, not taken. The game makes
+ * the same choice of cell (docs/PLAN-events.md); only the room is the dice's. */
+function roomSpot(m, cells, L, t, ri, taken) {
+    const r = m.rooms[ri]; if (!r) return null;
+    const [cx, cy] = thingCell(t);
+    if (cx >= r.x && cy >= r.y && cx < r.x + r.w && cy < r.y + r.h) return [t.x, t.y];
+    let best = null, bd = 1e9;
+    const mx = r.x + (r.w - 1) / 2, my = r.y + (r.h - 1) / 2;
+    for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) {
+        if (!inMap(x, y)) continue;
+        const ch = cells[idx(x, y)];
+        if (!isOpen(ch) || DOORS.has(ch) || ch === 'S' || (taken && taken.has(idx(x, y)))) continue;
+        if (!L[idx(x, y)] && !DIRS.some(([dx, dy]) => inMap(x + dx, y + dy) && L[idx(x + dx, y + dy)])) continue;
+        const d = Math.abs(x - mx) + Math.abs(y - my) + (x + y) * 1e-4;   /* ties go up and left, the same every time */
+        if (d < bd) { bd = d; best = [x + 0.5, y + 0.5]; }
+    }
+    return best;
+}
+function picks(m) { return m.things.filter(t => (t.inRooms || []).length); }
+/* every way the dice can lay the tagged things: all of them if there are 64 or fewer, else each thing's rooms in turn, the rest on
+ * their own spots */
+function layouts(m) {
+    const P = picks(m); if (!P.length) return [{}];
+    let all = [{}];
+    for (const t of P) { const n = []; for (const l of all) for (const ri of t.inRooms) n.push(Object.assign({}, l, { [t.id]: ri })); all = n; if (all.length > 64) break; }
+    if (all.length <= 64) return all;
+    const one = [{}]; P.forEach(t => t.inRooms.forEach(ri => one.push({ [t.id]: ri }))); return one;
+}
+const CELL_S = 1 / 2.1;                         /* the dream's pace: CRUISE, cells a second (defs.c); slower round corners */
+const TRIG_TYPES = {
+    once: { label: 'Once', guide: 'Fires the first time, and what it does stays done.' },
+    every: { label: 'Every time', guide: 'Fires each time it is touched. Its actions run again each time: good for a line, a sound or the dead waking.' },
+    toggle: { label: 'Switch', guide: 'The first touch turns it on, the next turns it back: torches and doors go back as they were. A duration makes it go back by itself after that many seconds.' },
+    timed: { label: 'Timed', guide: 'On for the duration you set, then back as it was: a door held open while the player runs for it, torches that burn for a while.' },
+};
+/* an action's way back, for a trigger that returns: torches and doors as they were; the rest have none */
+const UNDO = { flicker_on: 'flicker_off', flicker_off: 'flicker_on', light_on: 'light_off', light_off: 'light_on', door_open: 'door_shut', door_unlock: 'door_shut', door_shut: 'door_open' };
+/* The dream's walk: lanes only; a key opens its doors, the seal the gate; a relic carried to the socket that takes it, one at a time; a
+ * trigger fires when its thing is reached and what it waits on has fired, and its actions open and shut doors, for good or for a time.
+ * The time is the dream's pace, so a timed door shut before it gets there says so. A copy of the dream's rules (goals.c), not the
+ * game's own code. opts.layout: the room each tagged thing appears in. */
 function dream(DATA, m, opts) {
     opts = opts || {};
-    const { cells } = compose(DATA, m), L = lanes(m, cells), evs = m.events || [];
-    const st = { keys: [0, 0, 0], gate: false, secret: !!opts.secrets, doors: new Map(), carry: null, fired: new Set(), placed: new Set() };
-    const pass = (x, y) => {
+    const { cells } = compose(DATA, m), L = lanes(m, cells), evs = m.events || [], lay = opts.layout || {};
+    const st = { keys: [0, 0, 0], gate: false, secret: !!opts.secrets, doors: new Map(), until: new Map(), carry: null, fired: new Map(), on: new Set(), placed: new Set(), now: 0 };
+    const pos = new Map(), taken = new Set();
+    m.things.forEach(t => { if (!(t.id in lay)) { pos.set(t.id, [t.x, t.y]); taken.add(idx(...thingCell(t))); } });
+    m.things.forEach(t => { if (t.id in lay) { const p = roomSpot(m, cells, L, t, lay[t.id], taken) || [t.x, t.y]; pos.set(t.id, p); taken.add(idx(Math.floor(p[0]), Math.floor(p[1]))); } });
+    const cellOf = t => { const p = pos.get(t.id) || [t.x, t.y]; return [Math.floor(p[0]), Math.floor(p[1])]; };
+    const doorOpen = (i, arrive) => { if (!st.doors.get(i)) return false; const u = st.until.get(i); return u == null || arrive < u; };
+    const pass = (x, y, arrive) => {
         if (!inMap(x, y)) return false;
         const i = idx(x, y), ch = cells[i];
         if (!L[i]) return false;
-        if (st.doors.has(i)) return st.doors.get(i);
+        if (st.doors.has(i)) return doorOpen(i, arrive);
         if (ch === 'G') return !!st.keys[0];
         if (ch === 'C') return !!st.keys[2];
         if (ch === '=') return st.gate;
@@ -264,50 +336,91 @@ function dream(DATA, m, opts) {
     };
     let start = null;
     for (let i = 0; i < N * N; i++) if (cells[i] === 'S') { start = [i % N, (i / N) | 0]; break; }
-    const res = { route: [], events: [], ok: false, reached: new Set(), missed: [], unfired: [], exit: null, steps: 0, lights: [] };
+    const res = { route: [], events: [], ok: false, reached: new Set(), missed: [], unfired: [], exit: null, steps: 0, lights: [], pos, layout: lay, seconds: 0 };
     (m.torches || []).forEach(t => res.lights.push({ at: 0, group: t.group, on: !!t.lit, init: true }));
     if (!start) { res.events.push({ at: 0, msg: 'There is no start (S): the dream has nowhere to begin.' }); return res; }
     let exit = null;
     for (let i = 0; i < N * N; i++) if (cells[i] === 'X') { exit = frontOf(cells, i % N, (i / N) | 0); }
     res.exit = exit;
-    const at = () => res.route.length - 1;
+    const at = () => res.route.length - 1, secs = () => st.now.toFixed(1) + ' s';
     const ready = e => (e.needs || []).every(n => st.fired.has(n));
     const trigOf = (kind, id) => evs.filter(e => e.kind === kind && e.target === id);
-    const fire = e => {
-        if (st.fired.has(e.id) || !ready(e)) return;
-        st.fired.add(e.id);
-        res.events.push({ at: at(), msg: `Trigger "${e.name || 'untitled'}" fires.`, trig: e.id });
-        (e.actions || []).forEach(a => {
-            const A = ACTIONS[a.kind]; if (!A) return;
-            let msg = A.label;
-            if (A.arg === 'group') { msg += `: ${a.group || '(no group)'}`; res.lights.push({ at: at(), group: a.group, on: a.kind === 'flicker_on' || a.kind === 'light_on' }); }
-            if (A.arg === 'door' && a.door) {
-                const i = idx(a.door[0], a.door[1]);
-                st.doors.set(i, a.kind !== 'door_shut');
-                msg += ` at (${a.door[0]},${a.door[1]})`;
+    const returns = [];                         /* triggers due to go back: { e, t } */
+    const doAct = (a, e, back) => {
+        const A = ACTIONS[a.kind]; if (!A) return;
+        let msg = A.label;
+        const timed = !back && (e.type === 'timed' || (e.type === 'toggle' && +e.hold > 0)) && e.undo !== false;
+        if (timed && A.arg === 'door' && a.door && a.kind !== 'door_shut') res.timedDoors = (res.timedDoors || 0) + 1;
+        if (A.arg === 'group') { msg += `: ${a.group || '(no group)'}`; res.lights.push({ at: at(), group: a.group, on: a.kind === 'flicker_on' || a.kind === 'light_on' }); }
+        if (A.arg === 'door' && a.door) {
+            const i = idx(a.door[0], a.door[1]), open = a.kind !== 'door_shut';
+            st.doors.set(i, open);
+            if (open && timed) st.until.set(i, st.now + (+a.after || 0) + +e.hold); else st.until.delete(i);
+            msg += ` at (${a.door[0]},${a.door[1]})`;
+            if (open && timed && cur) {             /* how far it is, against how long it holds */
+                const d = bfs(cur[0], cur[1], true).dist[i];
+                if (d >= 0) msg += `, ${d} cells off: about ${(d * CELL_S).toFixed(1)} s at the dream's pace, and it holds ${(+e.hold).toFixed(1)} s`;
+                if (d >= 0 && d * CELL_S > +e.hold + (+a.after || 0)) { res.events.push({ at: at(), msg: '  ' + msg + '.', warn: true }); return; }
             }
-            if (a.kind === 'secret') st.secret = true;
-            if (A.arg === 'spawn') msg += `: ${a.group || '(no group)'}`;
-            if (a.kind === 'line') msg += `: "${a.text || ''}"`;
-            if (a.after) msg += ` (after ${a.after} s)`;
-            res.events.push({ at: at(), msg: '  ' + msg + '.' });
+        }
+        if (a.kind === 'secret') st.secret = true;
+        if (A.arg === 'spawn') msg += `: ${a.group || '(no group)'}`;
+        if (a.kind === 'line') msg += `: "${a.text || ''}"`;
+        if (a.after) msg += ` (after ${a.after} s)`;
+        res.events.push({ at: at(), msg: '  ' + msg + '.' });
+    };
+    const goBack = e => {
+        st.on.delete(e.id);
+        res.events.push({ at: at(), msg: `Trigger "${e.name || 'untitled'}" goes back, at ${secs()}.`, trig: e.id });
+        if (e.undo !== false) (e.actions || []).slice().reverse().forEach(a => {
+            const u = UNDO[a.kind]; if (!u) return;
+            if (a.door) {                       /* a door shut again: did it shut on the dream's way? */
+                const i = idx(a.door[0], a.door[1]);
+                if (u === 'door_shut' && !res.route.some(([x, y]) => idx(x, y) === i) && st.doors.get(i)) {
+                    res.events.push({ at: at(), msg: `  The door at (${a.door[0]},${a.door[1]}) shuts before the dream has been through it.`, warn: true });
+                    res.shut = (res.shut || 0) + 1;
+                }
+            }
+            doAct(Object.assign({}, a, { kind: u, after: 0 }), e, true);
         });
+        (e.back || []).forEach(a => doAct(a, e, true));
+    };
+    const fire = e => {
+        if (!ready(e)) return;
+        const n = st.fired.get(e.id) || 0, type = e.type || 'once';
+        if (type === 'once' && n) return;
+        if (type === 'toggle' && st.on.has(e.id)) { goBack(e); return; }
+        if (type === 'timed' && st.on.has(e.id)) return;
+        st.fired.set(e.id, n + 1);
+        res.events.push({ at: at(), msg: `Trigger "${e.name || 'untitled'}" fires${n ? ' again' : ''}, at ${secs()}.`, trig: e.id });
+        (e.actions || []).forEach(a => doAct(a, e, false));
+        if (type === 'toggle' || type === 'timed') {
+            st.on.add(e.id);
+            if (+e.hold > 0) returns.push({ e, t: st.now + +e.hold });
+        }
         evs.forEach(o => { if (o.kind === 'all' && !st.fired.has(o.id) && (o.needs || []).length && ready(o)) fire(o); });
     };
-    const cellOf = t => thingCell(t), sec = c => inMap(c[0], c[1]) && cells[idx(c[0], c[1])] === 'q';
     const relics = m.things.filter(t => t.t === 'relic'), sockets = m.things.filter(t => t.t === 'socket');
     const takes = (s, r) => !s.accepts || s.accepts === r.id;
-    /* what it wants now: a list of { cells it may stand on, what happens there } */
-    const wants = () => {
+    const near = c => [[0, 0], ...DIRS].map(([dx, dy]) => [c[0] + dx, c[1] + dy]);
+    const sec = c => inMap(c[0], c[1]) && cells[idx(c[0], c[1])] === 'q';
+    /* what it wants now; again: the triggers it would touch a second time, when nothing else is left */
+    const wants = again => {
         const w = [];
-        const near = c => [[0, 0], ...DIRS].map(([dx, dy]) => [c[0] + dx, c[1] + dy]);
         m.things.forEach(t => {
-            if (res.reached.has(t.id)) return;
             const c = cellOf(t);
             if (sec(c) && !st.secret) return;
-            if (['gold', 'key', 'map', 'gseal', 'switch', 'compass'].includes(t.t)) {
-                const tr = trigOf('pickup', t.id).concat(trigOf('strike', t.id));
-                if (tr.length && !tr.every(ready)) return;   /* it waits till taking it would count */
+            if (['lever', 'plate', 'mark', 'switch', 'gseal'].includes(t.t)) {
+                const tr = trigOf(t.t === 'lever' ? 'use' : t.t === 'plate' ? 'step' : 'strike', t.id).filter(ready);
+                const fresh = tr.filter(e => !st.fired.has(e.id)), redo = tr.filter(e => st.fired.has(e.id) && e.type && e.type !== 'once' && !st.on.has(e.id) && (st.fired.get(e.id) || 0) < 4);
+                if (fresh.length || (again && redo.length)) w.push({ cells: t.t === 'plate' ? [c] : near(c), t, why: 'touch' });
+                else if ((t.t === 'gseal' || t.t === 'switch') && !res.reached.has(t.id) && !tr.length && !trigOf('strike', t.id).length) w.push({ cells: near(c), t, why: 'take' });
+                return;
+            }
+            if (res.reached.has(t.id)) return;
+            if (['gold', 'key', 'map', 'compass'].includes(t.t)) {
+                const tr = trigOf('pickup', t.id);
+                if (tr.length && !tr.every(ready)) return;
                 w.push({ cells: near(c), t, why: 'take' });
             } else if (t.t === 'relic') {
                 if (st.carry || !sockets.some(s => !st.placed.has(s.id) && takes(s, t))) return;
@@ -319,9 +432,6 @@ function dream(DATA, m, opts) {
                 const tr = trigOf('place', t.id);
                 if (tr.length && !tr.every(ready)) return;
                 w.push({ cells: near(c), t, why: 'socket' });
-            } else if (t.t === 'mark') {
-                const tr = trigOf('strike', t.id).filter(e => !st.fired.has(e.id));
-                if (tr.length && tr.some(ready)) w.push({ cells: near(c), t, why: 'strike' });
             }
         });
         evs.forEach(e => {
@@ -332,19 +442,29 @@ function dream(DATA, m, opts) {
         });
         return w;
     };
-    const arrive = (x, y) => {                  /* what happens where it stands */
-        evs.forEach(e => { if (e.kind === 'enter' && e.area && !st.fired.has(e.id) && x >= e.area.x0 && x <= e.area.x1 && y >= e.area.y0 && y <= e.area.y1) fire(e); });
-        for (const w of wants()) {
+    const arrive = (x, y, again) => {
+        evs.forEach(e => {
+            if (e.kind !== 'enter' || !e.area || x < e.area.x0 || x > e.area.x1 || y < e.area.y0 || y > e.area.y1) return;
+            if (!st.fired.has(e.id) || (e.type === 'every' && !st.inArea.has(e.id))) fire(e);
+        });
+        st.inArea = new Set(evs.filter(e => e.kind === 'enter' && e.area && x >= e.area.x0 && x <= e.area.x1 && y >= e.area.y0 && y <= e.area.y1).map(e => e.id));
+        for (const w of wants(again)) {
             if (!w.t || !w.cells.some(c => c[0] === x && c[1] === y)) continue;
-            const t = w.t, where = `(${Math.floor(t.x)},${Math.floor(t.y)})`;
-            if (w.why === 'take') {
+            const t = w.t, [tx, ty] = cellOf(t), where = `(${tx},${ty})`;
+            if (w.why === 'touch') {
+                res.reached.add(t.id);
+                const verb = t.t === 'lever' ? 'Pulls the lever' : t.t === 'plate' ? 'Steps on the plate' : `Strikes ${label(DATA, t).toLowerCase()}`;
+                res.events.push({ at: at(), msg: `${verb} at ${where}.` });
+                if (t.t === 'gseal' && !st.gate) { st.gate = true; res.events.push({ at: at(), msg: '  The gate opens.' }); }
+                trigOf(t.t === 'lever' ? 'use' : t.t === 'plate' ? 'step' : 'strike', t.id).forEach(fire);
+            } else if (w.why === 'take') {
                 res.reached.add(t.id);
                 if (t.t === 'key') { st.keys[t.k] = 1; res.events.push({ at: at(), msg: `Takes the ${KEY_NAMES[t.k].toLowerCase()} key at ${where}.` }); }
                 else if (t.t === 'gseal') { st.gate = true; res.events.push({ at: at(), msg: `Strikes the gate's seal at ${where}: the gate opens.` }); }
                 else if (t.t === 'map') res.events.push({ at: at(), msg: `Takes the map at ${where}.` });
                 else if (t.t === 'switch') res.events.push({ at: at(), msg: `Strikes the switch at ${where}.` });
                 else if (t.t === 'compass') res.events.push({ at: at(), msg: `Takes the compass at ${where}.` });
-                trigOf('pickup', t.id).forEach(fire); trigOf('strike', t.id).forEach(fire);
+                trigOf('pickup', t.id).forEach(fire);
             } else if (w.why === 'relic') {
                 res.reached.add(t.id); st.carry = t;
                 res.events.push({ at: at(), msg: `Takes up ${t.name || 'the relic'} at ${where}.` });
@@ -354,58 +474,87 @@ function dream(DATA, m, opts) {
                 res.events.push({ at: at(), msg: `Sets ${st.carry.name || 'the relic'} in ${t.name || 'the socket'} at ${where}.` });
                 st.carry = null;
                 trigOf('place', t.id).forEach(fire);
-            } else if (w.why === 'strike') {
-                res.events.push({ at: at(), msg: `Strikes ${label(DATA, t).toLowerCase()} at ${where}.` });
-                trigOf('strike', t.id).forEach(fire);
             }
         }
     };
-    const bfs = (sx, sy) => {
+    st.inArea = new Set();
+    const bfs = (sx, sy, timeless) => {         /* timeless: as things stand now, however long the walk */
         const dist = new Int32Array(N * N).fill(-1), prev = new Int32Array(N * N).fill(-1), q = [idx(sx, sy)];
         dist[idx(sx, sy)] = 0;
         for (let h = 0; h < q.length; h++) {
             const i = q[h], x = i % N, y = (i / N) | 0;
             for (const [dx, dy] of DIRS) {
                 const nx = x + dx, ny = y + dy;
-                if (!pass(nx, ny) || dist[idx(nx, ny)] >= 0) continue;
+                if (!inMap(nx, ny) || dist[idx(nx, ny)] >= 0 || !pass(nx, ny, timeless ? st.now : st.now + (dist[i] + 1) * CELL_S)) continue;
                 dist[idx(nx, ny)] = dist[i] + 1; prev[idx(nx, ny)] = i; q.push(idx(nx, ny));
             }
         }
         return { dist, prev };
     };
     const pathTo = (prev, i) => { const p = []; while (i >= 0) { p.push([i % N, (i / N) | 0]); i = prev[i]; } return p.reverse(); };
-    let cur = start; res.route.push(cur.slice());
-    arrive(cur[0], cur[1]);
-    const step = c => {
+    const tick = () => {                        /* time passes a step; what is due goes back */
+        st.now += CELL_S;
+        returns.sort((a, b) => a.t - b.t);
+        while (returns.length && returns[0].t <= st.now) { const r = returns.shift(); if (st.on.has(r.e.id)) goBack(r.e); }
+    };
+    let cur = null;
+    cur = start; res.route.push(cur.slice());
+    arrive(cur[0], cur[1], false);
+    const step = (c, again) => {
         const was = cells[idx(c[0], c[1])];
+        tick();
         cur = c; res.route.push(c.slice());
         if (was === 'G' || was === 'C') res.events.push({ at: at(), msg: `Opens the ${was === 'G' ? 'gold' : 'crimson'} door at (${c[0]},${c[1]}).` });
-        arrive(c[0], c[1]);
+        arrive(c[0], c[1], again);
     };
-    for (let guard = 0; guard < 600; guard++) {
+    const go = again => {
         const { dist, prev } = bfs(cur[0], cur[1]);
         let best = null, bd = 1e9;
-        for (const w of wants()) for (const [x, y] of w.cells) {
+        for (const w of wants(again)) for (const [x, y] of w.cells) {
             if (!inMap(x, y)) continue;
             const d = dist[idx(x, y)];
             if (d > 0 && d < bd) { bd = d; best = idx(x, y); }
         }
-        if (best === null) break;
-        pathTo(prev, best).slice(1).forEach(step);
-    }
-    if (exit) {
+        if (best === null) return false;
+        pathTo(prev, best).slice(1).forEach(c => step(c, again));
+        return true;
+    };
+    const toExit = () => {
+        if (!exit) return false;
         const { dist, prev } = bfs(cur[0], cur[1]);
-        if (dist[idx(exit[0], exit[1])] >= 0) {
-            pathTo(prev, idx(exit[0], exit[1])).slice(1).forEach(step);
-            res.events.push({ at: at(), msg: `Reaches the exit at (${exit[0]},${exit[1]}).` });
-            res.ok = true;
-        } else res.events.push({ at: at(), msg: 'Cannot reach the exit from here: the level cannot be finished.' });
-    } else res.events.push({ at: at(), msg: 'There is no exit (X) with an open side.' });
+        if (dist[idx(exit[0], exit[1])] < 0) return false;
+        pathTo(prev, idx(exit[0], exit[1])).slice(1).forEach(c => step(c, false));
+        return true;
+    };
+    let tries = 0;
+    for (let guard = 0; guard < 800; guard++) {
+        if (go(false)) continue;
+        if (exit && bfs(cur[0], cur[1]).dist[idx(exit[0], exit[1])] >= 0) break;
+        if (returns.length && tries < 6) {          /* stuck while something is due to go back: it waits for it */
+            returns.sort((a, b) => a.t - b.t);
+            const w = returns[0].t - st.now;
+            if (w > 0) { res.events.push({ at: at(), msg: `Waits ${w.toFixed(1)} s.` }); st.now = returns[0].t - CELL_S / 2; }
+            tick();
+        }
+        if (tries++ < 6 && go(true)) continue;  /* stuck: try a switch or a timed trigger again, and run */
+        if (returns.length && tries < 6) continue;
+        break;
+    }
+    if (toExit()) { res.events.push({ at: at(), msg: `Reaches the exit at (${exit[0]},${exit[1]}), at ${secs()}.` }); res.ok = true; }
+    else res.events.push({ at: at(), msg: exit ? 'Cannot reach the exit from here: the level cannot be finished.' : 'There is no exit (X) with an open side.' });
     if (st.carry) res.events.push({ at: at(), msg: `Still carries ${st.carry.name || 'a relic'}: no socket would take it.` });
     res.missed = m.things.filter(t => ['gold', 'key', 'map', 'gseal', 'switch', 'compass', 'relic', 'socket'].includes(t.t) && !res.reached.has(t.id));
     res.unfired = evs.filter(e => !st.fired.has(e.id));
-    res.steps = res.route.length - 1;
+    res.steps = res.route.length - 1; res.seconds = st.now;
     return res;
+}
+/* the dream through every way the dice can lay the tagged things: the first that cannot finish, or the first of them all */
+function dreamAll(DATA, m, opts) {
+    const L = layouts(m), runs = L.map(l => dream(DATA, m, Object.assign({}, opts || {}, { layout: l })));
+    const bad = runs.filter(r => !r.ok);
+    const r = bad[0] || runs[0];
+    r.layouts = runs.length; r.failed = bad.length;
+    return r;
 }
 /* whether a torch is lit at a step of the walk: as placed, then as the last action on its group says */
 function torchLit(res, t, step) { let on = !!t.lit; (res ? res.lights : []).forEach(l => { if (!l.init && l.at <= step && l.group === t.group) on = l.on; }); return on; }
@@ -511,7 +660,15 @@ function check(DATA, m) {
     if (ice && !m.things.some(t => t.t === 'switch')) add('warn', 'There is ice but no switch: nothing drains it.', find('I'));
 
     /* rooms */
-    if (m.rooms.length > MAX.rooms) add('error', `${m.rooms.length} rooms: the game keeps ${MAX.rooms}.`);
+    if (m.rooms.length > MAX.rooms) add('error', `${m.rooms.length} rooms: a drawn level keeps ${MAX.rooms}.`);
+    else if (m.rooms.length > 12) add('info', `${m.rooms.length} rooms: the game keeps 12 today; 24 once the events' game side is in (docs/PLAN-events.md).`);
+    m.things.forEach(t => {
+        (t.inRooms || []).forEach(ri => {
+            if (!m.rooms[ri]) add('error', `${label(DATA, t)} may appear in a room that is gone.`, [thingCell(t)]);
+            else if (!roomSpot(m, cells, L, t, ri, null)) add('error', `${label(DATA, t)} may appear in room ${ri + 1}, which has no floor the dream can reach.`, [[m.rooms[ri].x, m.rooms[ri].y]]);
+        });
+        if ((t.inRooms || []).length === 1) add('info', `${label(DATA, t)} has one room to appear in: it is always there.`, [thingCell(t)]);
+    });
     if (!m.rooms.length) add('warn', 'No rooms are marked: every cell will look like a hall.');
     m.rooms.forEach((r, i) => {
         let open = 0;
@@ -526,7 +683,8 @@ function check(DATA, m) {
 
     /* secrets, as gen_drawn lays them */
     const C = find('c');
-    if (C.length > 1) add('error', 'More than one secret: a drawn level holds one today (gen_drawn takes every secret room as one).', C);
+    if (C.length > MAX.secrets) add('error', `${C.length} secrets: a level keeps ${MAX.secrets}.`, C.slice(MAX.secrets));
+    else if (C.length > 1) add('info', `${C.length} secrets, each its own room: the game takes one a drawn level today; more once the events' game side is in (docs/PLAN-events.md).`, C);
     C.forEach(([x, y]) => {
         let into = -1;
         for (let d = 0; d < 4; d++) { const bx = x - DIRS[d][0], by = y - DIRS[d][1]; if (isOpen(at(bx, by)) && at(bx, by) !== 'q') { into = d; break; } }
@@ -619,12 +777,15 @@ function check(DATA, m) {
         if (!T) { add('error', `Trigger ${nm} has no kind.`); return; }
         if (T.target !== 'none' && T.target !== 'area') {
             const t = byId(e.target);
-            if (!t) add('error', `Trigger ${nm} has nothing to watch: choose its ${T.target === 'socket' ? 'socket' : T.target === 'mark' ? 'thing to strike' : 'thing'}.`);
-            else if (T.target === 'socket' && t.t !== 'socket') add('error', `Trigger ${nm} watches ${label(DATA, t).toLowerCase()}, which is not a socket.`, [thingCell(t)]);
-            else if (T.target === 'mark' && !['mark', 'switch', 'gseal'].includes(t.t)) add('error', `Trigger ${nm} watches ${label(DATA, t).toLowerCase()}, which no spell can strike.`, [thingCell(t)]);
-            else if (T.target === 'thing' && !['gold', 'key', 'map', 'compass', 'relic'].includes(t.t)) add('error', `Trigger ${nm} watches ${label(DATA, t).toLowerCase()}, which cannot be picked up.`, [thingCell(t)]);
+            const what = { socket: 'socket', mark: 'thing to strike', lever: 'lever', plate: 'pressure plate', thing: 'thing to pick up' }[T.target];
+            if (!t) add('error', `Trigger ${nm} has nothing to watch: choose its ${what}.`);
+            else if (!canWatch(e.kind, t)) add('error', `Trigger ${nm} watches ${label(DATA, t).toLowerCase()}, which is not a ${what}.`, [thingCell(t)]);
             if (t && e.kind === 'pickup' && (e.needs || []).length) add('info', `Trigger ${nm} waits on others, but the player may take its thing first; then it never fires. The dream waits.`, [thingCell(t)]);
         }
+        const ty = e.type || 'once';
+        if (ty === 'timed' && !(+e.hold > 0)) add('error', `Trigger ${nm} is timed but has no duration.`);
+        if ((ty === 'toggle' || ty === 'timed') && e.kind === 'pickup') add('warn', `Trigger ${nm} goes back, but a thing picked up stays picked up: only its torches and doors return.`);
+        if ((ty === 'toggle' || ty === 'timed') && e.kind === 'place') add('warn', `Trigger ${nm} goes back, but a relic once set stays set: only its torches and doors return.`);
         if (e.kind === 'enter' && !e.area) add('error', `Trigger ${nm} has no box to walk into: draw it on the map.`);
         if (e.kind === 'all' && !(e.needs || []).length) add('error', `Trigger ${nm} waits on nothing: tick what it joins under "Only after".`);
         (e.needs || []).forEach(n => { if (!ev.some(o => o.id === n)) add('error', `Trigger ${nm} waits on a trigger that is gone.`); });
@@ -657,6 +818,8 @@ function label(DATA, t) {
     case 'compass': return 'The compass';
     case 'relic': return 'Relic' + (t.name ? ': ' + t.name.toLowerCase() : '');
     case 'socket': return 'Socket' + (t.name ? ': ' + t.name.toLowerCase() : '');
+    case 'lever': return 'Lever' + (t.name ? ': ' + t.name.toLowerCase() : '');
+    case 'plate': return 'Pressure plate' + (t.name ? ': ' + t.name.toLowerCase() : '');
     }
     return t.t;
 }
@@ -709,7 +872,7 @@ function sampleEvents() {
     return m;
 }
 
-const API = { TRIGGERS, ACTIONS, SOUNDS, SOUND_NAMES, torchGroups, wakeGroups, torchLit, sampleEvents, N, DIRS, DOORS, WALLS, LANE_OF, BASE_OF, RUNS, RANKS, ELEM_FAV, GOLD_KINDS, KEY_NAMES, MARK_NAMES, MAX, idx, inMap, isOpen,
+const API = { canWatch, TRIG_TYPES, UNDO, roomSpot, picks, layouts, dreamAll, TRIGGERS, ACTIONS, SOUNDS, SOUND_NAMES, torchGroups, wakeGroups, torchLit, sampleEvents, N, DIRS, DOORS, WALLS, LANE_OF, BASE_OF, RUNS, RANKS, ELEM_FAV, GOLD_KINDS, KEY_NAMES, MARK_NAMES, MAX, idx, inMap, isOpen,
               blank, clone, xformRows, stampRows, stampDef, compose, laneAt, lanes, importDrawn, exportDrawn, bounds, frontOf, dream,
               levelInfo, rankCost, budget, elemDefault, check, label, thingCell };
 if (typeof module !== 'undefined' && module.exports) module.exports = API; else root.MapCore = API;

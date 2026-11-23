@@ -50,6 +50,32 @@ for (const D of DATA.drawn) {
     ['DT_COMPASS', 'DT_RELIC, 0', 'DT_SOCKET, 0', 'DRAWN3_TORCH', 'DRAWN3_TRIG', 'DRAWN3_ACT', 'DRAWN3_RELIC', 'TG_PICKUP', 'TG_PLACE', 'TG_ENTER', 'TA_FLICKER_ON', 'TA_DOOR_OPEN']
         .forEach(k => { if (!x.includes(k)) fail('the export lacks ' + k); });
 }
+/* trigger types and rooms (docs/PLAN-events.md): a lever on a timed trigger holds the barred door; too short and the door shuts
+ * before the dream gets there, long enough and it finishes; the bone in one of two rooms, every layout tried */
+{
+    const timed = hold => {
+        const m = C.sampleEvents();
+        m.events[1].actions = m.events[1].actions.filter(a => a.kind !== 'door_open');
+        m.things.push({ id: 900, t: 'lever', x: 26.5, y: 26.5 });
+        m.events.push({ id: 'e9', name: 'The lever', kind: 'use', target: 900, type: 'timed', hold, needs: ['e2'], actions: [{ kind: 'door_open', door: [32, 22] }] });
+        return m;
+    };
+    const short = C.dreamAll(DATA, timed(1)), long = C.dreamAll(DATA, timed(30));
+    console.log(`timed lever: 1 s ${short.ok ? 'finishes' : 'cannot finish'} (${short.shut || 0} shut on the way), 30 s ${long.ok ? 'finishes' : 'cannot finish'} in ${Math.round(long.seconds)} s`);
+    if (short.ok || !short.shut) fail('a 1 s door 10 cells away should shut before the dream gets there, and say so');
+    if (!long.ok) fail('a 30 s door should be reached');
+    if (C.check(DATA, timed(0)).every(c => !c.msg.includes('timed but has no duration'))) fail('a timed trigger with no duration should be an error');
+    const tog = timed(30); tog.events[3].type = 'toggle'; tog.events[3].hold = 4;
+    const dt = C.dream(DATA, tog);
+    if (!dt.events.some(e => /goes back/.test(e.msg))) fail('a switch with a duration should go back by itself');
+    const pick = C.sampleEvents(); pick.things.find(t => t.t === 'relic').inRooms = [2, 4];
+    const L = C.layouts(pick), dp = C.dreamAll(DATA, pick);
+    console.log(`the bone in one of two rooms: ${L.length} layouts, ${dp.failed} fail`);
+    if (L.length !== 2 || dp.failed) fail('both rooms for the bone should finish');
+    const at4 = C.dream(DATA, pick, { layout: { [pick.things.find(t => t.t === 'relic').id]: 4 } }).pos.get(pick.things.find(t => t.t === 'relic').id);
+    if (!(at4[1] > 33 && at4[1] < 40)) fail('in room 5 the bone should lie in the south room, not ' + at4);
+    if (!C.exportDrawn(DATA, pick, 3).text.includes('DRAWN3_PICK')) fail('the export lacks the picks');
+}
 /* a stamp laid and turned: the shapes stay whole */
 const s = DATA.stamps[0];
 for (let t = 0; t < 8; t++) {
