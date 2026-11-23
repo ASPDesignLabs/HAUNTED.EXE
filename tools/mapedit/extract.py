@@ -43,7 +43,7 @@ rts = [t.strip() for t in re.search(r"enum \{ (RT_HALL.*?)NRT \}", gen, re.S).gr
 # the tutorial's drawn levels, as the round trip's test and the editor's examples
 drawn_src = read(src + "game/drawn.c")
 drawn = []
-for m in re.finditer(r"\{ (DRAWN(\d+)_MAP), (\d+), (\d+), (\d+), (\d+), (\d+), DRAWN\d+_ROOM, [^,]+, \{ (-?\d+), (-?\d+), (-?\d+) \},\s*DRAWN\d+_THING, [^,]+, (0x[0-9A-Fa-f]+)u \}", drawn_src):
+for m in re.finditer(r"\{ (DRAWN(\d+)_MAP), (\d+), (\d+), (\d+), (\d+), (\d+), DRAWN\d+_ROOM, [^,]+, \{ (-?\d+), (-?\d+), (-?\d+) \},\s*DRAWN\d+_THING, [^,]+, (0x[0-9A-Fa-f]+)u, (\d+), (\w+), (\d+) \}", drawn_src):
     n = m.group(2)
     rows = re.findall(r'"([^"]*)",\s*/\*', re.search(r"DRAWN%s_MAP\[\d+\] = \{(.*?)\};" % n, drawn_src, re.S).group(1))
     things = [{"what": a[3:], "kind": b, "x": float(c), "y": float(d)} for a, b, c, d in
@@ -51,7 +51,7 @@ for m in re.finditer(r"\{ (DRAWN(\d+)_MAP), (\d+), (\d+), (\d+), (\d+), (\d+), D
     rooms = [{"x": int(a), "y": int(b), "w": int(c), "h": int(d), "rt": e} for a, b, c, d, e in
              re.findall(r"\{ (\d+), (\d+), (\d+), (\d+), (RT_\w+) \}", re.search(r"DRAWN%s_ROOM\[\] = \{(.*?)\};" % n, drawn_src, re.S).group(1))]
     drawn.append({"n": int(n), "w": int(m.group(3)), "h": int(m.group(4)), "ox": int(m.group(5)), "oy": int(m.group(6)),
-                  "face": int(m.group(7)), "vault": [int(m.group(8)), int(m.group(9)), int(m.group(10))], "seed": m.group(11),
+                  "face": int(m.group(7)), "vault": [int(m.group(8)), int(m.group(9)), int(m.group(10))], "seed": m.group(11), "level": int(m.group(12)),
                   "rows": rows, "things": things, "rooms": rooms})
     if len(rows) != int(m.group(4)) or any(len(r) != int(m.group(3)) for r in rows): sys.exit("drawn level %s: rows do not match" % n)
 if not drawn: sys.exit("no drawn levels found")

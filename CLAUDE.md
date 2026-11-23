@@ -102,6 +102,7 @@ Gathered from where they were first written. Each still holds.
 | `docs/PLAN-tutorial.md`, `media/sheets/tutorial/`, `tools/tutorial_read.py` | The tutorial's plan; the owner's level drawings and their readings in whole cells, the lessons' sheets; the reader (`python3 -I tools/tutorial_read.py <png>`: the grid, cells, coloured edges and dots) |
 | `src/crawl/crawl_tutor.c/.h` | The lessons' words (`TUT`, `tut_lines`, `tut_head`, `tut_wrap`) and their page (`ui_tutor`), shared by the game and `build/uisheet tutor <dir>` |
 | `tools/host.c` | The headless test harness (Linux): PNG frames, WAV audio, benchmarks, scripted input |
+| `tools/mapedit/` | The map editor (docs/PLAN-mapedit.md), published as a claude.ai artifact: `extract.py` reads the game's stamps, kinds, budgets and the tutorial's levels into `data.json`; `core.js` the logic; `editor.html` the page; `python3 -I tools/mapedit/build.py` builds `build/mapedit/catacomb-map-editor.html`, the file published; `node tools/mapedit/test.js` the round trip against `drawn.c` |
 | `tools/tidy_check.sh` | Proves a change moved nothing of the game (docs/PLAN-tidy.md): this tree's objects against another commit's, byte for byte (`sh tools/tidy_check.sh [objects\|all] [rev]`; `all` adds the binaries, smoke frames, sheets, site and the dream's fixed runs) |
 | `tools/music.sh` | CATACOMB's pieces for the ear (docs/PLAN-music.md): each piece, and each run's through a fight, the failing and a menu, into `build/music/`; `hall`, her hall's pieces and the Lampstand's; `spare`, run I's attempts kept unused (docs/PLAN-music-work.md) |
 | `src/platform/web_main.c`, `web/` | The browser's shell (docs/PLAN-web.md): the game's exported door, and the play page, its script and the sound worklet; `make web` (Emscripten) builds `build/web`, `make webzip` the release's `HAUNTED-<version>-web.zip`; `HVS_WEB` makes Space the cast key in `scene_crawl.c` |
@@ -230,6 +231,7 @@ The plans, each with its hand-off log (`docs/HISTORY.md` has the account of each
 | `PLAN-mice.md` | The mice in the walls, their holes and their telling; the charnel rat they grow into; the spiders on the walls | 1.0.0b21.6; the mice played by the owner, the spiders' last changes not yet |
 | `PLAN-compass.md` | A compass: bought once the map is yours, aimed in the L list, lost at a death; the dial cut as a relic of stone and bone | 1.0.0b21.9, harness only |
 | `PLAN-stamps.md` | Drawn secret rooms, joiners and intended places, as stamps; two agents on `claude/ecstatic-heisenberg-0ljx7r`, a track each | 1.0.0b21.7 and 1.0.0b21.8 (the antechamber); the owner's play of 1.0.0b21.8 and the dream's gap against 1.0.0b21.7 are open |
+| `PLAN-mapedit.md` | A map editor for drawn levels (an artifact), and the game's side: spawn points filled by the budget, the level a drawing is laid on | Parts 1 and 2 built, harness only |
 | `CHANGES-1.0.0b14.md` | The full record of everything between 1.0.0b13 and 1.0.0b14 | |
 
 ## Releasing

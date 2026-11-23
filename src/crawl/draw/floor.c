@@ -254,7 +254,7 @@ static int ward_marks(void) {                                      /* the soul-l
 }
 static int ice_marks(void) {                                       /* level 2's ice over its floor, as far as each cell is laid */
     int any = 0;
-    for (int i = 0; i < IC.n && g_drawn == 2; i++) {
+    for (int i = 0; i < IC.n && g_drawn; i++) {
         float k = ice_k(i);
         if (k > 0.0f) { fm_set(IC.cx[i], IC.cy[i], FM_ICE, 1, k, 0.0f, 0.0f, 0.0f, 0.0f); any = 1; }
     }

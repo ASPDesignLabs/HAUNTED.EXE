@@ -410,7 +410,7 @@ static void update_hazards(float dt) {
     drawn_fire_tick(dt);                                           /* a drawn level's burning floor (docs/PLAN-tutorial.md) */
     drawn_fire_dmarks();
     ice_tick(dt);                                                  /* and level 2's ice: the dream crosses it if it must */
-    for (int i = 0; i < IC.n && g_drawn == 2 && IC.live; i++) hz_dput(IC.cx[i], IC.cy[i], HZ_SOFT);
+    for (int i = 0; i < IC.n && g_drawn && IC.live; i++) hz_dput(IC.cx[i], IC.cy[i], HZ_SOFT);
     int px = (int)G.px, py = (int)G.py, mhp = G.max_hp > 0 ? G.max_hp : 100;
     for (int i = 0; i < MAXHAZ; i++) {
         Hazard *h = &G.haz[i];

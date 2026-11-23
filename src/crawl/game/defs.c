@@ -163,6 +163,8 @@ typedef struct {
                                                                       gargoyle woke */
     float told_t;                                                  /* told of you (docs/PLAN-mice.md): a charnel rat by a mouse, rearing;
                                                                       a spider by a wall spider, watchful */
+    int dsp, dsp_ech, dsp_el;                                      /* from an owner's spawn point (docs/PLAN-mapedit.md): 1 if so; its
+                                                                      chance of an element, % or -1 by rank; the element or -1 */
 } Mob;
 enum { FT_THREW = 1, FT_DROPPED = 2, FT_HATCHED = 4, FT_HORN = 8, FT_RUNG = 16, FT_SHED = 32, FT_BROKE = 64, FT_NOW = 128 };
 /* What the two tracks share (docs/PLAN-combat.md, section 17.3). Change any of it only as that section says. The statuses, the

@@ -27,10 +27,10 @@ static struct {
 } TU;
 static int tu_due(int level) {                                     /* a drawn level's lessons, for a person, if not yet given */
 #ifdef CRAWL_DEBUG
-    if (getenv("CRAWL_TUT")) return atoi(getenv("CRAWL_TUT")) != 0 && drawn_level(level);
+    if (getenv("CRAWL_TUT")) return atoi(getenv("CRAWL_TUT")) != 0 && drawn_tut(level);
 #endif
     pl_read();
-    return drawn_level(level) && !(PL.tut & (level == 1 ? TUT_L1 : TUT_L2));
+    return drawn_tut(level) && !(PL.tut & (drawn_level(level) == 1 ? TUT_L1 : TUT_L2));   /* the tutorial's drawings alone */
 }
 static void tu_level_begin(void) {                                 /* from start_level */
     int on = G.player && g_drawn && tu_due(G.level);
@@ -143,7 +143,7 @@ static int tu_beat(int b, int lesson, int alt) {                   /* a beat, on
     return 1;
 }
 static int tu_trig(int cx, int cy) {                               /* the trigger a cell is, on the level's drawing (0 none) */
-    if (!g_drawn) return 0;
+    if (!g_drawn || g_drawn > DRAWN_TUT) return 0;               /* the tutorial's drawings alone have triggers */
     const Drawn *D = drawn();
     int x = cx - D->ox, y = cy - D->oy;
     if (g_drawn == 2) return y == 9 && (x == 12 || x == 13) ? 1 : y == 12 && x >= 7 && x <= 9 ? 4 : 0;   /* level 2's 1 and x (T20 a) */
@@ -298,7 +298,7 @@ static void render_tutor(Frame *f) {
 }
 static void tu_cleared(void) {                                     /* a drawn level cleared with its lessons: given, for good */
     if (!TU.on || !g_drawn) return;
-    pl_read(); PL.tut |= G.level == 1 ? TUT_L1 : TUT_L2; pl_write();
+    pl_read(); PL.tut |= g_drawn == 1 ? TUT_L1 : TUT_L2; pl_write();
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "EVENT tut done level %d prefs %d\n", G.level, PL.tut);
 #endif

@@ -94,7 +94,7 @@ static void render_walls(Frame *f, float dx, float dy, float plx, float ply, flo
                 }
                 if (t <= 0.0f || u < 0.0f || u >= 1.0f || u < d->open) continue;
                 static const int LOCKTEX[NKEYS] = { T_LOCKED, T_LOCKED_S, T_LOCKED_C }, RLOCKTEX[NKEYS] = { T_RLOCKED, T_RLOCKED_S, T_RLOCKED_C };
-                perp = t; tex = d->locked == WINGED ? T_WINGDOOR : g_drawn == 2 && d - G.doors == IC.gate_door ? (d->locked == GATED && G.py > d->y + 0.5f ? T_GATE_SEAL : T_GATE) : d->locked == GATED ? T_GATE : G.tri >= 0 && d - G.doors == G.tri_door ? T_TRDOOR : d->locked ? (G.faced ? RLOCKTEX[d->color] : LOCKTEX[d->color]) : (G.faced ? T_RDOOR : T_DOOR); side = d->along_x ? 0 : 1;
+                perp = t; tex = d->locked == WINGED ? T_WINGDOOR : g_drawn && d - G.doors == IC.gate_door ? (d->locked == GATED && G.py > d->y + 0.5f ? T_GATE_SEAL : T_GATE) : d->locked == GATED ? T_GATE : G.tri >= 0 && d - G.doors == G.tri_door ? T_TRDOOR : d->locked ? (G.faced ? RLOCKTEX[d->color] : LOCKTEX[d->color]) : (G.faced ? T_RDOOR : T_DOOR); side = d->along_x ? 0 : 1;
                 texx = clampi((int)((u - d->open) * TS), 0, TS - 1);
                 hit = 1;
             }

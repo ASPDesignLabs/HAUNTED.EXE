@@ -85,7 +85,7 @@ function lanes(m, cells) { const L = new Uint8Array(N * N); for (let y = 0; y < 
 
 /* ---- the drawn level's letters, both ways ---- */
 function importDrawn(D, level) {
-    const m = blank(level || D.n);
+    const m = blank(level || D.level || D.n);
     m.name = 'Tutorial level ' + D.n + ' (from drawn.c)'; m.face = D.face; m.seed = D.seed; m.lattice = false;
     for (let y = 0; y < D.h; y++)
         for (let x = 0; x < D.w; x++) {
@@ -144,7 +144,7 @@ function exportDrawn(DATA, m, n) {
         case 'spawn': spawns.push(`{ ${f2(x)}, ${f2(y)}, ${t.k || -1}, ${t.chance == null ? 100 : t.chance}, ${t.echance == null ? -1 : t.echance}, ${t.el || -1}, ${t.rank === '' || t.rank == null ? -1 : 'RK_' + t.rank} }`); break;
         }
     });
-    const marks = compose(DATA, m).marks.filter(k => k.g === 's');
+    const marks = compose(DATA, m).marks.filter(k => k.g === 's' && cells[idx(k.x, k.y)] !== 'q');
     marks.forEach(k => spawns.push(`{ ${f2(k.x - b.x0 + 0.5)}, ${f2(k.y - b.y0 + 0.5)}, -1, 65, -1, -1, -1 }`));
     const vault = [-1, -1, -1];
     m.rooms.forEach((r, i) => { if (r.vault >= 0 && r.vault < 3) vault[r.vault] = i; });
@@ -162,15 +162,15 @@ function exportDrawn(DATA, m, n) {
     if (!m.rooms.length) out.push('    { 0, 0, 1, 1, RT_HALL },    /* the array may not be empty: draw a room */');
     out.push('};');
     if (spawns.length) {
-        out.push(`/* spawn points (x, y, kind or -1 the budget's choice, chance %, element chance % or -1 by rank, element or -1, rank or -1 the`);
-        out.push(` * level's): read by the game once part 2 is in (docs/PLAN-mapedit.md) */`);
+        out.push(`/* spawn points: x, y; the kind or -1 the budget's choice; the chance %; the element's chance % or -1 by rank; the element or -1;`);
+        out.push(` * the rank or -1 the level's usual */`);
         out.push(`static const DrawnSpawn ${P}_SPAWN[] = {`);
         for (let i = 0; i < spawns.length; i += 2) out.push('    ' + spawns.slice(i, i + 2).join(', ') + ',');
         out.push('};');
     }
     out.push(`/* its row in DRAWN[] */`);
     out.push(`    { ${P}_MAP, ${b.w}, ${b.h}, ${b.x0}, ${b.y0}, ${m.face}, ${P}_ROOM, (int)(sizeof ${P}_ROOM / sizeof ${P}_ROOM[0]), { ${vault.join(', ')} },`);
-    out.push(`      ${P}_THING, (int)(sizeof ${P}_THING / sizeof ${P}_THING[0]), ${seed}u },`);
+    out.push(`      ${P}_THING, (int)(sizeof ${P}_THING / sizeof ${P}_THING[0]), ${seed}u, ${m.level}, ${spawns.length ? P + '_SPAWN' : 'NULL'}, ${spawns.length ? `(int)(sizeof ${P}_SPAWN / sizeof ${P}_SPAWN[0])` : 0} },`);
     return { text: out.join('\n') + '\n', ok: true, rows, b, things, spawns, vault, seed };
 }
 
@@ -331,10 +331,18 @@ function check(DATA, m) {
     const X = find('X');
     if (!X.length) add('error', 'There is no exit (X): set one in a wall, beside the floor it is used from.');
     if (X.length > 1) add('warn', `There are ${X.length} exits: the game uses only the last one it finds, reading left to right, top to bottom.`, X);
-    X.forEach(c => { if (!frontOf(cells, c[0], c[1])) add('error', 'The exit has no open side to be used from.', [c]); });
+    X.forEach(c => {
+        const f = frontOf(cells, c[0], c[1]);
+        if (!f) add('error', 'The exit has no open side to be used from.', [c]);
+        else if (!L[idx(f[0], f[1])]) add('error', `The exit is used from (${f[0]},${f[1]}), which is off the dream's lanes: it can never leave.`, [f]);
+    });
     const H = find('h');
     if (H.length > MAX.rest) add('warn', `There are ${H.length} places to mend: the game keeps ${MAX.rest}.`, H.slice(MAX.rest));
-    H.forEach(c => { if (!frontOf(cells, c[0], c[1])) add('error', 'A place to mend has no open side to be used from.', [c]); });
+    H.forEach(c => {
+        const f = frontOf(cells, c[0], c[1]);
+        if (!f) add('error', 'A place to mend has no open side to be used from.', [c]);
+        else if (!L[idx(f[0], f[1])]) add('warn', `A place to mend is used from (${f[0]},${f[1]}), off the dream's lanes: the dream cannot mend there.`, [f]);
+    });
 
     /* doors: open on one axis, stone on the other, as the generator builds them */
     for (let i = 0; i < N * N; i++) {

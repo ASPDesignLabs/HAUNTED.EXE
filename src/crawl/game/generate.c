@@ -182,7 +182,9 @@ static void mcarve(int x, int y, int region, int theme, int room) {
 }
 static int in_mroom(int r, int x, int y) { return x >= mroom[r][0] && y >= mroom[r][1] && x < mroom[r][0] + mroom[r][2] && y < mroom[r][1] + mroom[r][3]; }
 /* a drawn level (docs/PLAN-tutorial.md) isn't on the plan's grid: its lanes are drawn with it, and each cell's steps to one kept */
-static int g_drawn;                                                /* 1 or 2: the drawn level in play; 0 any other place */
+static int g_drawn;                                                /* 1 + the drawing in play (DRAWN[]); 0 any other place */
+#define DRAWN_TUT 2                                                /* the first two drawings are the tutorial's: their lessons, and their
+                                                                      dead take every element alike (docs/PLAN-mapedit.md) */
 static uint8_t g_lane[MAPN][MAPN], g_ldist[MAPN][MAPN];
 /* level 1's burning floor (docs/PLAN-tutorial.md, section 6): lamp oil spilled across the hall and alight, crossed to go on */
 #define DFIRE_CELLS 16

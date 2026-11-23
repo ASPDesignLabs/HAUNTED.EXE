@@ -12,11 +12,17 @@ typedef struct { int x, y, w, h, rtype; } DrawnRoom;
 enum { DT_GOLD, DT_KEY, DT_DEAD, DT_SGOLD, DT_MARK, DT_SWITCH, DT_GSEAL, DT_MAP };   /* SGOLD: in the secret; MARK's kind 0 a coffer,
                                                                       1 a cage (any line), 2 the class's own */
 typedef struct { int what, kind; float x, y; } DrawnThing;          /* kind: an IT_* for gold, a key's colour, a MOB_* */
+/* A spawn point from the map editor (docs/PLAN-mapedit.md): where, in the drawing's cells; the kind, or -1 the budget's choice; the
+ * chance it is filled, %; its chance of being born to an element, %, or -1 by its rank as elem_roll has it; the element, or -1 the
+ * run's favourites; its rank, or -1 the level's usual */
+typedef struct { float x, y; int kind, chance, echance, elem, rank; } DrawnSpawn;
 typedef struct {
     const char *const *map; int w, h, ox, oy, face;                 /* face: the heading at the start, as G.h */
     const DrawnRoom *room; int nroom, vault[NKEYS];                /* vault: the room each colour's doors keep, -1 none */
     const DrawnThing *thing; int nthing;
     uint32_t seed;                                                 /* the dice its look is laid with */
+    int level;                                                     /* the level it is laid on, the first time down (the owner picks) */
+    const DrawnSpawn *spawn; int nspawn;                           /* its spawn points (the map editor's), filled by the budget */
 } Drawn;
 static const char *const DRAWN1_MAP[32] = {
     "##S++#################",    /*  0 */
@@ -147,9 +153,9 @@ static const DrawnRoom DRAWN2_ROOM[] = {
 #define NDRAWN 2
 static const Drawn DRAWN[NDRAWN] = {
     { DRAWN1_MAP, 22, 32, 11, 6, 0, DRAWN1_ROOM, (int)(sizeof DRAWN1_ROOM / sizeof DRAWN1_ROOM[0]), { 5, -1, -1 },
-      DRAWN1_THING, (int)(sizeof DRAWN1_THING / sizeof DRAWN1_THING[0]), 0x7D1A0001u },
+      DRAWN1_THING, (int)(sizeof DRAWN1_THING / sizeof DRAWN1_THING[0]), 0x7D1A0001u, 1, NULL, 0 },
     { DRAWN2_MAP, 15, 35, 15, 5, 0, DRAWN2_ROOM, (int)(sizeof DRAWN2_ROOM / sizeof DRAWN2_ROOM[0]), { 0, -1, 2 },
-      DRAWN2_THING, (int)(sizeof DRAWN2_THING / sizeof DRAWN2_THING[0]), 0x7D1A0002u },
+      DRAWN2_THING, (int)(sizeof DRAWN2_THING / sizeof DRAWN2_THING[0]), 0x7D1A0002u, 2, NULL, 0 },
 };
 #define DRAWN_HALL 40                                              /* the halls' region on a drawn level */
 static int drawn_level(int level) {                                /* which drawing a level is, 1-based; 0 none */
@@ -158,8 +164,11 @@ static int drawn_level(int level) {                                /* which draw
     if (off < 0) { const char *e = getenv("CRAWL_DRAWN"); off = e && atoi(e) == 0; }   /* 0: the generated levels, as before */
     if (off) return 0;
 #endif
-    return level >= 1 && level <= NDRAWN && !PK.depth ? level : 0;
+    if (PK.depth) return 0;
+    for (int i = 0; i < NDRAWN; i++) if (DRAWN[i].level == level) return i + 1;   /* the level each is laid on (docs/PLAN-mapedit.md) */
+    return 0;
 }
+static int drawn_tut(int level) { int d = drawn_level(level); return d >= 1 && d <= DRAWN_TUT; }   /* one of the tutorial's two */
 static const Drawn *drawn(void) { return &DRAWN[g_drawn - 1]; }
 static char drawn_ch(int x, int y) {                               /* the letter at a cell of the level's map */
     const Drawn *D = drawn();
@@ -340,6 +349,34 @@ static void drawn_dead(void) {                                     /* the dead w
         m->home = G.map[m->cy][m->cx].region;
     }
 }
+static void drawn_spawns(void) {                                   /* the owner's spawn points (docs/PLAN-mapedit.md), after the dead drawn */
+    const Drawn *D = drawn();
+    if (!D->nspawn) return;                                        /* none: no dice thrown, so the tutorial's levels lie as before */
+    float B = budget_of(G.level) * (G.corrupt ? 1.4f : 1.0f) * (G.boss >= 0 ? 0.5f : 1.0f);
+    int heads, made = 0, tried = 0;
+    float spent = set_spent(&heads);
+    for (int pass = 0; pass < 2; pass++)                           /* the kinds the owner chose first, then the budget's choices */
+        for (int i = 0; i < D->nspawn; i++) {
+            const DrawnSpawn *s = &D->spawn[i];
+            if ((s->kind < 0) != (pass == 1)) continue;
+            tried++;
+            if (rnd(100) >= s->chance || heads >= 48) continue;
+            int x = D->ox + (int)s->x, y = D->oy + (int)s->y;
+            if (x < 1 || y < 1 || x >= MAPN - 1 || y >= MAPN - 1 || G.map[y][x].kind != K_FLOOR || occupied(x, y, NULL)) continue;
+            int type = s->kind >= 0 ? s->kind : random_type();
+            if (s->kind < 0 && spent + KIND_COST[type] * rank_cost(s->rank >= 0 ? s->rank : RK_I) > B) continue;   /* the budget spent */
+            Mob *m = spawn_mob(x, y, type);
+            if (!m) continue;
+            m->x = D->ox + s->x; m->y = D->oy + s->y;
+            if (s->rank >= 0) set_rank(m, s->rank);
+            m->home = G.map[y][x].region;
+            m->dsp = 1; m->dsp_ech = s->echance; m->dsp_el = s->elem;
+            spent += KIND_COST[type] * rank_cost(m->rank); heads++; made++;
+        }
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "DRAWN level %d: %d of %d spawn points filled, the dead cost %.2f of %.2f\n", G.level, made, tried, spent, B);
+#endif
+}
 static void drawn_marks(void) {                                    /* level 2's things that want a spell, its switch and its gate's seal */
     const Drawn *D = drawn();
     G.nmk = 0; G.ward_said = 0;
@@ -419,7 +456,7 @@ static float ice_k(int i) {                                        /* how far a 
     return IC.live ? u : 1.0f - u;
 }
 static int ice_at(int x, int y) {                                  /* ice to stand on here */
-    return g_drawn == 2 && x >= 0 && y >= 0 && x < MAPN && y < MAPN && IC.at[y][x] && ice_k(IC.at[y][x] - 1) > 0.5f;
+    return g_drawn && x >= 0 && y >= 0 && x < MAPN && y < MAPN && IC.at[y][x] && ice_k(IC.at[y][x] - 1) > 0.5f;
 }
 static void ice_down(void) {                                       /* the switch struck: it thaws */
     IC.live = 0; IC.t = 0.0f;

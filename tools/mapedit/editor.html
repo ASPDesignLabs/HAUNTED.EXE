@@ -585,8 +585,8 @@ function paneThing(t) {
       <div class="field"><label for="tEm">Element</label><select id="tEm">${opt('rank', 'by rank', t.echance == null ? 'rank' : 'set')}${opt('set', 'my chance', t.echance == null ? 'rank' : 'set')}</select></div>
       ${t.echance == null ? `<p class="note">${ri >= 0 ? `At rank ${esc(t.rank)} the game gives ${Math.round(def * 100)}%.` : 'Rank I none; II 15%, III 25%, IV 35%, V 45%; gilded none.'} On ${esc(L.runName.toLowerCase())} it favours ${esc(fav)}.</p>`
         : `<div class="field"><label for="tEc">Chance</label><div class="row"><input type="range" id="tEc" min="0" max="100" step="5" value="${t.echance}" style="flex:1"><span class="num" id="tEcV">${t.echance}%</span></div></div>`}
-      <div class="field"><label for="tEl">Which</label><select id="tEl">${opt('', "run's favourite", t.el || '')}${DATA.elems.map(e => opt(e, e.slice(3).toLowerCase(), t.el || '')).join('')}</select></div>
-      <p class="note">The budget fills this point when the level is laid. Spawn points need part 2 in the game; drawn levels take every element alike until then.</p>`;
+      <div class="field"><label for="tEl">Which</label><select id="tEl">${opt('', "run's favourite", t.el || '')}${DATA.elems.filter(e => e !== 'EL_PHYS').map(e => opt(e, e.slice(3).toLowerCase(), t.el || '')).join('')}</select></div>
+      <p class="note">A creature chosen here comes whenever its chance falls, budget or not. The budget's choice comes only while the level's budget can pay for it (at rank I).</p>`;
   }
   return h + `<div class="row"><button class="btn" id="tDup">COPY</button><button class="btn warn" id="tDel">REMOVE</button></div>`;
 }
@@ -878,7 +878,7 @@ $('fileIn').addEventListener('change', e => {
 $('bExport').addEventListener('click', () => {
   const errs = S.checks.filter(c => c.sev === 'error').length, n = S.map.slot || 3, x = C.exportDrawn(DATA, S.map, n);
   showText(`EXPORT FOR DRAWN.C (SLOT ${n})`, (errs ? `${errs} check${errs > 1 ? 's say' : ' says'} this level would break: see CHECKS before pasting. ` : '') +
-    `Paste the arrays above DRAWN[] in src/crawl/game/drawn.c and the last two lines into DRAWN[], then raise NDRAWN. Which level it plays on is set by drawn_level(), part 2's table.`, x.text, `drawn-level-${S.map.level}-slot-${n}.txt`);
+    `Paste the arrays above DRAWN[] in src/crawl/game/drawn.c and the last two lines into DRAWN[], then raise NDRAWN. The row carries the level it is laid on (${S.map.level}), the first time down.`, x.text, `drawn-level-${S.map.level}-slot-${n}.txt`);
 });
 
 /* ---------- starting ---------- */

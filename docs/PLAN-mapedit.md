@@ -43,13 +43,24 @@ and `place_stamp_spawns`'s eight steps, and the limits (`DFIRE_CELLS` 16, `ICE_C
 Storage: the artifact's `db`, read and written at `admin` (the owner, and editors if ever invited), `maps/<id>` and a save point at
 `maps/<id>/versions/<time>` on every save; a draft in the browser after every change; backup files through `downloads`.
 
-## 3. Part 2: the game's side (not begun)
+## 3. Part 2: the game's side (built)
 
-- `DrawnSpawn { float x, y; int kind, chance, echance, elem, rank; }` and `const DrawnSpawn *spawn; int nspawn;` on `Drawn`; spent from
-  the level's budget (`budget_of`) as `place_stamp_spawns` does, kind -1 the budget's choice, rank -1 the level's usual.
-- Let a spawn point's creature be born to an element on a drawn level: today `weak_el` returns 1 for every element there (T6 a).
-- `drawn_level()` as a table of level numbers to slots, in place of "levels 1 and 2 of the first descent".
-- Proof that nothing else moved: the dream's log on generated levels line for line against the build before, and the saves.
+- **The level table.** `Drawn` carries `level`, the level it is laid on the first time down, and `drawn_level()` looks it up in
+  place of "levels 1 and 2". The tutorial's rows say 1 and 2, so they lie where they did.
+- **Spawn points.** `DrawnSpawn { float x, y; int kind, chance, echance, elem, rank; }`, `spawn` and `nspawn` on `Drawn`;
+  `drawn_spawns()` after `drawn_dead()`. A point whose kind the owner chose comes whenever its chance falls, budget or not; a point
+  left to the budget (`kind` -1) takes `random_type()` and comes only while `budget_of` (times 1.4 corrupted, half on a boss's level)
+  can pay for it at rank I, less what is already set (`set_spent`). 48 heads at most. Rank -1 is `spawn_mob`'s own roll. With no
+  spawn points no dice are thrown, so a level without them lies as before.
+- **Resistance.** `Mob.dsp`, `dsp_ech`, `dsp_el` (creatures are never saved, so saves are untouched); `elem_roll` takes the point's
+  chance and element in place of the rank's and the run's favourites.
+- **The tutorial's alone.** `DRAWN_TUT` 2: the first two drawings are the tutorial's. Their lessons (`tu_due`, `tu_trig`,
+  `tu_cleared` by slot) and their rule that the dead take every element alike (`weak_el`, T6 a) stay theirs.
+- **Ice and the gate on any drawn level.** The checks that read `g_drawn == 2` for the ice and the gate (`ice_at`, `hazards.c`,
+  `draw/floor.c`, `abilities.c`, `draw/walls.c`) read any drawn level; on the tutorial that is the same test, level 1 having neither.
+  The ice coming back when the map is taken stays level 2's lesson (`pockets.c`).
+- What a drawn level still does without, as the tutorial's did: hazards' sites, puzzles, trials, places to mend laid by the generator,
+  things that want a spell laid by it, spectres, the lull's watch. Each is the owner's to ask for.
 
 ## 4. Later
 
