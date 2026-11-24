@@ -382,7 +382,7 @@ function dream(DATA, m, opts) {
     };
     let start = null;
     for (let i = 0; i < N * N; i++) if (cells[i] === 'S') { start = [i % N, (i / N) | 0]; break; }
-    const res = { route: [], events: [], ok: false, reached: new Set(), missed: [], unfired: [], exit: null, steps: 0, lights: [], pos, layout: lay, seconds: 0 };
+    const res = { route: [], events: [], ok: false, reached: new Set(), missed: [], unfired: [], exit: null, steps: 0, lights: [], fieldLog: [], pos, layout: lay, seconds: 0 };
     (m.torches || []).forEach(t => res.lights.push({ at: 0, group: t.group, on: !!t.lit, init: true }));
     if (!start) { res.events.push({ at: 0, msg: 'There is no start (S): the dream has nowhere to begin.' }); return res; }
     let exit = null;
@@ -410,7 +410,7 @@ function dream(DATA, m, opts) {
             }
         }
         if (a.kind === 'secret') st.secret = true;
-        if (A.arg === 'field') msg += `: ${a.field || '(no field)'}`;
+        if (A.arg === 'field') { msg += `: ${a.field || '(no field)'}`; res.fieldLog.push({ at: at(), field: a.field, on: a.kind === 'field_on' }); }
         if (A.arg === 'spawn') msg += `: ${a.group || '(no group)'}`;
         if (a.kind === 'line') msg += `: "${a.text || ''}"`;
         if (a.after) msg += ` (after ${a.after} s)`;
@@ -603,6 +603,8 @@ function dreamAll(DATA, m, opts) {
     r.layouts = runs.length; r.failed = bad.length;
     return r;
 }
+/* whether a field is live at a step of the walk: as set, then as the last action on it says */
+function fieldLive(res, f, step) { let on = !!f.on; (res ? res.fieldLog : []).forEach(l => { if (l.at <= step && l.field === f.name) on = l.on; }); return on; }
 /* whether a torch is lit at a step of the walk: as placed, then as the last action on its group says */
 function torchLit(res, t, step) { let on = !!t.lit; (res ? res.lights : []).forEach(l => { if (!l.init && l.at <= step && l.group === t.group) on = l.on; }); return on; }
 
@@ -930,7 +932,7 @@ function sampleEvents() {
     return m;
 }
 
-const API = { spotTags, pickOptions, fields, fieldByName, FIELD_DEF, canWatch, TRIG_TYPES, UNDO, roomSpot, picks, layouts, dreamAll, TRIGGERS, ACTIONS, SOUNDS, SOUND_NAMES, torchGroups, wakeGroups, torchLit, sampleEvents, N, DIRS, DOORS, WALLS, LANE_OF, BASE_OF, RUNS, RANKS, ELEM_FAV, GOLD_KINDS, KEY_NAMES, MARK_NAMES, MAX, idx, inMap, isOpen,
+const API = { fieldLive, spotTags, pickOptions, fields, fieldByName, FIELD_DEF, canWatch, TRIG_TYPES, UNDO, roomSpot, picks, layouts, dreamAll, TRIGGERS, ACTIONS, SOUNDS, SOUND_NAMES, torchGroups, wakeGroups, torchLit, sampleEvents, N, DIRS, DOORS, WALLS, LANE_OF, BASE_OF, RUNS, RANKS, ELEM_FAV, GOLD_KINDS, KEY_NAMES, MARK_NAMES, MAX, idx, inMap, isOpen,
               blank, clone, xformRows, stampRows, stampDef, compose, laneAt, lanes, importDrawn, exportDrawn, bounds, frontOf, dream,
               levelInfo, rankCost, budget, elemDefault, check, label, thingCell };
 if (typeof module !== 'undefined' && module.exports) module.exports = API; else root.MapCore = API;

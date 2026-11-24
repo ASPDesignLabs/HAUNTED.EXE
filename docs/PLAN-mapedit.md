@@ -83,3 +83,12 @@ filled (the 0% one never), the rank III skeleton set to frost born to frost, the
 through to level 4 on seeds 1 to 3; `make asan` on it with `ASAN_OPTIONS=detect_leaks=0`, seeds 1 and 4, 400 s: clean. The test
 level found a hole in the editor's checks: the exit's front must be on a lane, or the dream can never leave; that is now an error
 (and a place to mend's a warning). Not played by hand; nothing run under Wine; the Windows and browser builds not compiled here.
+
+**Session 3 (24 November 2026), the editor.** Spots: a marker with a tag, kept for good; a thing or a spawn point may be laid at one of
+the spots of a tag, and a thing that may appear in a room goes to a spot standing in it when there is one. Fire and ice: each joined
+patch of burning floor or ice is a field, chosen by clicking it, with a name, live or not at the start, its harm (fire), the chance of
+its status, and whether it may kill; triggers turn fields on and off by name, and the dream walk dims a field while it is down. Three
+more zooms (40, 48, 64 px a cell) with faint quarter lines, and the view keeps its middle as it zooms. The view follows the dream as it
+walks (*Follow the dream*, remembered in the browser). A selected torch can no longer be dragged (dragging one moved a room). Tested by
+`test.js` and in Playwright's Chromium on the full test level; not used by the owner. The game's side of all of it is with another
+agent, to docs/PLAN-events.md section 2b.
