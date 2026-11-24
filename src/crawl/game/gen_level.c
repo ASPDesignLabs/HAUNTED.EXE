@@ -11,6 +11,31 @@ static void con_carve(int x, int y, int a, int b) {             /* a wall betwee
 }
 static int mind_on(void);
 static int since(int level);
+static void hall_torches(void) {                                  /* the generator's, along the halls */
+    static int order[MAPN * MAPN];
+    int no = 0;
+    for (int i = 0; i < MAPN * MAPN; i++) order[no++] = i;
+    for (int i = no - 1; i > 0; i--) { int j = rnd(i + 1), t = order[i]; order[i] = order[j]; order[j] = t; }
+    for (int i = 0; i < no && G.nlights < MAXLIGHTS - 40; i++) {
+        int x = order[i] % MAPN, y = order[i] / MAPN;
+        if (G.map[y][x].kind != K_FLOOR || G.map[y][x].secret) continue;
+        int near = 0;
+        for (int l = 0; l < G.nlights; l++) if (abs(G.lights[l].cx - x) + abs(G.lights[l].cy - y) < 6) near = 1;
+        if (near || rndf() > 0.68f - 0.22f * depth()) continue;     /* fewer torches the deeper you go */
+        int d = rnd(4);
+        for (int k = 0; k < 4; k++, d = (d + 1) & 3) {
+            int wx = x + DX[d], wy = y + DY[d];
+            Cell *w = cell(wx, wy);
+            if (w->kind != K_WALL || w->secret || wx <= 0 || wy <= 0 || wx >= MAPN - 1 || wy >= MAPN - 1) continue;
+            int bydoor = 0;
+            for (int e = 0; e < 4; e++) if (cell(wx + DX[e], wy + DY[e])->kind == K_DOOR) bydoor = 1;
+            if (bydoor) continue;
+            w->tex = T_TORCH0; w->ftorch = (uint8_t)(((d + 2) & 3) + 1);   /* on the face toward the hall */
+            light_static(x + 0.5f + DX[d] * 0.42f, y + 0.5f + DY[d] * 0.42f, 1.55f, 4.6f);
+            break;
+        }
+    }
+}
 /* what follows the plan on every level: the walls' stone by the room beside them, colonnades, torches, the dressing, what
  * the autopilot can walk, fog, a boss's arena and the faces; a drawn level (docs/PLAN-tutorial.md) shares it */
 static void gen_dress(void) {
@@ -49,30 +74,8 @@ static void gen_dress(void) {
             }
     }
 
-    /* torches along the halls */
-    static int order[MAPN * MAPN];
-    int no = 0;
-    for (int i = 0; i < MAPN * MAPN; i++) order[no++] = i;
-    for (int i = no - 1; i > 0; i--) { int j = rnd(i + 1), t = order[i]; order[i] = order[j]; order[j] = t; }
-    for (int i = 0; i < no && G.nlights < MAXLIGHTS - 40; i++) {
-        int x = order[i] % MAPN, y = order[i] / MAPN;
-        if (G.map[y][x].kind != K_FLOOR || G.map[y][x].secret) continue;
-        int near = 0;
-        for (int l = 0; l < G.nlights; l++) if (abs(G.lights[l].cx - x) + abs(G.lights[l].cy - y) < 6) near = 1;
-        if (near || rndf() > 0.68f - 0.22f * depth()) continue;     /* fewer torches the deeper you go */
-        int d = rnd(4);
-        for (int k = 0; k < 4; k++, d = (d + 1) & 3) {
-            int wx = x + DX[d], wy = y + DY[d];
-            Cell *w = cell(wx, wy);
-            if (w->kind != K_WALL || w->secret || wx <= 0 || wy <= 0 || wx >= MAPN - 1 || wy >= MAPN - 1) continue;
-            int bydoor = 0;
-            for (int e = 0; e < 4; e++) if (cell(wx + DX[e], wy + DY[e])->kind == K_DOOR) bydoor = 1;
-            if (bydoor) continue;
-            w->tex = T_TORCH0; w->ftorch = (uint8_t)(((d + 2) & 3) + 1);   /* on the face toward the hall */
-            light_static(x + 0.5f + DX[d] * 0.42f, y + 0.5f + DY[d] * 0.42f, 1.55f, 4.6f);
-            break;
-        }
-    }
+    /* torches along the halls; on a drawn level that hangs its own, those alone (docs/PLAN-events.md) */
+    if (!g_drawn || !drawn_torches()) hall_torches();
 
     dress_level();
 

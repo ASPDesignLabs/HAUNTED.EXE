@@ -109,7 +109,7 @@ static int dream_looks(void) {                                     /* at a lane 
         Marked *m = &G.mk[k];
         int next_plinth = m->kind == MKK_PLINTH && !m->got && G.mk[m->grp - 1].st < 3 && G.mk[m->grp - 1].els[G.mk[m->grp - 1].st] == m->el;
         if (m->kind == MKK_TABLET) continue;                       /* the tablet only tells: the dream goes by the plinth next in its order */
-        if (m->done || m->tried >= 2 || (m->grp && m->grp != k + 1 && !next_plinth) || (m->kind == MKK_PLINTH && !next_plinth)
+        if (m->done || m->tried >= (ev_mk_watched(k) ? 8 : 2) || (m->grp && m->grp != k + 1 && !next_plinth) || (m->kind == MKK_PLINTH && !next_plinth)
             || (m->kind == MKK_WINCH && m->times) || MKK[m->kind].tier == 4) continue;   /* the bells
                                                                       as one; things for fights are a person's */
         if (m->kind == MKK_HSEAL && (RUN.gear.atk[LINE_ATK[EL_FIRE]] < 0 || RUN.gear.atk[LINE_ATK[EL_FROST]] < 0)) continue;
@@ -135,6 +135,7 @@ static int pick_goal(int x, int y, int *gx, int *gy) {
     if (corner_goal(x, y, gx, gy)) return 1;                       /* hurt, a pack on it: a corner to fight from */
     if (chain_goal(x, y, gx, gy)) return 1;
     if (pz_goal(x, y, gx, gy)) return 1;                           /* a puzzle, when there is time or the way on lies beyond */
+    if (ev_goal(x, y, gx, gy)) return 1;                           /* a drawn level's events, which may stand before the way on */
     if (rest_goal(x, y, gx, gy)) return 1;                         /* hurt and nothing after it: a place to mend */
     int saving = RUN.goal > RUN.treasure;
     if (G.leaving && G.exit_fx >= 0) {                              /* time to go: the exit, by way of key and vault if need be */
@@ -557,7 +558,7 @@ static void update_player(float dt) {
             break;
         }
         if (G.u >= 1.0f) {
-            if (arrive() || at_secret() || at_altar() || at_use() || at_rest() || at_corner() || dream_looks()) break;
+            if (arrive() || at_secret() || at_altar() || at_use() || ev_at_strike() || at_rest() || at_corner() || dream_looks()) break;
             if (G.next_h != G.h) {
                 begin_turn(heading_angle(G.next_h));
                 G.state = PS_TURN;
@@ -573,12 +574,12 @@ static void update_player(float dt) {
         G.st += dt;
         if (G.u < 1.0f) {                                         /* still finishing the step into the corner */
             advance(fmaxf(G.spd, CRUISE * 0.4f) * dt);
-            if (G.u >= 1.0f && (arrive() || at_secret() || at_altar() || at_use() || at_rest() || at_corner())) break;
+            if (G.u >= 1.0f && (arrive() || at_secret() || at_altar() || at_use() || ev_at_strike() || at_rest() || at_corner())) break;
         } else G.spd *= 0.85f;
         float k = smoothstepf(0.0f, 1.0f, G.st / G.adur);
         G.ang = lerpf(G.ang0, G.ang1, k);
         if (G.st >= G.adur) {
-            if (G.u < 1.0f) { advance(1.0f - G.u); if (arrive() || at_secret() || at_altar() || at_use() || at_rest() || at_corner()) break; }
+            if (G.u < 1.0f) { advance(1.0f - G.u); if (arrive() || at_secret() || at_altar() || at_use() || ev_at_strike() || at_rest() || at_corner()) break; }
             G.ang = wrap_pi(G.ang1);
             G.h = G.next_h;
             G.spd = CRUISE * 0.6f;

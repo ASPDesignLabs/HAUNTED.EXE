@@ -5,7 +5,6 @@
 #define MAP_PRICE 1000
 #define MAP_X 10.75f
 #define MAP_Y 14.1f                         /* where it floats in her room, at her left */
-#define COMPASS_PRICE 2500                  /* the compass (docs/PLAN-compass.md): sold once the map is yours, gone with a death */
 #define COMPASS_X 10.75f
 #define COMPASS_Y 16.8f                     /* where it floats in her room, at her right: the map's mirror across her */
 #define COMPASS_FOR_SALE() (RUN.has_map && !RUN.has_compass && !g_map_kept)
@@ -52,6 +51,7 @@ static void update_items(void) {
             if (G.player && !it->value && d < 0.9f) { it->value = 1; say("THE DRAUGHT WAITS: YOU ARE WHOLE"); }   /* (value: said, once) */
             continue;
         }
+        if (!G.player && it->ev && !ev_item_ok(it)) continue;      /* the dream leaves what a trigger waits on (docs/PLAN-events.md) */
         if (d < (G.player ? 0.5f : 1.6f) && G.level_t > 1.0 && !G.ending) collect(it);   /* the autopilot reaches out, to a corner */
     }
 }

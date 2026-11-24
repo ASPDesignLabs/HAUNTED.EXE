@@ -57,6 +57,7 @@ static void build_lightmap(void) {
         const Light *L = &G.lights[l];
         float f = torch_flicker(L);
         if (wr && fabsf(L->x - wr->x) + fabsf(L->y - wr->y) < 5.0f) f *= 0.35f + 0.15f * sinf((float)G.t * 13.0f + l);
+        if (g_events && g_drawn) f *= ev_light(l);                 /* a drawn level's torch out, or every light stuttering (docs/PLAN-events.md) */
         for (int k = 0; k < G.namb; k++) if (G.amb[k].snuff == l + 1) f *= 0.1f;   /* snuffed by a kill room's door */
         for (int k = L->first; k < L->first + L->count; k++) G.lm[G.lc_idx[k]] += G.lc_w[k] * f;
     }

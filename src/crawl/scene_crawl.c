@@ -143,6 +143,9 @@
 /* Ways to touch the world: things carried, set down and used (thing_use) */
 #include "game/things.c"
 
+/* A drawn level's events (docs/PLAN-events.md): the triggers heard, their actions done and undone; the torches' light and look; the dream at them */
+#include "game/events.c"
+
 /* Puzzles: which a level has, where the pieces go, solved and wrong, the shapes they take; the Crypts' (pz_make_run1); pz_make, pz_touched; the dream at a puzzle */
 #include "game/puzzles.c"
 

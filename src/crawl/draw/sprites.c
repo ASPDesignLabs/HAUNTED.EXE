@@ -625,7 +625,7 @@ static void skit_decal(Frame *f, const Draw *d, float dx, float dy, float horizo
 }
 
 static void render_sprites(Frame *f, float dx, float dy, float horizon) {
-    static Draw list[MAXDECO + MAXMOBS + MAXSHOTS + MAXBOOMS + MAXBONES + MAXITEMS + MAXBURNS + MAXPOOLS + MAXHAZ * 4 + MAXSITE * 4 + 16 + DFIRE_CELLS * 2
+    static Draw list[MAXDECO + MAXMOBS + MAXSHOTS + MAXBOOMS + MAXBONES + MAXITEMS + MAXBURNS + MAXPOOLS + MAXHAZ * 4 + MAXSITE * 4 + 16 + DFIRE_CELLS * 2 + EV_FCELLS * 2
                      + MAXMICE + MAXSKIT + MAXLIFE];   /* and wisps, a double, after-images; the mice, the spiders on the walls */
     int n = 0;
     float rx = -dy, ry = dx;
@@ -1082,6 +1082,17 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
                 ADD(fx, fy, 0.0f, (((int)(G.t * 9.0)) + i + k) & 1 ? SP_BURN_B : SP_BURN_A, fminf(1.0f, DF.fade * 1.5f));
                 if (n > n0) list[n - 1].scale = (0.85f + 0.15f * sinf((float)G.t * 7.0f + (float)(i * 2 + k))) * (0.35f + 0.65f * DF.fade);
             }
+    for (int f = 0; f < EV.nf && g_drawn; f++) {                   /* and the owner's fire fields, the same (docs/PLAN-events.md) */
+        const EvField *F = &EV.f[f];
+        if (F->kind != DF_FIRE || F->fade <= 0.02f) continue;
+        for (int j = F->first; j < F->first + F->n; j++)
+            for (int k = 0; k < 2; k++) {
+                int n0 = n;
+                float fx = (float)EV.fx[j] + (k ? 0.72f : 0.28f), fy = (float)EV.fy[j] + (((j + k) & 1) ? 0.7f : 0.3f);
+                ADD(fx, fy, 0.0f, (((int)(G.t * 9.0)) + j + k) & 1 ? SP_BURN_B : SP_BURN_A, fminf(1.0f, F->fade * 1.5f));
+                if (n > n0) list[n - 1].scale = (0.85f + 0.15f * sinf((float)G.t * 7.0f + (float)(j * 2 + k))) * (0.35f + 0.65f * F->fade);
+            }
+    }
     for (int i = 0; i < MAXVENOM; i++) {                           /* Seep's pools, green; the Lance's rime */
         const Venom *v = &G.venoms[i];
         if (!v->alive) continue;
@@ -1189,9 +1200,10 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
     for (int i = 0; i < G.nitems; i++) {
         const Item *it = &G.items[i];
         if (!it->alive) continue;
-        static const int SPR[] = { SP_COINS_A, SP_CHALICE, SP_GEMS, SP_CROWN, SP_CHEST, SP_KEY0, SP_POTION, SP_SOULURN, SP_RINGITEM, SP_ITEM_BONE, SP_SCRIP, SP_MAPFLOOR };
+        static const int SPR[] = { SP_COINS_A, SP_CHALICE, SP_GEMS, SP_CROWN, SP_CHEST, SP_KEY0, SP_POTION, SP_SOULURN, SP_RINGITEM, SP_ITEM_BONE, SP_SCRIP, SP_MAPFLOOR, SP_COMPASSWARE };
         float ph = (float)G.t + it->phase, z = 0.0f;
         int sp = SPR[it->type];
+        if (it->type == IT_COMPASS) z = 0.16f + 0.04f * sinf(ph * 1.6f);   /* the merchant's, floating low over the floor */
         if (it->type == IT_COINS && ((int)(ph * 2.5f) & 1)) sp = SP_COINS_B;
         if (it->type == IT_KEY) { sp = key_sprite(it->color, ph); z = 0.14f + 0.04f * sinf(ph * 2.5f); }
         int n0 = n;

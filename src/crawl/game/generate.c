@@ -164,11 +164,11 @@ static void dress_level(void);
 #define MG (2 * NB + 1)
 typedef struct { uint8_t kind, theme, w, lo, trunk; int8_t room; int16_t region; uint8_t keep; } MCell;   /* keep: not filled as a dead end */
 static MCell MM[MG][MG];
-static int mroom[12][4];                                         /* the rooms on the plan: x, y, w, h */
+static int mroom[MAXROOMS][4];                                         /* the rooms on the plan: x, y, w, h */
 #define ARENA_PLAN 15                       /* plan rows from here on are a boss's (cells from BAND_Y0) */
 #define ARENA_DOOR_MX 3                     /* and the way down to it: plan column 3, cell x 6 */
 static int st_ante_room, st_ante_wx, st_ante_wy;                  /* a vestibule's vault room (0 none), and the plan wall between them (docs/PLAN-stamps.md) */
-static int8_t st_room[12];                                       /* a drawn room's place in st_placed, plus one; 0 a chamber (docs/PLAN-stamps.md) */
+static int8_t st_room[MAXROOMS];                                       /* a drawn room's place in st_placed, plus one; 0 a chamber (docs/PLAN-stamps.md) */
 static int mstart(int m) { return (m & 1) ? 2 * m - 1 : 2 * m; }  /* the first cell of plan row/column m */
 static MCell *mc(int x, int y) {
     static MCell solid = { K_WALL, 0, 0, 0, 0, -1, -1, 0 };
@@ -186,6 +186,19 @@ static int g_drawn;                                                /* 1 + the dr
 #define DRAWN_TUT 2                                                /* the first two drawings are the tutorial's: their lessons, and their
                                                                       dead take every element alike (docs/PLAN-mapedit.md) */
 static uint8_t g_lane[MAPN][MAPN], g_ldist[MAPN][MAPN];
+/* a drawn level's events (docs/PLAN-events.md; events.c runs them), and what the parts above it ask of them */
+static int g_events;                                               /* the drawing in play has triggers, torches or fields of its own */
+static uint8_t g_gate[MAXDOORS];                                   /* a door barred on a drawn level (B, or shut by an event): a
+                                                                      portcullis, which stays up once raised, as the tutorial's gate */
+static int drawn_torches(void);                                    /* the owner's torches, in place of the generator's (gen_dress): how many */
+static float ev_light(int l);                                      /* a light's share this frame: a torch out or guttering, all stuttering */
+static void ev_struck(int k);                                      /* a thing that wants a spell, done (mk_finish) */
+static int ev_mk_watched(int k);                                   /* a trigger waits on it struck: the dream tries it harder */
+static int ev_goal(int x, int y, int *gx, int *gy);                /* the dream at the events */
+static int ev_at_strike(void);                                     /* and, arrived where it means to strike a thing from, the cast */
+static int ev_item_ok(const Item *it);                             /* an item the dream may take: no trigger on it waits on another */
+static void ev_pickup(int thing);                                  /* an item a drawing laid, taken (collect) */
+static void ev_tick(float dt);                                     /* the runner, each frame (update_hazards) */
 /* level 1's burning floor (docs/PLAN-tutorial.md, section 6): lamp oil spilled across the hall and alight, crossed to go on */
 #define DFIRE_CELLS 16
 #define DFIRE_OUT 20.0f                                            /* it burns low and goes out this long after you are past */
@@ -280,7 +293,7 @@ static int thing_use(int i);
 static int pz_level(int level);
 static int pz_kind_of(int level);
 static int mz_vault(int *kx, int *ky, int *room) {
-    int order[12], no = 0;
+    int order[MAXROOMS], no = 0;
     for (int r = 1; r < G.nrooms; r++) {
         int taken = 0;
         for (int k = 0; k < G.nvaults; k++) taken |= G.vault_room[k] == r;

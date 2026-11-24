@@ -258,6 +258,11 @@ static int ice_marks(void) {                                       /* level 2's 
         float k = ice_k(i);
         if (k > 0.0f) { fm_set(IC.cx[i], IC.cy[i], FM_ICE, 1, k, 0.0f, 0.0f, 0.0f, 0.0f); any = 1; }
     }
+    for (int f = 0; f < EV.nf && g_drawn; f++)                     /* and the owner's ice fields (docs/PLAN-events.md) */
+        for (int j = EV.f[f].first; j < EV.f[f].first + EV.f[f].n && EV.f[f].kind == DF_ICE; j++) {
+            float k = ev_ice_k(f, j);
+            if (k > 0.0f) { fm_set(EV.fx[j], EV.fy[j], FM_ICE, 1, k, 0.0f, 0.0f, 0.0f, 0.0f); any = 1; }
+        }
     return any;
 }
 static int hz_marks(void) {

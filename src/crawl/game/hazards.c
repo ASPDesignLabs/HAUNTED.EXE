@@ -411,6 +411,11 @@ static void update_hazards(float dt) {
     drawn_fire_dmarks();
     ice_tick(dt);                                                  /* and level 2's ice: the dream crosses it if it must */
     for (int i = 0; i < IC.n && g_drawn && IC.live; i++) hz_dput(IC.cx[i], IC.cy[i], HZ_SOFT);
+    ev_fields_tick(dt);                                            /* a drawn level's own fields, and its events (docs/PLAN-events.md) */
+    for (int f = 0; f < EV.nf && g_drawn; f++)
+        if (EV.f[f].kind == DF_ICE ? EV.f[f].on : ev_fire_live(f))
+            for (int j = EV.f[f].first; j < EV.f[f].first + EV.f[f].n; j++) hz_dput(EV.fx[j], EV.fy[j], HZ_SOFT);
+    ev_tick(dt);
     int px = (int)G.px, py = (int)G.py, mhp = G.max_hp > 0 ? G.max_hp : 100;
     for (int i = 0; i < MAXHAZ; i++) {
         Hazard *h = &G.haz[i];

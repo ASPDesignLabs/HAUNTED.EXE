@@ -55,7 +55,9 @@ static void render_walls(Frame *f, float dx, float dy, float plx, float ply, flo
                 } else if (cell(pxc, pyc)->kind == K_DOOR) tex = G.faced ? T_RJAMB : T_JAMB;
                 else if (c->face[fd] && plain_tex(tex)) {
                     tex = c->face[fd]; flip = c->fflip >> fd & 1;
-                    if (c->fover[fd]) over = c->fover[fd] == T_FEAT + F1_TORCH ? T_FEAT + F1_TORCH + torch_frame(mx, my, tframe) : c->fover[fd];
+                    if (c->fover[fd]) over = c->fover[fd] != T_FEAT + F1_TORCH ? c->fover[fd]
+                                           : g_events && g_drawn && EV.at_torch[my][mx] ? ev_torch_tex(mx, my, tframe)   /* an event's (docs/PLAN-events.md) */
+                                           : T_FEAT + F1_TORCH + torch_frame(mx, my, tframe);
                 }
                 if (tex == T_TORCH0) tex = T_TORCH0 + torch_frame(mx, my, tframe);
                 if (tex == T_EXIT0) tex = boss_sealed() ? T_GATE : G.exit_open > 0.3f ? T_EXIT_OPEN : T_EXIT0 + ((int)(G.t * 2.5) & 1);   /* barred while a boss lives */
@@ -94,7 +96,7 @@ static void render_walls(Frame *f, float dx, float dy, float plx, float ply, flo
                 }
                 if (t <= 0.0f || u < 0.0f || u >= 1.0f || u < d->open) continue;
                 static const int LOCKTEX[NKEYS] = { T_LOCKED, T_LOCKED_S, T_LOCKED_C }, RLOCKTEX[NKEYS] = { T_RLOCKED, T_RLOCKED_S, T_RLOCKED_C };
-                perp = t; tex = d->locked == WINGED ? T_WINGDOOR : g_drawn && d - G.doors == IC.gate_door ? (d->locked == GATED && G.py > d->y + 0.5f ? T_GATE_SEAL : T_GATE) : d->locked == GATED ? T_GATE : G.tri >= 0 && d - G.doors == G.tri_door ? T_TRDOOR : d->locked ? (G.faced ? RLOCKTEX[d->color] : LOCKTEX[d->color]) : (G.faced ? T_RDOOR : T_DOOR); side = d->along_x ? 0 : 1;
+                perp = t; tex = d->locked == WINGED ? T_WINGDOOR : g_drawn && d - G.doors == IC.gate_door ? (d->locked == GATED && G.py > d->y + 0.5f ? T_GATE_SEAL : T_GATE) : d->locked == GATED || (g_drawn && g_gate[d - G.doors]) ? T_GATE : G.tri >= 0 && d - G.doors == G.tri_door ? T_TRDOOR : d->locked ? (G.faced ? RLOCKTEX[d->color] : LOCKTEX[d->color]) : (G.faced ? T_RDOOR : T_DOOR); side = d->along_x ? 0 : 1;
                 texx = clampi((int)((u - d->open) * TS), 0, TS - 1);
                 hit = 1;
             }

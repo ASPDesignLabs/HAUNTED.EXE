@@ -28,8 +28,9 @@ enum { MOB_SKEL, MOB_GHOST, MOB_BAT, MOB_WSKULL, MOB_SHIELD, MOB_SPIDER,
        MOB_WHIPPER, MOB_SEXTON, MOB_LIGHTLESS,
        MOB_RAT };   /* kept in saves (the record): new kinds go at the end (REC_KINDS 24 at most: the charnel rat took the last) */
 enum { MS_WALK, MS_DIE, MS_RECOIL, MS_FLEE };   /* the last two: wraiths only */
-enum { IT_COINS, IT_CHALICE, IT_GEMS, IT_CROWN, IT_CHEST, IT_KEY, IT_POTION, IT_URN, IT_RING, IT_BONE, IT_SCRIP, IT_MAP };   /* IT_SCRIP: color is its boss;
-                                                                      IT_MAP the tutorial's (docs/PLAN-tutorial.md 7.4) */
+enum { IT_COINS, IT_CHALICE, IT_GEMS, IT_CROWN, IT_CHEST, IT_KEY, IT_POTION, IT_URN, IT_RING, IT_BONE, IT_SCRIP, IT_MAP, IT_COMPASS };   /* IT_SCRIP: color is its boss;
+                                                                      IT_MAP the tutorial's (docs/PLAN-tutorial.md 7.4); IT_COMPASS one
+                                                                      found on a drawn level (docs/PLAN-events.md) */
 static const int ITEM_VALUE[] = { 10, 25, 50, 100, 250, 0, 0, 0, 0, 0, 0 };
 enum { MIS_BONE, MIS_FIRE, MIS_EMBER, MIS_TURNED, MIS_WEB };   /* what the dead throw: bones, a wall skull's fireball, an imp's
                                                                     ember; a spell of yours the Ill-Fated Knight's Mirror Rune

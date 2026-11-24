@@ -43,7 +43,7 @@ static int blend_of(int a, int b, int *flip) {                     /* the blend 
     return -1;
 }
 static int on_water(int x, int y) { return G.faced && G.look == 1 && cell(x, y)->flo == T_FLOORS + FL2_WATER; }   /* the Catacombs' standing water */
-static uint8_t room_shrine[12];                                     /* an undercroft's shrine, once */
+static uint8_t room_shrine[MAXROOMS];                                     /* an undercroft's shrine, once */
 static int wall_lights;                                             /* the saints' candles and the geodes' glow lit this level */
 static float mat_field(int x, int y, uint32_t seed) {              /* smooth over six cells: where the halls are dressed, patched or raw */
     float fx = x / 6.0f, fy = y / 6.0f;
@@ -161,7 +161,7 @@ static void lay_stretch(int d, const int *xs, const int *ys, int n, int rt) {
     }
     if (rt == RT_UNDER && n >= 3) {                                 /* the undercroft's shrine, once a room */
         int r = cell(xs[mid] + DX[d], ys[mid] + DY[d])->region;
-        if (r >= 0 && r < 12 && !room_shrine[r] && bl[mid] < 0) { room_shrine[r] = 1; feat[mid] = F1_SHRINE; }
+        if (r >= 0 && r < (g_drawn ? MAXROOMS : 12) && !room_shrine[r] && bl[mid] < 0) { room_shrine[r] = 1; feat[mid] = F1_SHRINE; }
     }
     for (int i = 0; i < n; i++) {
         Cell *c = &G.map[ys[i]][xs[i]];
