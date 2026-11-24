@@ -73,8 +73,12 @@ enum {
     T_ICE,                                        /* its ice field: a sheet laid over the floor, as a mark (C_CLEAR nowhere) */
     T_MHOLE,                                      /* the mice's holes (docs/PLAN-mice.md): each of the run's materials, both looks, with a hole */
     T_MHOLE_LAST = T_MHOLE + 9,                   /* at the foot at the level's size (NMAT x NVAR; crawl_art_mice) */
+    T_UNLIT,                                      /* the run's own light on the wall (T_FEAT + F1_TORCH) as an event leaves it
+                                                     (docs/PLAN-events.md): guttering, two frames; just snuffed; cold */
+    T_UNLIT_LAST = T_UNLIT + 3,
     NTEX
 };
+_Static_assert(NTEX <= 256, "a face's overlay (Cell.fover) is a byte");
 #define NMAT 5
 #define NVAR 2
 #define NBLEND 6
@@ -83,6 +87,7 @@ enum {
 #define NCEILS 3
 #define T_MATV(m, v) (T_MAT + (m) * NVAR + (v))
 _Static_assert(T_MHOLE_LAST - T_MHOLE + 1 == NMAT * NVAR, "a hole for each material's each look");
+enum { UL_GUTTER0, UL_GUTTER1, UL_SNUFFED, UL_COLD };   /* T_UNLIT's slots */
 /* run I's slots, by name: its materials, what stands on its walls (the torch's three frames from F1_TORCH),
  * its floors and its ceilings */
 enum { M1_ASHLAR, M1_RUBBLE, M1_PLASTER, M1_BEDROCK, M1_BONES };
