@@ -115,10 +115,10 @@ What each part does, as the editor's dream walk has it (`dream` in `core.js`; th
 | 0 | This plan | |
 | 1 | **The editor:** new maps start at level 3; the compass, relics, sockets, torches and the barred door; the events tab (triggers, actions, the owner's notes, the guidance); the dream walk follows triggers; the export's new arrays. The owner's example drawn as a sample level | `test.js`: the tutorial's round trip still exact; the sample level finishes in the walk and fails when its socket is unbound |
 | 2 | **The unlit torch's sheet:** plain walls and each run's own, lit beside unlit, and the flicker's frames. **Stop for the owner** | the sheet in `media/sheets/events/` |
-| 3 | **The game's data:** `DrawnTorch`, `DrawnTrig` (with its type, how long it holds, whether it goes back, its actions for going back), `DrawnAct`, `DrawnPick`; the compass, relics, sockets, levers and plates as things; `B`; **24 rooms** on a drawn level (`Room rooms[12]` and the arrays sized to it: `mroom`, `st_room`, `room_shrine`, `order` in `generate.c`) and **each secret its own room** (`gen_drawn` takes every `q` as one box today); a thing in one of its rooms by the run's dice, its cell chosen as `roomSpot` chooses | the sample level, and the owner's level 3, compiled from their exports |
-| 4 | **The runner:** triggers heard where the game already acts (picking up, setting down, a spell landing, a cell entered), actions done; torch groups' light and look | the sample played by a scripted person: each trigger fires once, in order (`EVENT` lines) |
-| 5 | **The dream:** fetch a relic to its socket, pick up what a trigger waits on, wait on a door an event opens | the sample finished by the dream on eight seeds |
-| 6 | **The proof:** the dream's logs on the tutorial and generated levels against the build before, line for line; `make asan` on the sample | logs, sanitizers |
+| 3 | **The game's data:** `DrawnTorch`, `DrawnTrig` (with its type, how long it holds, whether it goes back, its actions for going back), `DrawnAct`, `DrawnPick`; the compass, relics, sockets, levers and plates as things; `B`; **24 rooms** on a drawn level (`Room rooms[12]` and the arrays sized to it: `mroom`, `st_room`, `room_shrine`, `order` in `generate.c`) and **each secret its own room** (`gen_drawn` takes every `q` as one box today); a thing in one of its rooms by the run's dice, its cell chosen as `roomSpot` chooses | the sample level, and the owner's level 3, compiled from their exports. **Done** (the game's side, 24 November; harness only) |
+| 4 | **The runner:** triggers heard where the game already acts (picking up, setting down, a spell landing, a cell entered), actions done; torch groups' light and look | the sample played by a scripted person: each trigger fires once, in order (`EVENT` lines). **Done** (harness only) |
+| 5 | **The dream:** fetch a relic to its socket, pick up what a trigger waits on, wait on a door an event opens | the sample finished by the dream on eight seeds. **Done** (harness only) |
+| 6 | **The proof:** the dream's logs on the tutorial and generated levels against the build before, line for line; `make asan` on the sample | logs, sanitizers. **Done** |
 
 Nothing here is saved but the compass, which is saved already; an event's state is the level's and goes with it.
 
@@ -161,3 +161,59 @@ error. Tested by `test.js` (a lever holding the sample's barred door for 1 s can
 a switch with a duration goes back by itself; the bone in one of two rooms, both finish) and in Playwright's Chromium (no page
 errors). The owner's level 3 ("Storage", in the artifact's store) read through the checks: see the session's report. Step 2's sheet
 still waits on the owner.
+
+**The game's side, steps 3 to 6 (24 November 2026; its own worktree branch, for the work branch).** Built to section 2b as written;
+nothing in the format changed. Harness only: nobody has played it, nothing ran under Wine, the Windows and browser builds were not
+compiled here (no MinGW or Emscripten in the session; `clang -fsyntax-only` on `scene_crawl.c` shows no new warning).
+
+*Step 3, the data.* `drawn.c` has section 2b's types and enums and the new fields at the end of `Drawn` (a `#pragma` lets the
+tutorial's rows and short spawn points leave them off, so the editor's round trip and `extract.py` read it as before). `B` is a door
+barred (`GATED`) and drawn as a portcullis (`T_GATE`); like the tutorial's gate it stays up once raised (`g_gate` in `generate.c`), and
+a door an event shuts becomes one. `MAXROOMS` 24 (`Room rooms[]`, `mroom`, `st_room`, `room_shrine`, `mz_vault`'s `order`); the
+generator's levels test `room_shrine` at 12 as before. Each `c` takes the `q` cells joined to the cell behind it as its own room (the
+owner's level 3: (4,39)-(6,41) and (20,37)-(27,41)). The picks (`drawn_picks`) are chosen before the level is laid, on the run's dice,
+from `roomSpot`'s rule; the spot-tagged spawn points after them, in their order. The compass is an item (`IT_COMPASS`, drawn as her
+ware, floating low): yours as if bought, or $2,500 if held (`COMPASS_PRICE` moved to `state.c`). Relics, sockets, levers and plates are
+the puzzles' things (`SP_PZ_FOSSIL`, `SP_PZ_PLINTH`, `SP_PZ_LEVER0`, the flagstone), `Thing.ev` and `Item.ev` saying which drawn thing
+each is. A drawing that hangs torches has those alone (the generator's along the halls are not laid: `hall_torches`, moved out of
+`gen_dress` unchanged). Fields (`ev_fields`) on a drawing that exports them, with their harm, chance and whether they kill; the
+tutorial's DF and IC untouched; `ice_tick` reads any drawn level. The unlit torch's four frames are the art's (`src/art/parts/unlit.c`,
+`T_UNLIT`), and `build/torchmock` draws the approved sheet from them byte for byte.
+
+*Step 4, the runner* (`game/events.c`, after `things.c`). Heard in `collect` (pickups), `pz_touched` (a relic taken or set, a lever,
+a plate), `mk_finish` (a thing struck: when it is done, its pips filled), and each frame (boxes; triggers due back). Needs, the four
+types, `hold`, undo in reverse then the `back` actions, each action's `after` from a queue; a trigger going back drops what it had still
+to do. Torches: lit, cold, flickering in (cold, gutter, cold, gutter, lit, 0.12 s a beat, the group's 0.15 s apart) and out (lit,
+gutter, lit, gutter, snuffed 1 s, cold); their light's share 1, 0.33, 0.08, 0. Every light stutters 1.1 s. Fields catch over 1 s and
+burn low over 1.5 s; ice turns cell by cell as the tutorial's. `EVENT ev_fire`, `ev_back`, `ev_act`, `ev_wake`, `ev_dream`,
+`ev_fire_floor`, `compass_taken` in the debug build. A scripted person through the sample (`HOST_INPUT`, taking over at 21 s, seed 1):
+the compass at 29.4 s, the south room at 33.5 s, the bone at 51.5 s, each once, in the editor's order; it was not walked to the exit.
+
+*Step 5, the dream* (`ev_goal`, after the puzzles in `pick_goal`). The nearest of: the socket that takes what it carries; a relic some
+free socket takes; a lever, a plate, a thing a trigger watches struck (from the lane cell nearest it in reach, where `ev_at_strike`
+casts as `dream_looks` does); an item a trigger waits on; a box; and, first, the far side of a door held open for a time. When nothing
+new is left and the way out is shut, what fires again is tried again (up to four times), as the editor's walk does. It leaves an item
+whose trigger waits on another (`worth_taking`, `update_items`, `key_goal`). A socket refuses a relic while its trigger waits, and keeps
+what is set in it.
+
+*Step 6, the proof.* (a) The dream's logs (`apl crawl 3000`, `CRAWL_RUNID=7`) against `c9f836e` built in a worktree, seeds 1 to 8, 11,
+13 and 15 (eight distinct runs: seeds are OR-ed with 1): line for line the same but the line that prints a time taken (`PORTRAITS ...
+kept in`), the tutorial's two levels and 8 to 10 levels a run. (b) The fixtures pasted as slot 3 in scratch copies (not committed), the
+dream from level 3 (`CRAWL_LEVEL=3`, 500 s), seeds 1, 3 ... 15: `events_sample` finished on all eight, its triggers in the editor's
+order each time (the compass, the south room, the bone); `events_full` compiled and finished on all eight (the lever, the timed plate
+going back and fired again in passing, the field put out, the compass at a spot); `storage_level3` finished on seeds 1, 3, 5, 7 (its
+compass stays behind the barred door, which nothing opens yet). Extra checks the same way: the sample with the bone's trigger timed for
+20 s (the dream ran for the door and through it, seeds 1 to 3); the sample with 24 rooms and the bone picked into rooms 22 or 23
+(both laid, finished); the owner's level 3 with a strike trigger on its switch opening B, the compass after it and an "all of these"
+sliding a secret (finished, seeds 1 and 2). (c) `make asan`, `ASAN_OPTIONS=detect_leaks=0`, the three fixtures, seeds 1 and 4, 600 s:
+clean. (d) Saves untouched: `Item`, `Thing` and the events' state are the level's and never saved; the compass found sets what buying
+does, saved as before.
+
+*Read where 2b leaves room:* `TA_SECRET` slides the first secret not yet found, in the drawing's reading order (a moment later if
+another is moving). `TG_ENTER` fires again on entering only when `TT_EVERY`, and `TG_ALL` once, as the editor's walk. A timed plate holds
+while stood on and `hold` after (the editor's guidance). A strike trigger not ready, or one that fires again, has its thing whole again
+2 s after. A spot draws nothing. Limits: 64 torches, 32 triggers, 8 fields of 192 cells in all, 96 actions waiting, 256 things.
+
+*Left:* the owner's look at the torches, the barred door's portcullis and the borrowed looks of relic, socket, lever and plate, in the
+game (new art only on their word); the owner's level 3 with events, once drawn; the browser's and Windows builds compiled by CI; the
+owner's hand on any of it.
