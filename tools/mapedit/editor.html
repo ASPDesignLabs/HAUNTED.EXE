@@ -253,6 +253,7 @@ const SPR = {
   compass: ['..wwww..', '.wbbbbw.', 'wbbrbbbw', 'wbbrbbbw', 'wbbybbbw', 'wbbybbbw', '.wbbbbw.', '..wwww..'],
   relic: ['......ww', '.....wWw', '....wWw.', '...wWw..', '.wwWw...', 'wWww....', 'wWw.....', '.w......'],
   socket: ['........', '........', '.mmmmmm.', 'mkkkkkkm', 'mMmmmmMm', '.mmmmmm.', '..mmmm..', '.mmmmmm.'],
+  spot: ['...mm...', '..m..m..', '.m....m.', 'm..MM..m', 'm..MM..m', '.m....m.', '..m..m..', '...mm...'],
   lever: ['......b.', '.....b..', '....b...', '...b....', '..b.....', '.gggggg.', 'gGGGGGGg', 'gggggggg'],
   plate: ['........', '........', '........', '........', '.gggggg.', 'gGGGGGGg', 'gkgkgkgg', '.gggggg.'],
   map: ['.wwwwww.', 'wWWWWWWw', 'wWbWWbWw', 'wWWbbWWw', 'wWbWWWWw', 'wWWWWbWw', '.wwwwww.', '........'],
@@ -283,7 +284,7 @@ const THING_TOOLS = [
   [{ t: 'key', k: 0 }, 'Gold key'], [{ t: 'key', k: 2 }, 'Crimson key'], [{ t: 'key', k: 1 }, 'Silver key'],
   [{ t: 'spawn', k: '', chance: 100 }, 'Spawn point'], [{ t: 'dead', k: 'MOB_SKEL' }, 'Fixed dead'],
   [{ t: 'map' }, 'The map'], [{ t: 'compass' }, 'The compass'], [{ t: 'relic', name: 'A relic' }, 'Relic'], [{ t: 'socket', name: 'A socket', accepts: 0 }, 'Socket'],
-  [{ t: 'lever', name: '' }, 'Lever'], [{ t: 'plate', name: '' }, 'Pressure plate'], [{ t: 'mark', k: 0 }, 'Coffer'], [{ t: 'mark', k: 1 }, 'Cage'], [{ t: 'mark', k: 2 }, "Class's own"],
+  [{ t: 'spot', tag: 'spot A' }, 'Spot'], [{ t: 'lever', name: '' }, 'Lever'], [{ t: 'plate', name: '' }, 'Pressure plate'], [{ t: 'mark', k: 0 }, 'Coffer'], [{ t: 'mark', k: 1 }, 'Cage'], [{ t: 'mark', k: 2 }, "Class's own"],
   [{ t: 'switch' }, 'Switch'], [{ t: 'gseal' }, "Gate's seal"]];
 const RT_NAMES = DATA.rooms.map(r => r.slice(3).toLowerCase());
 const KINDS = DATA.kinds.filter(k => k.cost != null && !k.unique && k.id !== 'MOB_SAC');
@@ -325,9 +326,18 @@ function draw() {
     g.lineTo(cx - d[0] * z * 0.3 + d[1] * z * 0.3, cy - d[1] * z * 0.3 + d[0] * z * 0.3);
     g.lineTo(cx - d[0] * z * 0.3 - d[1] * z * 0.3, cy - d[1] * z * 0.3 - d[0] * z * 0.3); g.closePath(); g.fill();
   }
+  C.fields(S.map, cells).forEach(f => {                           /* a field down, at the start or at the dream's step: dimmed */
+    const live = S.dream ? C.fieldLive(S.dream, f, S.dstep) : f.on;
+    if (!live) { g.fillStyle = 'rgba(10,8,14,0.62)'; f.cells.forEach(([x, y]) => g.fillRect(x * z, y * z, z, z)); }
+    if (S.sel && S.sel.kind === 'field' && S.sel.key === f.key) { g.strokeStyle = PAL.start; g.lineWidth = 2; f.cells.forEach(([x, y]) => g.strokeRect(x * z + 1, y * z + 1, z - 2, z - 2)); }
+  });
   if (S.showGrid) {
     g.fillStyle = 'rgba(0,0,0,0.28)';
     for (let k = 0; k <= N; k++) { g.fillRect(k * z, 0, 1, W); g.fillRect(0, k * z, W, 1); }
+    if (z >= 32) {                                                 /* quarters of a cell, faint, for laying things */
+      g.fillStyle = 'rgba(0,0,0,0.16)';
+      for (let k = 0; k < N * 4; k++) if (k % 4) { g.fillRect(Math.round(k * z / 4), 0, 1, W); g.fillRect(0, Math.round(k * z / 4), W, 1); }
+    }
     if (S.map.lattice) { g.fillStyle = 'rgba(233,194,76,0.07)'; for (let k = 0; k <= N; k += 4) { g.fillRect(k * z, 0, z, W); g.fillRect(0, k * z, W, z); } }
   }
   if (S.showLanes) {
@@ -381,16 +391,17 @@ function draw() {
   /* things */
   const ts = Math.max(8, Math.round(z * 0.5));
   const st0 = S.sel && S.sel.kind === 'thing' ? S.map.things.find(t => t.id === S.sel.id) : null;
-  if (st0 && (st0.inRooms || []).length) {                         /* where the dice may lay it: a ghost in each room */
+  if (st0 && ((st0.inRooms || []).length || st0.spotTag)) {        /* where the dice may lay it: a ghost at each place */
     g.globalAlpha = 0.45;
-    st0.inRooms.forEach(ri => { const p = C.roomSpot(S.map, composed.cells, laneMask, st0, ri, null); if (p) { g.drawImage(spriteOf(st0), Math.round(p[0] * z - ts / 2), Math.round(p[1] * z - ts / 2), ts, ts); g.strokeStyle = '#c79bf0'; g.strokeRect(Math.round(p[0] * z - ts / 2) - 2, Math.round(p[1] * z - ts / 2) - 2, ts + 4, ts + 4); } });
+    C.pickOptions(S.map, composed.cells, laneMask, st0).forEach(o => { const p = o.pos; if (p) { g.drawImage(spriteOf(st0), Math.round(p[0] * z - ts / 2), Math.round(p[1] * z - ts / 2), ts, ts); g.strokeStyle = '#c79bf0'; g.strokeRect(Math.round(p[0] * z - ts / 2) - 2, Math.round(p[1] * z - ts / 2) - 2, ts + 4, ts + 4); } });
     g.globalAlpha = 1;
   }
   S.map.things.forEach((t, i) => {
     const dp = S.dream && S.dream.pos && S.dream.pos.get(t.id), tx = dp ? dp[0] : t.x, ty = dp ? dp[1] : t.y;
     const px = tx * z - ts / 2, py = ty * z - ts / 2, sel = S.sel && S.sel.kind === 'thing' && S.sel.id === t.id;
-    if ((t.inRooms || []).length) { g.fillStyle = '#c79bf0'; g.fillRect(Math.round(px - 2), Math.round(py + ts - 1), 3, 3); }
-    g.drawImage(spriteOf(t), Math.round(px), Math.round(py), ts, ts);
+    g.globalAlpha = t.t === 'spot' ? 0.7 : 1;
+    if ((t.inRooms || []).length || t.spotTag) { g.fillStyle = '#c79bf0'; g.fillRect(Math.round(px - 2), Math.round(py + ts - 1), 3, 3); }
+    g.drawImage(spriteOf(t), Math.round(px), Math.round(py), ts, ts); g.globalAlpha = 1;
     if (t.t === 'spawn' && t.k) { g.fillStyle = '#ff9a8a'; g.fillRect(Math.round(px + ts - 3), Math.round(py), 3, 3); }
     if (sel) { g.strokeStyle = PAL.start; g.lineWidth = 2; g.strokeRect(Math.round(px) - 2, Math.round(py) - 2, ts + 4, ts + 4); }
   });
@@ -441,6 +452,8 @@ function hit(p) {
   for (let i = (S.map.torches || []).length - 1; i >= 0; i--) { const t = S.map.torches[i]; if (t.x === p.cx && t.y === p.cy) return { kind: 'torch', i }; }
   for (let i = S.map.things.length - 1; i >= 0; i--) { const t = S.map.things[i]; if (Math.abs(t.x - p.x) <= r && Math.abs(t.y - p.y) <= r) return { kind: 'thing', id: t.id }; }
   for (let i = S.map.stamps.length - 1; i >= 0; i--) { const st = S.map.stamps[i], rows = C.stampRows(DATA, st); if (p.cx >= st.x && p.cy >= st.y && p.cx < st.x + rows[0].length && p.cy < st.y + rows.length) return { kind: 'stamp', i }; }
+  const fc = composed.cells[C.idx(p.cx, p.cy)];
+  if (fc === 'F' || fc === 'I') { const f = C.fields(S.map, composed.cells).find(f => f.cells.some(([x, y]) => x === p.cx && y === p.cy)); if (f) return { kind: 'field', key: f.key }; }
   for (let i = S.map.rooms.length - 1; i >= 0; i--) { const rm = S.map.rooms[i]; if (p.cx >= rm.x && p.cy >= rm.y && p.cx < rm.x + rm.w && p.cy < rm.y + rm.h) return { kind: 'room', i }; }
   return null;
 }
@@ -487,7 +500,7 @@ cv.addEventListener('pointerdown', e => {
   if (T.kind === 'room') { S.drag = { room: { x: p.cx, y: p.cy, w: 1, h: 1 }, sx: p.cx, sy: p.cy }; draw(); return; }
   /* select, and drag what was chosen */
   const h = hit(p); S.sel = h; S.hl = null;
-  if (h) S.drag = { move: h, from: p, before: snapshot(), orig: JSON.parse(JSON.stringify(h.kind === 'thing' ? S.map.things.find(t => t.id === h.id) : h.kind === 'stamp' ? S.map.stamps[h.i] : S.map.rooms[h.i])) };
+  if (h && (h.kind === 'thing' || h.kind === 'stamp' || h.kind === 'room')) S.drag = { move: h, from: p, before: snapshot(), orig: JSON.parse(JSON.stringify(h.kind === 'thing' ? S.map.things.find(t => t.id === h.id) : h.kind === 'stamp' ? S.map.stamps[h.i] : S.map.rooms[h.i])) };
   setTab('inspect'); refresh(true);
 });
 cv.addEventListener('pointermove', e => {
@@ -598,6 +611,7 @@ function selected() {
   if (S.sel.kind === 'thing') return S.map.things.find(t => t.id === S.sel.id) || null;
   if (S.sel.kind === 'stamp') return S.map.stamps[S.sel.i] || null;
   if (S.sel.kind === 'torch') return (S.map.torches || [])[S.sel.i] || null;
+  if (S.sel.kind === 'field') return C.fields(S.map, composed.cells).find(f => f.key === S.sel.key) || null;
   return S.map.rooms[S.sel.i] || null;
 }
 function pane() {
@@ -623,6 +637,7 @@ function paneInspect() {
     <div class="kv note"><span>Undo, redo</span><span>Ctrl+Z, Ctrl+Y</span><span>Select</span><span>V</span><span>Turn, mirror a stamp</span><span>R, M</span>
     <span>Delete what is chosen</span><span>Delete</span><span>Lattice, lanes</span><span>G, L</span><span>Zoom</span><span>+ -</span><span>Fill a box</span><span>Shift+drag</span><span>Put down a tool</span><span>Esc</span></div>`;
   if (S.sel.kind === 'thing') return paneThing(o);
+  if (S.sel.kind === 'field') return paneField(o);
   if (S.sel.kind === 'torch') return `<h2>TORCH</h2><p class="note">On the wall at (${o.x}, ${o.y}).</p>
     <div class="field"><label for="toG">Group</label><input type="text" id="toG" list="toGroups" value="${esc(o.group || '')}"></div>
     <datalist id="toGroups">${C.torchGroups(S.map).map(g => `<option value="${esc(g)}">`).join('')}</datalist>
@@ -645,6 +660,20 @@ function paneInspect() {
     <div class="field"><label for="rT">Type</label><select id="rT">${DATA.rooms.map((r, i) => opt(r, RT_NAMES[i], o.rt)).join('')}</select></div>
     <div class="field"><label for="rV">Vault of</label><select id="rV">${opt(-1, 'no key', o.vault)}${opt(0, 'the gold key', o.vault)}${opt(2, 'the crimson key', o.vault)}${opt(1, 'the silver key', o.vault)}</select></div>
     <div class="row"><button class="btn warn" id="rDel">REMOVE</button></div>`;
+}
+function paneField(f) {
+  const fire = f.kind === 'fire';
+  return `<h2>${fire ? 'BURNING FLOOR' : 'ICE'}</h2><p class="note">${f.cells.length} cells, joined. These settings are kept for this patch; paint more ${fire ? 'burning floor' : 'ice'} beside it and it grows.</p>
+    <div class="field"><label for="fN">Name</label><input type="text" id="fN" value="${esc(f.name)}"></div>
+    <div class="row"><label><input type="checkbox" id="fOn"${f.on ? ' checked' : ''}> ${fire ? 'Alight' : 'Frozen'} at the start</label></div>
+    ${fire ? `<div class="field"><label for="fD">Harm</label><div class="row"><input type="range" id="fD" min="0" max="60" step="1" value="${f.dmg}" style="flex:1"><span class="num" id="fDV">${f.dmg}%</span></div></div>
+    <p class="note">Of health each half second while stood in. The tutorial's is 17%.</p>` : ''}
+    <div class="field"><label for="fC">${fire ? 'On Fire' : 'Chilled'}</label><div class="row"><input type="range" id="fC" min="0" max="100" step="5" value="${f.chance}" style="flex:1"><span class="num" id="fCV">${f.chance}%</span></div></div>
+    <p class="note">${fire ? 'The chance it sets the caster On Fire at the first touch: burning on after they step off.' : 'The chance of a Chilled stack each 0.4 s while stood on it, held at three as the tutorial\'s ice is: it slows, it never freezes a person. What else stands on it is held fast.'}</p>
+    <div class="row"><label><input type="checkbox" id="fK"${f.kills ? ' checked' : ''}> May kill</label></div>
+    <p class="note">Left clear, it never takes the caster below a quarter of health, as the tutorial's never does.</p>
+    <p class="note">A trigger's "A field comes alive" and "A field dies down" turn it on and off by its name.</p>
+    <div class="row"><button class="btn warn" id="fDel">BACK TO THE DEFAULTS</button></div>`;
 }
 function paneThing(t) {
   const L = C.levelInfo(DATA, S.map.level);
@@ -676,11 +705,16 @@ function paneThing(t) {
     <p class="note">A place to set a relic. A trigger "Set in a socket" fires when it is filled.</p>`; }
   if (t.t === 'lever' || t.t === 'plate') h += `<div class="field"><label for="tN">Name</label><input type="text" id="tN" placeholder="for your own lists" value="${esc(t.name || '')}"></div>
     <p class="note">${t.t === 'lever' ? 'Worked with the use key, as a door. Bind it to a trigger "Pulled or pressed".' : 'Fires when stepped on. Bind it to a trigger "Stepped on"; a timed trigger holds while it is stood on and for its duration after.'}</p>`;
-  if (!['spawn', 'dead'].includes(t.t) && S.map.rooms.length) {
+  const tags = C.spotTags(S.map);
+  if (t.t === 'spot') h += `<div class="field"><label for="tTg">Tag</label><input type="text" id="tTg" list="spTags" value="${esc(t.tag || '')}"></div>
+    <datalist id="spTags">${tags.map(g => `<option value="${esc(g)}">`).join('')}</datalist>
+    <p class="note">A place a thing may be laid, kept for good. Give spots the same tag and a thing tagged for them turns up at one of them, a different one each play. A spot in a room is also where a thing that may appear in that room goes.</p>`;
+  if (!['dead', 'spot'].includes(t.t) && tags.length) h += `<div class="field"><label for="tSt">Laid at</label><select id="tSt">${opt('', 'where it stands', t.spotTag || '')}${tags.map(g => opt(g, 'one of the spots: ' + g, t.spotTag || '')).join('')}</select></div>`;
+  if (!['spawn', 'dead', 'spot'].includes(t.t) && S.map.rooms.length) {
     const inR = t.inRooms || [];
     h += `<h3>APPEARS IN ONE OF THESE ROOMS</h3>
       <div class="row">${S.map.rooms.map((r, i) => `<label><input type="checkbox" data-inroom="${i}"${inR.includes(i) ? ' checked' : ''}> ${i + 1} ${esc(RT_NAMES[DATA.rooms.indexOf(r.rt)] || '')}</label>`).join('')}</div>
-      <p class="note">${inR.length ? `Each play the dice choose one of ${inR.length}. In a room that holds its own spot it stands there; in the others, on the floor nearest the room's middle that the dream can reach. The ghosts on the map show where.` : 'Tick rooms to let it turn up in any one of them, a different one each play. Leave all clear to keep it where it is.'}</p>`;
+      <p class="note">${inR.length ? `Each play the dice choose one of ${inR.length}. In a room that holds its own place it stands there; in a room with spots, at one of them; in the others, on the floor nearest the room's middle that the dream can reach. The ghosts on the map show every place.` : 'Tick rooms to let it turn up in any one of them, a different one each play. Leave all clear to keep it where it is.'}</p>`;
   }
   if (t.t === 'compass') h += `<p class="note">Picked up, the compass is the player's as if bought; a death takes it, as now. One already held is worth her price in gold here.</p>`;
   if (t.t === 'spawn') h += `<div class="field"><label for="tW">Wakes with</label><input type="text" id="tW" list="wkGroups" placeholder="at the start" value="${esc(t.wake || '')}"></div>
@@ -753,6 +787,7 @@ function actionList(list, L) {
       <div class="field"><label for="acK${L}${k}">${k + 1}.</label><select id="acK${L}${k}" data-ak="${L}${k}">${Object.keys(C.ACTIONS).map(x => opt(x, C.ACTIONS[x].label, a.kind)).join('')}</select></div>
       <p class="note">${esc(A.guide || '')}</p>`;
     if (A.arg === 'group') h += `<div class="field"><label>Group</label><select data-ag="${L}${k}">${opt('', 'choose', a.group || '')}${C.torchGroups(S.map).map(g => opt(g, g, a.group || '')).join('')}</select></div>`;
+    if (A.arg === 'field') h += `<div class="field"><label>Field</label><select data-afield="${L}${k}">${opt('', 'choose', a.field || '')}${C.fields(S.map, composed.cells).map(f => opt(f.name, f.name, a.field || '')).join('')}</select></div>`;
     if (A.arg === 'spawn') h += `<div class="field"><label>Wake group</label><select data-ag="${L}${k}">${opt('', 'choose', a.group || '')}${C.wakeGroups(S.map).map(g => opt(g, g, a.group || '')).join('')}</select></div>`;
     if (A.arg === 'door') h += `<div class="row"><span>${a.door ? `The door at (${a.door[0]},${a.door[1]})` : 'No door chosen'}</span><button class="btn" data-adoor="${L}${k}">CHOOSE THE DOOR</button></div>`;
     if (A.arg === 'text') h += `<div class="field"><label>Line</label><input type="text" data-atext="${L}${k}" maxlength="60" value="${esc(a.text || '')}"></div>`;
@@ -788,8 +823,9 @@ function wireEvents(on) {
     S.map.events.splice(S.evSel, 1); S.map.events.forEach(o => { o.needs = (o.needs || []).filter(n => n !== e.id); }); S.evSel = null; })));
   const ref = key => { const back = key[0] === 'b'; const list = back ? e.back : e.actions; return { list, k: +(back ? key.slice(1) : key) }; };   /* 'b2': the third going-back action */
   const each = (attr, ev, fn) => document.querySelectorAll(`[data-${attr}]`).forEach(b => b.addEventListener(ev, () => fn(b, ref(b.dataset[attr.replace(/-./g, c => c[1].toUpperCase())]))));
-  each('ak', 'change', (b, { list, k }) => change(() => { const a = list[k]; a.kind = b.value; delete a.door; delete a.text; if (C.ACTIONS[a.kind].arg !== 'group' && C.ACTIONS[a.kind].arg !== 'spawn') delete a.group; }));
+  each('ak', 'change', (b, { list, k }) => change(() => { const a = list[k]; a.kind = b.value; delete a.door; delete a.text; if (C.ACTIONS[a.kind].arg !== 'group' && C.ACTIONS[a.kind].arg !== 'spawn') delete a.group; if (C.ACTIONS[a.kind].arg !== 'field') delete a.field; }));
   each('ag', 'change', (b, { list, k }) => change(() => { list[k].group = b.value; }));
+  each('afield', 'change', (b, { list, k }) => change(() => { list[k].field = b.value; }));
   each('atext', 'change', (b, { list, k }) => change(() => { list[k].text = b.value.toUpperCase(); }));
   each('as', 'change', (b, { list, k }) => change(() => { list[k].sound = b.value; }));
   each('aa', 'change', (b, { list, k }) => change(() => { list[k].after = Math.max(0, Math.min(30, +b.value || 0)); }));
@@ -800,12 +836,12 @@ function wireEvents(on) {
 function paneDream() {
   const d = S.dream;
   let h = `<h2>THE DREAM'S WALK</h2><p class="note">The dream walks only lanes, takes a key to its door, strikes the gate's seal, gathers what it passes within a step and makes for the exit. This copies the game's rules for reaching things; it is not the game's own code, so a run in the harness is still the proof.</p>
-    <div class="row"><label><input type="checkbox" id="dSec"${S.dsec ? ' checked' : ''}> Press the secrets</label><button class="btn" id="dRun">WALK IT</button></div>`;
+    <div class="row"><label><input type="checkbox" id="dSec"${S.dsec ? ' checked' : ''}> Press the secrets</label><label><input type="checkbox" id="dFol"${S.follow === false ? '' : ' checked'}> Follow the dream</label><button class="btn" id="dRun">WALK IT</button></div>`;
   if (!d) return h;
   const now = d.events.filter(e => e.at <= S.dstep).length;
   const lay = Object.keys(d.layout || {});
   h += `<p>${d.ok ? '<span class="pip ok">FINISHES</span>' : '<span class="pip error">CANNOT FINISH</span>'} <span class="num">${d.steps} steps, about ${Math.round(d.seconds)} s</span>${d.missed.length ? `, misses ${d.missed.length}` : ', misses nothing'}.</p>
-    ${d.layouts > 1 ? `<p class="note">${d.failed ? `${d.failed} of ${d.layouts} ways the dice can lay the level cannot be finished; this is the first of them.` : `Every one of the ${d.layouts} ways the dice can lay the level finishes; this is the first.`}${lay.length ? ' Here: ' + lay.map(id => { const t = S.map.things.find(x => x.id === +id); return t ? `${esc(C.label(DATA, t).toLowerCase())} in room ${d.layout[id] + 1}` : ''; }).filter(Boolean).join(', ') + '.' : ''}</p>` : ''}
+    ${d.layouts > 1 ? `<p class="note">${d.failed ? `${d.failed} of ${d.layouts} ways the dice can lay the level cannot be finished; this is the first of them.` : `Every one of the ${d.layouts} ways the dice can lay the level finishes; this is the first.`}${lay.length ? ' Here: ' + lay.map(id => { const t = S.map.things.find(x => x.id === +id); const o = t && C.pickOptions(S.map, composed.cells, laneMask, t)[d.layout[id]]; return o ? `${esc(C.label(DATA, t).toLowerCase())} at ${esc(o.label)}` : ''; }).filter(Boolean).join(', ') + '.' : ''}</p>` : ''}
     ${d.shut ? `<p class="note"><span class="pip warn">LOOK</span> A timed door shut before the dream had been through it. Its pace is about 2 cells a second; a person sprints faster.</p>` : ''}
     <div class="row"><button class="btn" id="dPlay">${S.playing ? 'PAUSE' : 'PLAY'}</button><button class="btn" id="dBack" title="Step back">&lt;</button><button class="btn" id="dFwd" title="Step on">&gt;</button><span class="num note">step ${S.dstep} of ${d.steps}</span></div>
     <input type="range" id="dStep" min="0" max="${d.steps}" value="${S.dstep}" aria-label="Step">
@@ -837,6 +873,8 @@ function wirePane() {
     document.querySelectorAll('[data-inroom]').forEach(b => b.addEventListener('change', () => change(() => { const ri = +b.dataset.inroom; o.inRooms = (o.inRooms || []).filter(x => x !== ri); if (b.checked) o.inRooms.push(ri); o.inRooms.sort((a, c) => a - c); if (!o.inRooms.length) delete o.inRooms; })));
     on('tAc', 'change', e => change(() => { o.accepts = +e.target.value; }));
     on('tW', 'change', e => change(() => { o.wake = e.target.value.trim(); }));
+    on('tTg', 'change', e => change(() => { o.tag = e.target.value.trim(); }));
+    on('tSt', 'change', e => change(() => { if (e.target.value) o.spotTag = e.target.value; else delete o.spotTag; }));
     on('tDup', 'click', () => change(() => { const c = JSON.parse(JSON.stringify(o)); c.id = S.map.next++; c.x = Math.min(N - 0.125, c.x + 0.5); S.map.things.push(c); S.sel = { kind: 'thing', id: c.id }; }));
     on('tDel', 'click', () => removeSelected());
   }
@@ -858,6 +896,23 @@ function wirePane() {
     on('toL', 'change', e => change(() => { o.lit = e.target.checked; }));
     on('toDel', 'click', () => removeSelected());
   }
+  if (o && S.sel.kind === 'field') {
+    const put = (k, v) => change(() => {
+      S.map.fields = S.map.fields || [];
+      let e = S.map.fields.find(x => `${x.x},${x.y}` === o.key);
+      if (!e) { e = { x: o.x, y: o.y, kind: o.kind, name: o.name }; S.map.fields.push(e); }
+      if (k === 'name') { const was = e.name || o.name; (S.map.events || []).forEach(ev => [].concat(ev.actions || [], ev.back || []).forEach(a => { if (a.field === was) a.field = v; })); }
+      e[k] = v;
+    });
+    on('fN', 'change', e => put('name', e.target.value.trim() || o.name));
+    on('fOn', 'change', e => put('on', e.target.checked));
+    on('fD', 'input', e => { $('fDV').textContent = e.target.value + '%'; });
+    on('fD', 'change', e => put('dmg', +e.target.value));
+    on('fC', 'input', e => { $('fCV').textContent = e.target.value + '%'; });
+    on('fC', 'change', e => put('chance', +e.target.value));
+    on('fK', 'change', e => put('kills', e.target.checked));
+    on('fDel', 'click', () => change(() => { S.map.fields = (S.map.fields || []).filter(x => `${x.x},${x.y}` !== o.key); }));
+  }
   wireEvents(on);
   if (o && S.sel.kind === 'room') {
     [['rX', 'x'], ['rY', 'y'], ['rW', 'w'], ['rH', 'h']].forEach(([id, k]) => on(id, 'change', e => change(() => { o[k] = Math.max(k === 'w' || k === 'h' ? 1 : 0, Math.min(N, +e.target.value | 0)); })));
@@ -872,9 +927,10 @@ function wirePane() {
   on('dSec', 'change', e => { S.dsec = e.target.checked; if (S.dream) runDream(); });
   on('dRun', 'click', runDream);
   on('dPlay', 'click', () => { if (S.playing) stopPlay(); else play(); pane(); });
-  on('dBack', 'click', () => { stopPlay(); S.dstep = Math.max(0, S.dstep - 1); draw(); pane(); });
-  on('dFwd', 'click', () => { stopPlay(); S.dstep = Math.min(S.dream.steps, S.dstep + 1); draw(); pane(); });
-  on('dStep', 'input', e => { stopPlay(); S.dstep = +e.target.value; draw(); });
+  on('dBack', 'click', () => { stopPlay(); S.dstep = Math.max(0, S.dstep - 1); draw(); follow(); pane(); });
+  on('dFwd', 'click', () => { stopPlay(); S.dstep = Math.min(S.dream.steps, S.dstep + 1); draw(); follow(); pane(); });
+  on('dStep', 'input', e => { stopPlay(); S.dstep = +e.target.value; draw(); follow(); });
+  on('dFol', 'change', e => { S.follow = e.target.checked; try { localStorage.setItem('cme.follow', S.follow ? '1' : '0'); } catch (x) {} if (S.follow) follow(); });
   on('dStep', 'change', () => pane());
   document.querySelectorAll('[data-at]').forEach(b => b.addEventListener('click', () => { stopPlay(); S.dstep = +b.dataset.at; draw(); pane(); scrollToCell(S.dream.route[S.dstep]); }));
 }
@@ -885,6 +941,7 @@ function removeSelected() {
     if (S.sel.kind === 'thing') S.map.things = S.map.things.filter(t => t.id !== S.sel.id);
     else if (S.sel.kind === 'stamp') S.map.stamps.splice(S.sel.i, 1);
     else if (S.sel.kind === 'torch') S.map.torches.splice(S.sel.i, 1);
+    else if (S.sel.kind === 'field') S.map.fields = (S.map.fields || []).filter(x => `${x.x},${x.y}` !== S.sel.key);
     else {
       const gone = S.sel.i;
       S.map.rooms.splice(gone, 1);
@@ -895,13 +952,20 @@ function removeSelected() {
   toast('REMOVED: UNDO BRINGS IT BACK');
 }
 function runDream() { stopPlay(); S.dream = C.dreamAll(DATA, S.map, { secrets: !!S.dsec }); S.dstep = 0; draw(); pane(); }
+function follow() {                                               /* keep the dream in view while it walks */
+  if (!S.dream || S.follow === false) return;
+  const s = $('scroller'), [x, y] = S.dream.route[Math.min(S.dstep, S.dream.route.length - 1)], z = S.zoom;
+  const px = x * z + z / 2, py = y * z + z / 2, mx = s.clientWidth * 0.25, my = s.clientHeight * 0.25;
+  if (px < s.scrollLeft + mx || px > s.scrollLeft + s.clientWidth - mx || py < s.scrollTop + my || py > s.scrollTop + s.clientHeight - my)
+    s.scrollTo({ left: px - s.clientWidth / 2, top: py - s.clientHeight / 2, behavior: S.playing || matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+}
 function play() {
   if (!S.dream) return;
   if (S.dstep >= S.dream.steps) S.dstep = 0;
   S.playing = setInterval(() => {
     S.dstep++;
     if (S.dstep >= S.dream.steps) { S.dstep = S.dream.steps; stopPlay(); pane(); }
-    draw();
+    draw(); follow();
     const sl = $('dStep'); if (sl) sl.value = S.dstep;
   }, 70);
 }
@@ -937,8 +1001,11 @@ $('bUndo').addEventListener('click', undo); $('bRedo').addEventListener('click',
 $('bLattice').addEventListener('click', () => change(() => { S.map.lattice = !S.map.lattice; }));
 $('bLanes').addEventListener('click', e => { S.showLanes = !S.showLanes; e.target.setAttribute('aria-pressed', String(S.showLanes)); draw(); });
 $('bGrid').addEventListener('click', e => { S.showGrid = !S.showGrid; e.target.setAttribute('aria-pressed', String(S.showGrid)); draw(); });
-const ZOOMS = [8, 12, 16, 20, 24, 32];
-function zoom(d) { const i = Math.max(0, Math.min(ZOOMS.length - 1, ZOOMS.indexOf(S.zoom) + d)); S.zoom = ZOOMS[i]; $('zoomLabel').textContent = S.zoom + ' PX'; draw(); try { localStorage.setItem('cme.zoom', S.zoom); } catch (e) {} }
+const ZOOMS = [8, 12, 16, 20, 24, 32, 40, 48, 64];   /* the last three for laying things by the quarter */
+function zoom(d) {
+  const sc = $('scroller'), was = S.zoom, cx = (sc.scrollLeft + sc.clientWidth / 2) / was, cy = (sc.scrollTop + sc.clientHeight / 2) / was;   /* the cell in the middle stays there */
+  const i = Math.max(0, Math.min(ZOOMS.length - 1, ZOOMS.indexOf(S.zoom) + d)); S.zoom = ZOOMS[i]; $('zoomLabel').textContent = S.zoom + ' PX'; draw();
+  sc.scrollLeft = cx * S.zoom - sc.clientWidth / 2; sc.scrollTop = cy * S.zoom - sc.clientHeight / 2; try { localStorage.setItem('cme.zoom', S.zoom); } catch (e) {} }
 $('bZoomIn').addEventListener('click', () => zoom(1)); $('bZoomOut').addEventListener('click', () => zoom(-1));
 
 document.addEventListener('keydown', e => {
@@ -1089,6 +1156,7 @@ $('bExport').addEventListener('click', () => {
 
 /* ---------- starting ---------- */
 try { const z = +localStorage.getItem('cme.zoom'); if (ZOOMS.includes(z)) S.zoom = z; } catch (e) {}
+try { if (localStorage.getItem('cme.follow') === '0') S.follow = false; } catch (e) {}
 $('zoomLabel').textContent = S.zoom + ' PX';
 function startWith(m, example) { S.map = m; S.example = example; refresh(); }
 const D1 = DATA.drawn[0], first = C.importDrawn(D1, D1.n); first.slot = D1.n;
