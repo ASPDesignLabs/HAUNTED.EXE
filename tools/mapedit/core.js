@@ -17,7 +17,7 @@ const ELEM_FAV = [['EL_FIRE', 'EL_SPIRIT'], ['EL_FROST', 'EL_POISON'], ['EL_LIGH
 const GOLD_KINDS = ['IT_COINS', 'IT_CHALICE', 'IT_GEMS', 'IT_CROWN', 'IT_CHEST'];
 const KEY_NAMES = ['GOLD', 'SILVER', 'CRIMSON'];
 const MARK_NAMES = ['COFFER', 'CAGE', "THE CLASS'S OWN"];
-const MAX = { heads: 48, mobs: 64, items: 96, fire: 16, ice: 24, rooms: 24, rest: 2, secrets: 6 };
+const MAX = { heads: 48, mobs: 64, items: 96, fire: 96, ice: 96, rooms: 24, rest: 2, secrets: 6, fields: 8 };
 
 const idx = (x, y) => y * N + x;
 const inMap = (x, y) => x >= 0 && y >= 0 && x < N && y < N;
@@ -55,7 +55,7 @@ function stampLetter(kind, g, entryIndex, chosen) {
 function compose(DATA, m) {
     const cells = m.grid.slice(), owner = new Array(N * N).fill(-1), marks = [];
     m.stamps.forEach((st, si) => {
-        const d = stampDef(DATA, st.name); if (!d) return;
+        const d = DATA && stampDef(DATA, st.name); if (!d) return;
         const rows = xformRows(d.rows, st.t || 0);
         let e = 0;
         for (let y = 0; y < rows.length; y++)
@@ -132,7 +132,7 @@ function exportDrawn(DATA, m, n) {
     const P = 'DRAWN' + n, out = [];
     const things = [], spawns = [], thingNo = {}, relicList = m.things.filter(t => t.t === 'relic');
     const relicNo = id => relicList.findIndex(r => r.id === id);
-    const wakes = wakeGroups(m), groups = torchGroups(m);
+    const wakes = wakeGroups(m), groups = torchGroups(m), tags = spotTags(m), fl = n <= 2 ? [] : fields(m, cells);   /* the tutorial's two keep their own fire and ice, as the lessons have them */
     m.things.forEach(t => {
         if (t.t !== 'spawn') thingNo[t.id] = things.length;   /* the index it takes in _THING, for the triggers */
         const x = t.x - b.x0, y = t.y - b.y0, [cx, cy] = thingCell(t), sec = inMap(cx, cy) && cells[idx(cx, cy)] === 'q';
@@ -148,8 +148,9 @@ function exportDrawn(DATA, m, n) {
         case 'relic': things.push(`{ DT_RELIC, ${relicNo(t.id)}, ${f2(x)}, ${f2(y)} }`); break;
         case 'socket': things.push(`{ DT_SOCKET, ${t.accepts ? relicNo(t.accepts) : -1}, ${f2(x)}, ${f2(y)} }`); break;
         case 'lever': things.push(`{ DT_LEVER, 0, ${f2(x)}, ${f2(y)} }`); break;
+        case 'spot': things.push(`{ DT_SPOT, ${tags.indexOf(t.tag)}, ${f2(x)}, ${f2(y)} }`); break;
         case 'plate': things.push(`{ DT_PLATE, 0, ${f2(x)}, ${f2(y)} }`); break;
-        case 'spawn': spawns.push(`{ ${f2(x)}, ${f2(y)}, ${t.k || -1}, ${t.chance == null ? 100 : t.chance}, ${t.echance == null ? -1 : t.echance}, ${t.el || -1}, ${t.rank === '' || t.rank == null ? -1 : 'RK_' + t.rank}${t.wake ? ', ' + wakes.indexOf(t.wake) : ''} }`); break;
+        case 'spawn': spawns.push(`{ ${f2(x)}, ${f2(y)}, ${t.k || -1}, ${t.chance == null ? 100 : t.chance}, ${t.echance == null ? -1 : t.echance}, ${t.el || -1}, ${t.rank === '' || t.rank == null ? -1 : 'RK_' + t.rank}${t.wake || t.spotTag ? ', ' + (t.wake ? 1 + wakes.indexOf(t.wake) : 0) : ''}${t.spotTag ? ', ' + (1 + tags.indexOf(t.spotTag)) : ''} }`); break;
         }
     });
     const marks = compose(DATA, m).marks.filter(k => k.g === 's' && cells[idx(k.x, k.y)] !== 'q');
@@ -171,7 +172,7 @@ function exportDrawn(DATA, m, n) {
     out.push('};');
     if (spawns.length) {
         out.push(`/* spawn points: x, y; the kind or -1 the budget's choice; the chance %; the element's chance % or -1 by rank; the element or -1;`);
-        out.push(` * the rank or -1 the level's usual */`);
+        out.push(` * the rank or -1 the level's usual; 1 + its wake group (0: filled as the level is laid); 1 + the tag of the spots it is laid at (0: here) */`);
         out.push(`static const DrawnSpawn ${P}_SPAWN[] = {`);
         for (let i = 0; i < spawns.length; i += 2) out.push('    ' + spawns.slice(i, i + 2).join(', ') + ',');
         out.push('};');
@@ -179,7 +180,7 @@ function exportDrawn(DATA, m, n) {
     const ev = m.events || [], tor = m.torches || [], acts = [], trigs = [], q = v => JSON.stringify(String(v || '')).replace(/\\u[0-9a-f]{4}/gi, '?');
     const actOut = a => {
         const A = ACTIONS[a.kind]; if (!A) return;
-        const arg = A.arg === 'group' ? groups.indexOf(a.group) : A.arg === 'spawn' ? wakes.indexOf(a.group) : A.arg === 'sound' ? (a.sound || 'SFX_DEEPCHIME') : 0;
+        const arg = A.arg === 'group' ? groups.indexOf(a.group) : A.arg === 'spawn' ? wakes.indexOf(a.group) : A.arg === 'field' ? fl.findIndex(f => f.name === a.field) : A.arg === 'sound' ? (a.sound || 'SFX_DEEPCHIME') : 0;
         const dx = a.door ? a.door[0] - b.x0 : 0, dy = a.door ? a.door[1] - b.y0 : 0;
         acts.push(`{ TA_${a.kind.toUpperCase()}, ${arg}, ${dx}, ${dy}, ${f2(+a.after || 0)}, ${a.kind === 'line' ? q(String(a.text || '').toUpperCase()) : 'NULL'} }`);
     };
@@ -209,15 +210,23 @@ function exportDrawn(DATA, m, n) {
         out.push(`/* actions: the kind; the group or the sound; a door's cell in the drawing; after how long, s; the line */`);
         out.push(`static const DrawnAct ${P}_ACT[] = {`); acts.forEach(a => out.push('    ' + a + ',')); if (!acts.length) out.push('    { TA_LINE, 0, 0, 0, 0.0f, NULL },'); out.push('};');
     }
-    const pk = m.things.filter(t => (t.inRooms || []).length && thingNo[t.id] != null);
+    const pk = m.things.filter(t => ((t.inRooms || []).length || t.spotTag) && thingNo[t.id] != null);
     if (pk.length) {
-        out.push(`/* things that appear in one of a set of rooms, by the run's dice: the thing (an index in ${P}_THING), the rooms (a bit a room in ${P}_ROOM) */`);
+        out.push(`/* things the run's dice lay: the thing (an index in ${P}_THING); the rooms it may appear in (a bit a room in ${P}_ROOM: a spot standing`);
+        out.push(` * there, else the floor nearest the middle); the tag of the spots it may appear at, or -1 */`);
         out.push(`static const DrawnPick ${P}_PICK[] = {`);
-        pk.forEach(t => { let mask = 0; t.inRooms.forEach(ri => { mask |= 1 << ri; }); out.push(`    { ${thingNo[t.id]}, 0x${(mask >>> 0).toString(16)}u },    /* ${label(DATA, t).replace(/\*\//g, '')} */`); });
+        pk.forEach(t => { let mask = 0; (t.inRooms || []).forEach(ri => { mask |= 1 << ri; }); out.push(`    { ${thingNo[t.id]}, 0x${(mask >>> 0).toString(16)}u, ${t.spotTag ? tags.indexOf(t.spotTag) : -1} },    /* ${label(DATA, t).replace(/\*\//g, '')} */`); });
         out.push('};');
     }
-    const evTail = trigs.length || tor.length || relicList.length || pk.length
-        ? `, ${tor.length ? P + '_TORCH' : 'NULL'}, ${tor.length}, ${trigs.length ? P + '_TRIG' : 'NULL'}, ${trigs.length}, ${trigs.length ? P + '_ACT' : 'NULL'}, ${trigs.length ? Math.max(1, acts.length) : 0}, ${relicList.length ? P + '_RELIC' : 'NULL'}, ${relicList.length}, ${pk.length ? P + '_PICK' : 'NULL'}, ${pk.length}` : '';
+    if (fl.length) {
+        out.push(`/* fire and ice: the kind; a cell of it in the drawing (the field is every cell of its kind joined to it); live at the start; its harm,`);
+        out.push(` * % of health each half second; the chance of its status (On Fire, a Chilled stack), %; whether it may kill */`);
+        out.push(`static const DrawnField ${P}_FIELD[] = {`);
+        fl.forEach(f => out.push(`    { ${f.kind === 'fire' ? 'DF_FIRE' : 'DF_ICE'}, ${f.x - b.x0}, ${f.y - b.y0}, ${f.on ? 1 : 0}, ${+f.dmg || 0}, ${+f.chance || 0}, ${f.kills ? 1 : 0} },    /* ${f.name.replace(/\*\//g, '')} */`));
+        out.push('};');
+    }
+    const evTail = trigs.length || tor.length || relicList.length || pk.length || fl.length || tags.length
+        ? `, ${tor.length ? P + '_TORCH' : 'NULL'}, ${tor.length}, ${trigs.length ? P + '_TRIG' : 'NULL'}, ${trigs.length}, ${trigs.length ? P + '_ACT' : 'NULL'}, ${trigs.length ? Math.max(1, acts.length) : 0}, ${relicList.length ? P + '_RELIC' : 'NULL'}, ${relicList.length}, ${pk.length ? P + '_PICK' : 'NULL'}, ${pk.length}, ${fl.length ? P + '_FIELD' : 'NULL'}, ${fl.length}` : '';
     out.push(`/* its row in DRAWN[] */`);
     out.push(`    { ${P}_MAP, ${b.w}, ${b.h}, ${b.x0}, ${b.y0}, ${m.face}, ${P}_ROOM, (int)(sizeof ${P}_ROOM / sizeof ${P}_ROOM[0]), { ${vault.join(', ')} },`);
     out.push(`      ${P}_THING, (int)(sizeof ${P}_THING / sizeof ${P}_THING[0]), ${seed}u, ${m.level}, ${spawns.length ? P + '_SPAWN' : 'NULL'}, ${spawns.length ? `(int)(sizeof ${P}_SPAWN / sizeof ${P}_SPAWN[0])` : 0}${evTail} },`);
@@ -244,6 +253,8 @@ const ACTIONS = {
     door_unlock: { label: 'A door unlocks', arg: 'door', guide: 'The door you choose stops being locked or barred, but stays shut till the player opens it.' },
     door_shut: { label: 'A door shuts', arg: 'door', guide: 'The door you choose slams and bars. The dream will not plan through it again unless another action opens it.' },
     wake: { label: 'Spawn points wake', arg: 'spawn', guide: 'Every spawn point given this wake group is filled now, not when the level is laid. Use it for an ambush that answers a find.' },
+    field_on: { label: 'A field comes alive', arg: 'field', guide: 'The burning floor you choose catches, or the ice you choose freezes over, with the harm and chances set on it (choose the field on the map to set them).' },
+    field_off: { label: 'A field dies down', arg: 'field', guide: 'The burning floor you choose burns low and goes out, or the ice thaws. Safe to cross while it is down.' },
     secret: { label: 'A secret\'s wall slides', arg: 'secret', guide: 'The level\'s secret wall (c) slides open as if found.' },
     line: { label: 'A line on screen', arg: 'text', guide: 'A caption at the top of the view, in capitals, as the game\'s own are ("THE TORCHES TO THE NORTH CATCH"). Keep it short: about 40 characters.' },
     sound: { label: 'A sound', arg: 'sound', guide: 'One of the game\'s own sounds.' },
@@ -290,16 +301,46 @@ function roomSpot(m, cells, L, t, ri, taken) {
     }
     return best;
 }
-function picks(m) { return m.things.filter(t => (t.inRooms || []).length); }
-/* every way the dice can lay the tagged things: all of them if there are 64 or fewer, else each thing's rooms in turn, the rest on
- * their own spots */
-function layouts(m) {
-    const P = picks(m); if (!P.length) return [{}];
-    let all = [{}];
-    for (const t of P) { const n = []; for (const l of all) for (const ri of t.inRooms) n.push(Object.assign({}, l, { [t.id]: ri })); all = n; if (all.length > 64) break; }
-    if (all.length <= 64) return all;
-    const one = [{}]; P.forEach(t => t.inRooms.forEach(ri => one.push({ [t.id]: ri }))); return one;
+function picks(m) { return m.things.filter(t => (t.inRooms || []).length || t.spotTag); }
+function spotTags(m) { const g = []; m.things.forEach(t => { if (t.t === 'spot' && t.tag && !g.includes(t.tag)) g.push(t.tag); }); return g; }
+/* the places the dice may lay a thing: one of the spots tagged for it; or for each room it may appear in, each spot standing in that
+ * room (a spot of any tag), or, with none there, the floor nearest the room's middle (roomSpot). Each { pos, label } */
+function pickOptions(m, cells, L, t) {
+    const out = [], spots = m.things.filter(s => s.t === 'spot');
+    if (t.spotTag) spots.filter(s => s.tag === t.spotTag).forEach(s => out.push({ pos: [s.x, s.y], label: `the spot at (${Math.floor(s.x)},${Math.floor(s.y)})`, spot: s.id }));
+    (t.inRooms || []).forEach(ri => {
+        const r = m.rooms[ri]; if (!r) return;
+        const here = spots.filter(s => s.x >= r.x && s.y >= r.y && s.x < r.x + r.w && s.y < r.y + r.h);
+        if (here.length) here.forEach(s => out.push({ pos: [s.x, s.y], label: `room ${ri + 1}'s spot at (${Math.floor(s.x)},${Math.floor(s.y)})`, spot: s.id, room: ri }));
+        else { const p = roomSpot(m, cells, L, t, ri, null); if (p) out.push({ pos: p, label: `room ${ri + 1}`, room: ri }); }
+    });
+    return out;
 }
+/* every way the dice can lay the tagged things (an option's index for each): all of them up to 64, else each thing's options in turn */
+function layouts(m, cells, L) {
+    const P = picks(m); if (!P.length) return [{}];
+    if (!cells) { cells = compose(null, m).cells; L = lanes(m, cells); }
+    const n = P.map(t => pickOptions(m, cells, L, t).length);
+    let all = [{}];
+    for (let k = 0; k < P.length; k++) { const nx = []; for (const l of all) for (let o = 0; o < Math.max(1, n[k]); o++) nx.push(Object.assign({}, l, { [P[k].id]: o })); all = nx; if (all.length > 64) break; }
+    if (all.length <= 64) return all;
+    const one = [{}]; P.forEach((t, k) => { for (let o = 0; o < n[k]; o++) one.push({ [t.id]: o }); }); return one;
+}
+/* the fire and ice fields: each connected patch of burning floor (F) or ice (I), its settings kept by a cell in it (m.fields) */
+const FIELD_DEF = { fire: { dmg: 17, chance: 100, on: true, kills: false }, ice: { dmg: 0, chance: 100, on: true, kills: false } };
+function fields(m, cells) {
+    const seen = new Uint8Array(N * N), out = [];
+    for (let i = 0; i < N * N; i++) {
+        const ch = cells[i]; if ((ch !== 'F' && ch !== 'I') || seen[i]) continue;
+        const kind = ch === 'F' ? 'fire' : 'ice', q = [i], c = []; seen[i] = 1;
+        for (let h = 0; h < q.length; h++) { const j = q[h]; c.push([j % N, (j / N) | 0]); for (const [dx, dy] of DIRS) { const x = j % N + dx, y = ((j / N) | 0) + dy; if (inMap(x, y) && !seen[idx(x, y)] && cells[idx(x, y)] === ch) { seen[idx(x, y)] = 1; q.push(idx(x, y)); } } }
+        const set = (m.fields || []).find(f => (!f.kind || f.kind === kind) && c.some(([x, y]) => x === f.x && y === f.y));
+        const k = out.filter(f => f.kind === kind).length + 1;
+        out.push(Object.assign({ kind, cells: c, x: c[0][0], y: c[0][1], name: (kind === 'fire' ? 'Fire ' : 'Ice ') + k }, FIELD_DEF[kind], set || {}, { kind, cells: c, key: set ? `${set.x},${set.y}` : `${c[0][0]},${c[0][1]}` }));
+    }
+    return out;
+}
+function fieldByName(m, cells, name) { return fields(m, cells).find(f => f.name === name); }
 const CELL_S = 1 / 2.1;                         /* the dream's pace: CRUISE, cells a second (defs.c); slower round corners */
 const TRIG_TYPES = {
     once: { label: 'Once', guide: 'Fires the first time, and what it does stays done.' },
@@ -308,7 +349,7 @@ const TRIG_TYPES = {
     timed: { label: 'Timed', guide: 'On for the duration you set, then back as it was: a door held open while the player runs for it, torches that burn for a while.' },
 };
 /* an action's way back, for a trigger that returns: torches and doors as they were; the rest have none */
-const UNDO = { flicker_on: 'flicker_off', flicker_off: 'flicker_on', light_on: 'light_off', light_off: 'light_on', door_open: 'door_shut', door_unlock: 'door_shut', door_shut: 'door_open' };
+const UNDO = { field_on: 'field_off', field_off: 'field_on', flicker_on: 'flicker_off', flicker_off: 'flicker_on', light_on: 'light_off', light_off: 'light_on', door_open: 'door_shut', door_unlock: 'door_shut', door_shut: 'door_open' };
 /* The dream's walk: lanes only; a key opens its doors, the seal the gate; a relic carried to the socket that takes it, one at a time; a
  * trigger fires when its thing is reached and what it waits on has fired, and its actions open and shut doors, for good or for a time.
  * The time is the dream's pace, so a timed door shut before it gets there says so. A copy of the dream's rules (goals.c), not the
@@ -319,7 +360,12 @@ function dream(DATA, m, opts) {
     const st = { keys: [0, 0, 0], gate: false, secret: !!opts.secrets, doors: new Map(), until: new Map(), carry: null, fired: new Map(), on: new Set(), placed: new Set(), now: 0 };
     const pos = new Map(), taken = new Set();
     m.things.forEach(t => { if (!(t.id in lay)) { pos.set(t.id, [t.x, t.y]); taken.add(idx(...thingCell(t))); } });
-    m.things.forEach(t => { if (t.id in lay) { const p = roomSpot(m, cells, L, t, lay[t.id], taken) || [t.x, t.y]; pos.set(t.id, p); taken.add(idx(Math.floor(p[0]), Math.floor(p[1]))); } });
+    m.things.forEach(t => {
+        if (!(t.id in lay)) return;
+        const o = pickOptions(m, cells, L, t)[lay[t.id]], p = o ? o.pos : [t.x, t.y];
+        pos.set(t.id, p); taken.add(idx(Math.floor(p[0]), Math.floor(p[1])));
+    });
+    m.things.forEach(t => { if (t.t === 'spot') pos.delete(t.id); });
     const cellOf = t => { const p = pos.get(t.id) || [t.x, t.y]; return [Math.floor(p[0]), Math.floor(p[1])]; };
     const doorOpen = (i, arrive) => { if (!st.doors.get(i)) return false; const u = st.until.get(i); return u == null || arrive < u; };
     const pass = (x, y, arrive) => {
@@ -364,6 +410,7 @@ function dream(DATA, m, opts) {
             }
         }
         if (a.kind === 'secret') st.secret = true;
+        if (A.arg === 'field') msg += `: ${a.field || '(no field)'}`;
         if (A.arg === 'spawn') msg += `: ${a.group || '(no group)'}`;
         if (a.kind === 'line') msg += `: "${a.text || ''}"`;
         if (a.after) msg += ` (after ${a.after} s)`;
@@ -550,7 +597,7 @@ function dream(DATA, m, opts) {
 }
 /* the dream through every way the dice can lay the tagged things: the first that cannot finish, or the first of them all */
 function dreamAll(DATA, m, opts) {
-    const L = layouts(m), runs = L.map(l => dream(DATA, m, Object.assign({}, opts || {}, { layout: l })));
+    const cm = compose(DATA, m).cells, L = layouts(m, cm, lanes(m, cm)), runs = L.map(l => dream(DATA, m, Object.assign({}, opts || {}, { layout: l })));
     const bad = runs.filter(r => !r.ok);
     const r = bad[0] || runs[0];
     r.layouts = runs.length; r.failed = bad.length;
@@ -655,9 +702,9 @@ function check(DATA, m) {
     if (gates.length && !seals.length) add('error', 'The gate has no seal to open it.', gates);
     if (seals.length && !gates.length) add('warn', 'There is a gate\'s seal but no gate.', seals.map(thingCell));
     const fire = cells.filter(c => c === 'F').length, ice = cells.filter(c => c === 'I').length;
-    if (fire > MAX.fire) add('error', `${fire} cells of burning floor: the game keeps ${MAX.fire}.`, find('F').slice(MAX.fire));
-    if (ice > MAX.ice) add('error', `${ice} cells of ice: the game keeps ${MAX.ice}.`, find('I').slice(MAX.ice));
-    if (ice && !m.things.some(t => t.t === 'switch')) add('warn', 'There is ice but no switch: nothing drains it.', find('I'));
+    if (fire > MAX.fire) add('error', `${fire} cells of burning floor: a level keeps ${MAX.fire}.`, find('F').slice(MAX.fire));
+    if (ice > MAX.ice) add('error', `${ice} cells of ice: a level keeps ${MAX.ice}.`, find('I').slice(MAX.ice));
+    if (ice && !m.things.some(t => t.t === 'switch') && !(m.events || []).some(e => (e.actions || []).some(a => a.kind === 'field_off'))) add('warn', 'There is ice but no switch and no trigger to thaw it.', find('I'));
 
     /* rooms */
     if (m.rooms.length > MAX.rooms) add('error', `${m.rooms.length} rooms: a drawn level keeps ${MAX.rooms}.`);
@@ -667,7 +714,9 @@ function check(DATA, m) {
             if (!m.rooms[ri]) add('error', `${label(DATA, t)} may appear in a room that is gone.`, [thingCell(t)]);
             else if (!roomSpot(m, cells, L, t, ri, null)) add('error', `${label(DATA, t)} may appear in room ${ri + 1}, which has no floor the dream can reach.`, [[m.rooms[ri].x, m.rooms[ri].y]]);
         });
-        if ((t.inRooms || []).length === 1) add('info', `${label(DATA, t)} has one room to appear in: it is always there.`, [thingCell(t)]);
+        if (t.spotTag && !m.things.some(s => s.t === 'spot' && s.tag === t.spotTag)) add('error', `${label(DATA, t)} appears at a spot tagged "${t.spotTag}", and no spot has that tag.`, [thingCell(t)]);
+        if (t.t === 'spot' && !isOpen(at(...thingCell(t)))) add('error', 'A spot stands in stone.', [thingCell(t)]);
+        if ((t.inRooms || []).length === 1 && !t.spotTag) add('info', `${label(DATA, t)} has one room to appear in: it is always there.`, [thingCell(t)]);
     });
     if (!m.rooms.length) add('warn', 'No rooms are marked: every cell will look like a hall.');
     m.rooms.forEach((r, i) => {
@@ -720,6 +769,7 @@ function check(DATA, m) {
     if (items > MAX.items) add('error', `${items} things to pick up: the game keeps ${MAX.items}.`);
     m.things.forEach(t => {
         const [x, y] = thingCell(t);
+        if (t.spotTag) return;                  /* it stands where its spots are, not where it was set down */
         if (!isOpen(at(x, y))) add('error', `A ${label(DATA, t).toLowerCase()} stands in stone.`, [[x, y]]);
         else if (DOORS.has(at(x, y))) add('warn', `A ${label(DATA, t).toLowerCase()} stands in a doorway.`, [[x, y]]);
     });
@@ -758,6 +808,12 @@ function check(DATA, m) {
     });
     comp.marks.filter(k => 'abct'.includes(k.g)).length &&
         add('info', 'The stamps\' altar, brazier, loot and torch marks (a, b, c, t) are not laid on drawn levels yet; their spawn marks (s) are exported.');
+    /* the fire and ice fields */
+    const fl = fields(m, cells);
+    if (fl.length > MAX.fields) add('error', `${fl.length} fields of fire and ice: a level keeps ${MAX.fields}.`);
+    (m.fields || []).forEach(f => { if (!fl.some(x => x.key === `${f.x},${f.y}`)) add('info', `The settings for "${f.name || 'a field'}" stand on a cell no longer burning or iced: they are not used.`, [[f.x, f.y]]); });
+    if (new Set(fl.map(f => f.name)).size < fl.length) add('error', 'Two fields share a name: give each its own, so a trigger knows which it means.');
+    fl.forEach(f => { if (f.dmg > 50) add('warn', `${f.name} takes ${f.dmg}% of health a half second: two steps on it could end a run.`, [f.cells[0]]); });
     /* the events (docs/PLAN-events.md) */
     const ev = m.events || [], tor = m.torches || [], byId = id => m.things.find(t => t.id === id);
     if (ev.length > 32) add('error', `${ev.length} triggers: a level holds 32 at most (what a trigger waits on is a bit each).`);
@@ -795,6 +851,7 @@ function check(DATA, m) {
             if (A.arg === 'group' && !groups.includes(a.group)) add('error', `Trigger ${nm}: "${A.label}" names a torch group no torch is in.`);
             if (A.arg === 'spawn' && !wakes.includes(a.group)) add('error', `Trigger ${nm}: "${A.label}" names a wake group no spawn point is in.`);
             if (A.arg === 'door' && (!a.door || !DOORS.has(at(a.door[0], a.door[1])))) add('error', `Trigger ${nm}: "${A.label}" has no door chosen.`, a.door ? [a.door] : []);
+            if (A.arg === 'field' && !fl.some(f => f.name === a.field)) add('error', `Trigger ${nm}: "${A.label}" names no field on the map.`);
             if (A.arg === 'secret' && !find('c').length) add('error', `Trigger ${nm}: there is no secret's wall to slide.`);
             if (a.kind === 'line' && String(a.text || '').length > 44) add('warn', `Trigger ${nm}: its line is ${String(a.text).length} characters; the view holds about 40.`);
         });
@@ -818,6 +875,7 @@ function label(DATA, t) {
     case 'compass': return 'The compass';
     case 'relic': return 'Relic' + (t.name ? ': ' + t.name.toLowerCase() : '');
     case 'socket': return 'Socket' + (t.name ? ': ' + t.name.toLowerCase() : '');
+    case 'spot': return 'Spot' + (t.tag ? ': ' + t.tag : '');
     case 'lever': return 'Lever' + (t.name ? ': ' + t.name.toLowerCase() : '');
     case 'plate': return 'Pressure plate' + (t.name ? ': ' + t.name.toLowerCase() : '');
     }
@@ -872,7 +930,7 @@ function sampleEvents() {
     return m;
 }
 
-const API = { canWatch, TRIG_TYPES, UNDO, roomSpot, picks, layouts, dreamAll, TRIGGERS, ACTIONS, SOUNDS, SOUND_NAMES, torchGroups, wakeGroups, torchLit, sampleEvents, N, DIRS, DOORS, WALLS, LANE_OF, BASE_OF, RUNS, RANKS, ELEM_FAV, GOLD_KINDS, KEY_NAMES, MARK_NAMES, MAX, idx, inMap, isOpen,
+const API = { spotTags, pickOptions, fields, fieldByName, FIELD_DEF, canWatch, TRIG_TYPES, UNDO, roomSpot, picks, layouts, dreamAll, TRIGGERS, ACTIONS, SOUNDS, SOUND_NAMES, torchGroups, wakeGroups, torchLit, sampleEvents, N, DIRS, DOORS, WALLS, LANE_OF, BASE_OF, RUNS, RANKS, ELEM_FAV, GOLD_KINDS, KEY_NAMES, MARK_NAMES, MAX, idx, inMap, isOpen,
               blank, clone, xformRows, stampRows, stampDef, compose, laneAt, lanes, importDrawn, exportDrawn, bounds, frontOf, dream,
               levelInfo, rankCost, budget, elemDefault, check, label, thingCell };
 if (typeof module !== 'undefined' && module.exports) module.exports = API; else root.MapCore = API;

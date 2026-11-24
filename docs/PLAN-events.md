@@ -47,6 +47,67 @@ step of a lane, not a door and not taken (`roomSpot`), so the owner sees exactly
 out**; **every light flickers** for a moment; a door **opens**, **unlocks** or **shuts**; a group of spawn points **wakes**; a
 secret's wall **slides**; a **line** on screen; a **sound** from the game's own (a chime, the bell, a rumble, a knock).
 
+## 2b. The format the game reads (settled 24 November 2026)
+
+The editor's export (`tools/mapedit/core.js`, `exportDrawn`) writes what follows; `tools/mapedit/fixtures/events_full.c` holds every part
+of it and `events_sample.c` the owner's example, both written by `node tools/mapedit/test.js`. **The game is built to this, not the
+other way round;** a change to it is made in both and the fixtures written again. Coordinates are the drawing's cells (add `ox`, `oy`).
+Every new field of `Drawn` goes at the end, so the tutorial's two rows, which leave them off, read as zeros: none of anything.
+
+```c
+enum { DT_GOLD, DT_KEY, DT_DEAD, DT_SGOLD, DT_MARK, DT_SWITCH, DT_GSEAL, DT_MAP,          /* as now */
+       DT_COMPASS, DT_RELIC, DT_SOCKET, DT_LEVER, DT_PLATE, DT_SPOT };                  /* RELIC kind: its number in _RELIC;
+                                                                                           SOCKET kind: the relic it takes, -1 any;
+                                                                                           SPOT kind: its tag's number */
+typedef struct { float x, y; int kind, chance, echance, elem, rank, wake, spot; } DrawnSpawn;   /* wake, spot: 1 + the group's, the
+                                                                                           tag's number; 0 none (laid as the level is,
+                                                                                           here) */
+typedef struct { int x, y, d, group, lit; } DrawnTorch;                                 /* the wall's cell; d its face, 0 east 1 south
+                                                                                           2 west 3 north; group a number */
+enum { TG_PICKUP, TG_PLACE, TG_STRIKE, TG_ENTER, TG_USE, TG_STEP, TG_ALL };
+enum { TT_ONCE, TT_EVERY, TT_TOGGLE, TT_TIMED };
+typedef struct { int kind, type; float hold; int undo, thing, x0, y0, x1, y1; unsigned needs; int act, nact, back, nback; } DrawnTrig;
+enum { TA_FLICKER_ON, TA_FLICKER_OFF, TA_LIGHT_ON, TA_LIGHT_OFF, TA_FLICKER_ALL, TA_FIELD_ON, TA_FIELD_OFF, TA_DOOR_OPEN,
+       TA_DOOR_UNLOCK, TA_DOOR_SHUT, TA_WAKE, TA_SECRET, TA_LINE, TA_SOUND };
+typedef struct { int kind, arg, x, y; float after; const char *text; } DrawnAct;       /* arg: the torch group, the field, the wake
+                                                                                           group or the SFX_*; x, y a door's cell */
+typedef struct { int thing; unsigned rooms; int tag; } DrawnPick;                       /* rooms: a bit a room in _ROOM; tag: the
+                                                                                           spots', -1 none */
+enum { DF_FIRE, DF_ICE };
+typedef struct { int kind, x, y, on, dmg, chance, kills; } DrawnField;                  /* a cell of it; dmg: % of health each 0.5 s;
+                                                                                           chance: % of its status each tick */
+/* Drawn's row, after the spawn points: torch, ntorch, trig, ntrig, act, nact, relic (names), nrelic, pick, npick, field, nfield */
+```
+
+What each part does, as the editor's dream walk has it (`dream` in `core.js`; the game should agree with it):
+
+- **A trigger** fires when its thing is reached and every trigger in `needs` (a bit each, by index in `_TRIG`) has fired: picked up
+  (`TG_PICKUP`), a relic set in its socket (`TG_PLACE`), a spell landing on it (`TG_STRIKE`: a mark, the switch, the seal), the box
+  walked into (`TG_ENTER`, the first time; `TT_EVERY` each time it is entered again), the lever used with the use key (`TG_USE`), the
+  plate stood on (`TG_STEP`), or, for `TG_ALL`, once every one of `needs` has. `TT_ONCE` fires once; `TT_EVERY` each time; `TT_TOGGLE`
+  on at one touch and back at the next, or by itself after `hold` seconds if `hold` > 0; `TT_TIMED` on, and back after `hold`. Going
+  back, if `undo`, its torch and field and door actions are reversed in the reverse order (on/off swapped, a door opened shuts), then
+  its `back` actions run. An action's `after` delays it from the moment its trigger fires (or goes back). A trigger never fires while
+  what it waits on has not.
+- **Torches:** a torch hangs on its wall's face as the run's own light (`T_FEAT + F1_TORCH`, three frames), lit or not; unlit, guttering
+  and snuffed are the approved sheet's (`media/sheets/events/torch_unlit.png`, `tools/torchmock.c`'s `make_unlit` and `make_unlit_run`,
+  moved into the art). Its light is a static light whose share is scaled each frame (lit 1, guttering about a third, snuffed a glow of
+  embers, cold none). Flicker to life: cold, gutter, cold, gutter, lit over about 0.6 s, the group's torches one after another; flicker out:
+  lit, gutter, lit, gutter, snuffed for 1 s, cold. `TA_FLICKER_ALL`: every light on the level stutters for about a second.
+- **Fields:** every cell of its kind (`F` or `I`) joined to its cell. Live: fire harms `dmg`% of health each 0.5 s while stood in (the
+  burning floor's own harm, `drawn_fire_tick`), with a `chance`% of setting the caster On Fire at the first touch; ice gives a Chilled stack
+  each 0.4 s at `chance`% and holds what stands on it as the ice does now (`ice_tick`). Unless `kills`, neither takes the caster below a
+  quarter of health, as now. Not live: the floor shows burnt out or thawed and does nothing. The tutorial's two levels keep their own fire
+  and ice (they export no fields). **Mend this first:** `ice_tick` still tests `g_drawn != 2`, so ice does nothing on any other drawn level.
+- **Picks:** each play the run's dice (not the drawing's seed) choose one of a thing's places: each spot of its `tag`, and for each room in
+  `rooms`, each spot (of any tag) standing in it, or, with none there, the floor cell nearest the room's middle within a step of a lane, not
+  a door, not taken (`roomSpot`: ties go up and left). A spawn point with a spot tag is laid at one of those spots the same way.
+- **Things:** the compass, picked up, sets `RUN.has_compass` as if bought (held already: worth her price, `COMPASS_PRICE`, in gold); a relic
+  is carried as the puzzles' things are (one at a time) and set in a socket that takes it with the use key; a lever (`TR_LEVER`'s look) is
+  used with the use key; a plate (`TR_PLATE`'s) is stood on; a spot draws nothing.
+- **Doors:** `B` is a door barred till an action opens or unlocks it; `TA_DOOR_SHUT` shuts and bars any door.
+- **Rooms:** up to 24 on a drawn level; **secrets:** each `c` with its own room of `q` cells, up to `MAXSECRETS`.
+
 ## 3. Steps
 
 | | Step | Proof |

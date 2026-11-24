@@ -72,9 +72,38 @@ for (const D of DATA.drawn) {
     const L = C.layouts(pick), dp = C.dreamAll(DATA, pick);
     console.log(`the bone in one of two rooms: ${L.length} layouts, ${dp.failed} fail`);
     if (L.length !== 2 || dp.failed) fail('both rooms for the bone should finish');
-    const at4 = C.dream(DATA, pick, { layout: { [pick.things.find(t => t.t === 'relic').id]: 4 } }).pos.get(pick.things.find(t => t.t === 'relic').id);
+    const at4 = C.dream(DATA, pick, { layout: { [pick.things.find(t => t.t === 'relic').id]: 1 } }).pos.get(pick.things.find(t => t.t === 'relic').id);
     if (!(at4[1] > 33 && at4[1] < 40)) fail('in room 5 the bone should lie in the south room, not ' + at4);
     if (!C.exportDrawn(DATA, pick, 3).text.includes('DRAWN3_PICK')) fail('the export lacks the picks');
+}
+/* spots and fields: a thing at one of three tagged spots, every one tried; a fire field set, a trigger that puts it out; the whole
+ * level written out as the fixture the game's side builds against (tools/mapedit/fixtures/events_full.c) */
+{
+    const m = C.sampleEvents();
+    m.name = 'Every part of the events (a test level, not for play)';
+    m.things.push({ id: 801, t: 'spot', tag: 'the compass\'s places', x: 20.5, y: 20.5 }, { id: 802, t: 'spot', tag: 'the compass\'s places', x: 24.5, y: 24.5 },
+                  { id: 803, t: 'spot', tag: 'the compass\'s places', x: 8.5, y: 20.5 });
+    m.things.find(t => t.t === 'compass').spotTag = 'the compass\'s places';
+    m.things.push({ id: 804, t: 'plate', x: 22.5, y: 14.5 }, { id: 805, t: 'lever', x: 26.5, y: 26.5 });
+    m.things.push({ id: 806, t: 'spawn', k: '', chance: 100, spotTag: 'the compass\'s places', x: 0.5, y: 0.5 });
+    for (let y = 33; y <= 35; y++) for (let x = 23; x <= 25; x++) m.grid[C.idx(x, y)] = 'F';
+    m.fields = [{ x: 23, y: 33, name: 'The south embers', on: true, dmg: 10, chance: 50, kills: false }];
+    m.events.push({ id: 'e4', name: 'The plate', kind: 'step', target: 804, type: 'timed', hold: 6, needs: [], actions: [{ kind: 'light_on', group: 'path C' }], back: [{ kind: 'sound', sound: 'SFX_KNOCK' }] });
+    m.events.push({ id: 'e5', name: 'The lever', kind: 'use', target: 805, type: 'toggle', hold: 0, needs: [], actions: [{ kind: 'field_off', field: 'The south embers' }] });
+    const ch = C.check(DATA, m), errs = ch.filter(c => c.sev === 'error');
+    const opts = C.pickOptions(m, C.compose(DATA, m).cells, C.lanes(m, C.compose(DATA, m).cells), m.things.find(t => t.t === 'compass'));
+    const d = C.dreamAll(DATA, m), f = C.fields(m, C.compose(DATA, m).cells);
+    console.log(`spots and fields: ${errs.length} errors; the compass has ${opts.length} places; ${d.layouts} layouts, ${d.failed} fail; ${f.length} field: ${f.map(x => x.name + ' ' + x.dmg + '%').join(', ')}`);
+    errs.forEach(c => console.log('  error ' + c.msg));
+    if (errs.length) fail('the full test level has errors');
+    if (opts.length !== 3 || d.failed) fail('the compass should have three places, all finishing');
+    if (f.length !== 1 || f[0].name !== 'The south embers' || f[0].dmg !== 10) fail('the field should keep its settings');
+    const x = C.exportDrawn(DATA, m, 3).text;
+    ['DT_SPOT, 0', 'DT_PLATE', 'DT_LEVER', 'DRAWN3_FIELD', 'DF_FIRE', 'TA_FIELD_OFF', 'TG_STEP', 'TG_USE', 'TT_TIMED', 'TT_TOGGLE', 'DRAWN3_PICK'].forEach(k => { if (!x.includes(k)) fail('the full export lacks ' + k); });
+    fs.mkdirSync(path.join(__dirname, 'fixtures'), { recursive: true });
+    fs.writeFileSync(path.join(__dirname, 'fixtures', 'events_full.c'), x);
+    fs.writeFileSync(path.join(__dirname, 'fixtures', 'events_full.json'), JSON.stringify(m));
+    fs.writeFileSync(path.join(__dirname, 'fixtures', 'events_sample.c'), C.exportDrawn(DATA, C.sampleEvents(), 3).text);
 }
 /* a stamp laid and turned: the shapes stay whole */
 const s = DATA.stamps[0];
