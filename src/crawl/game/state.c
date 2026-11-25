@@ -561,6 +561,7 @@ static struct {
     int por_open;
     uint16_t por_feat[REC_KINDS];           /* kept through death: each kind's feat's deeds; the Spectre's laid to rest, the Wraith's
                                                times driven back (step 5; the spiderling's and the imp's are the record's) */
+    int sd_lost;                            /* side (PLAN-side): the side passages' lives lost, of three (not saved yet: step 11) */
 } RUN;
 static int lantern_held(void) { return RUN.corner >> CS_LANTERN & 1; }   /* the Lantern of the Dead (docs/PLAN-ai.md, 26) */
 static int lantern_lit(void) { return lantern_held() && !RUN.lantern_off; }

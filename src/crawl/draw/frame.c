@@ -10,6 +10,15 @@ static void crawl_render(Frame *f) {
     ui_check = 1; ui_check_frame();
 #endif
     if (title_render(f)) return;                                   /* the title screen, the whole frame (1.0.0b21.1) */
+    if (SD.on) {                                                   /* a side passage (docs/PLAN-side.md), over the crypt's bar */   /* side (PLAN-side) */
+        sd_render(f);
+        render_statusbar(f);
+        render_xp(f); render_messages(f);
+        if (G.player && G.ui) render_ui(f);
+        if (!(G.player && G.ui)) render_toasts(f);
+        pad_look_render(f); con_render(f);
+        return;
+    }
     if (G.tally) { render_tally(f); if (G.player && G.ui) render_ui(f); pad_look_render(f); con_render(f); return; }   /* toasts wait for the next level */
     g_camfog = fog_at(G.px, G.py);
     fog_tint = G.tri >= 0 && G.tri_state == TRS_ON && in_trial((int)G.px, (int)G.py) ? TRI_FOG[G.tri] : 0;   /* a trial's room, turned */

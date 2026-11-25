@@ -81,6 +81,7 @@ static int open_door(Door *d) {
 }
 
 static int pocket_door(int x, int y);
+static int sd_walk_in(int x, int y);                              /* side.c: a side passage's doorway (docs/PLAN-side.md) */   /* side (PLAN-side) */
 static void human_exit(void) {                                    /* into the runes */
     G.exiting = 1; G.leaving = 1; G.exit_t = 0.0f; G.u = 1.0f; G.pc_t = -1.0f; G.hand = 0.0f;
     G.cx = G.tx = G.exit_fx; G.cy = G.ty = G.exit_fy;
@@ -191,6 +192,7 @@ static void human_bump(int cx, int cy) {
     Cell *c = cell(cx, cy);
     if (G.shop) { if (c->kind == K_DOOR) open_door(&G.doors[c->door]); return; }
     if (c->kind == K_DOOR) open_door(&G.doors[c->door]);
+    else if (c->kind == K_WALL && sd_walk_in(cx, cy)) return;      /* a side passage's doorway: walked through */   /* side (PLAN-side) */
     else if (c->kind == K_WALL && c->secret == 3) pocket_door(cx, cy);   /* a secret's doorway: walked through */
     else if (G.exit_fx >= 0 && cx == G.exit_wx && cy == G.exit_wy && (int)G.px == G.exit_fx && (int)G.py == G.exit_fy) {
         if (boss_sealed()) { if (G.msg_t <= 0.0f) { say("THE WAY IS SHUT WHILE IT LIVES"); snd_sfx_ex(SFX_KNOCK, 0.6f, 0.5f); } }
@@ -227,6 +229,7 @@ static int human_use(void) {
         if (ti >= 0) { thing_use(ti); G.grab_t = 0.6f; return 1; }
     }
     if (c->kind == K_DOOR) { open_door(&G.doors[c->door]); return 1; }
+    if (c->kind == K_WALL && sd_walk_in(cx, cy)) return 1;         /* a side passage's doorway */   /* side (PLAN-side) */
     if (c->kind == K_WALL && c->secret == 3 && pocket_door(cx, cy)) return 1;   /* a secret's doorway */
     if (PK.depth && cx == G.vis_x && cy == G.vis_y) return visportal_use();
     if (!PK.depth && altar_callable()) {                           /* the altar's wisp, waiting at a secret you have been into */
