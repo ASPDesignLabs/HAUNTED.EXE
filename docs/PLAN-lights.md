@@ -92,3 +92,7 @@ light, a bead under its lip, verdigris in the seams; the knop banded, the drop a
 fish-scale plates, the eave and the ribs riveted, the bands doubled, the faces hammered and turned a little across, soot over each
 hole and the plate's edge lit under it, the cone ringed. The bone candelabrum was left as it was: bone, cord and flame already.
 Nothing in the game.
+
+**The sheets approved (25 November 2026).** After the detail pass the owner approved both, `media/sheets/lights/hanging_lights.png` and
+`media/sheets/events/event_things.png`: "Beautifully done!" Next: the four lights and the five things into the game's art from
+`tools/lightmock.c` (as the unlit torch went), the unbarred look shown on an unlock, then the cage lantern's dappled light.

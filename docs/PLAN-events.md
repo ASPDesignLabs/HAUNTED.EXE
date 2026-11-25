@@ -376,3 +376,6 @@ foot, a sunk panel round the cut shape and a moulded capital, its hands knuckled
 hammered and riveted, its slot's lip lit, a little rust, the grip turned, the ball and pin with a highlight. The plate: grit in the
 joint, tooled, worn smooth in the middle, two corners chipped, a crack in from its edge, the border's and roundel's lips lit where
 they face the light, the rose raised round a boss, the studs domed with rust round them. At 1x each reads as before.
+
+**The events' things' sheet approved (25 November 2026)**, after its detail pass: `media/sheets/events/event_things.png`. Next: the barred
+and unbarred door, relic, socket, lever and plate into the game's art, in place of the puzzles' borrowed looks (docs/PLAN-lights.md).
