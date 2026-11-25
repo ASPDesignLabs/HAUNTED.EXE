@@ -413,6 +413,7 @@ static void crawl_enter(uint32_t seed) {
         RUN.active = 1; RUN.level = 1; RUN.hp = 100; RUN.shop_next = 1;
         RUN.run_id = new_run_id(seed); RUN.peds = 2; RUN.repo_n = 2; RUN.atone = 1;
         gear_reset(&RUN.gear);
+        RUN.level = 3;                                            /* PLAYTEST ONLY: a new run begins on the owner's level 3 */
 #ifdef CRAWL_DEBUG
         if (getenv("CRAWL_LEVEL")) RUN.level = atoi(getenv("CRAWL_LEVEL"));
         if (getenv("CRAWL_STAGE")) RUN.shop_next = 0;              /* straight into the level */

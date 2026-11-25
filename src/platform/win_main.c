@@ -32,7 +32,7 @@
 #include "snd.h"
 #include "build/version.h"
 
-#define REG_KEY "Software\\HalloweenVGASaver"          /* the old name, so settings and progress carry over */
+#define REG_KEY "Software\\HalloweenVGASaver-Playtest"  /* PLAYTEST ONLY: its own settings and saves, apart from the game's */
 #define APP_TITLE "HAUNTED.EXE"
 
 /* ------------------------------------------------------------------ */
