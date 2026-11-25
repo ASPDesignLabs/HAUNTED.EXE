@@ -170,3 +170,7 @@ Saves untouched: `save.c` and `ledger.c` did not change; the lights, `GLP` and `
 
 *Left:* the owner's pick of the colour, and their hand on all of it; the four new lights' art (step 4); the editor's page to call
 `web_drawn_lights` (above); the browser's and Windows builds compiled by CI.
+
+**The owner's colour for three left (25 November 2026): A, the ghost ramp** (`R_GHOST`), the default already (`TL_DEFAULT`). And: "go
+ahead with the art": step 4 (the four lights and the events' things into the game), the unbarred look on an unlock, then the cage
+lantern's dappled light.
