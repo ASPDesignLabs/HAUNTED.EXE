@@ -186,3 +186,11 @@ What is next, in order: the editor's side (step 9), with the other agent; the cr
 `HOST_SIDE` (8); lives at the merchant and in the ledger (11); touch and the controller (12); the creatures' own art and the caster in the
 gear (13). Questions for the owner: what a side passage is called in the game; whether the numbers (jump, speeds, each element's reach,
 the poison's bite, spikes a third of health) feel right by hand.
+
+**Session 1, later (25 November 2026): main merged in.** Main took the world editor's branch squashed (`a76f4d2`, its tip but for three
+lines of PLAN-lights). This branch's two commits replayed on main without a conflict in the code; the one conflict was the plans table in
+`CLAUDE.md` (main's rows kept, PLAN-side's after them). Recorded as a merge commit whose tree is exactly that, so the branch is main plus
+the side passages and nothing else (22 files). Tested on the merged tree: every binary built without a warning (the Windows and browser
+builds not here: no compilers for them in this container, so CI alone), `node tools/mapedit/test.js` passed, `make smoke` passed, the
+dream's log line for line the same as main's (seeds 1, 2, 4, 6, run 7, 1,500 s, but the time-taken line), the side passage on eight seeds
+as before (27 in, 26 at the goal, one run ended), 400 s of it under `make asan`: clean.
