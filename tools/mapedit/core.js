@@ -262,11 +262,13 @@ const ACTIONS = {
 const SOUNDS = ['SFX_DEEPCHIME', 'SFX_SHIMMER', 'SFX_KNOCK', 'SFX_KEYGET', 'SFX_BONES', 'SFX_WAIL'];
 const SOUND_NAMES = ['a deep chime', 'a shimmer', 'a knock', 'a key\'s ring', 'bones', 'a wail'];
 
-function frontOf(cells, x, y) {                 /* drawn_front: a wall's open side, north, south, west, east first */
-    for (const d of FRONT_ORDER) {
-        const fx = x + DIRS[d][0], fy = y + DIRS[d][1];
-        if (inMap(fx, fy) && isOpen(cells[idx(fx, fy)]) && cells[idx(fx, fy)] !== 'q') return [fx, fy];
-    }
+function frontOf(cells, x, y, secretOk) {       /* drawn_front: a wall's open side, north, south, west, east first; a secret
+                                                   room's floor only when nothing else is open and it may be (a place to mend) */
+    for (let pass = 0; pass < (secretOk ? 2 : 1); pass++)
+        for (const d of FRONT_ORDER) {
+            const fx = x + DIRS[d][0], fy = y + DIRS[d][1];
+            if (inMap(fx, fy) && isOpen(cells[idx(fx, fy)]) && (pass || cells[idx(fx, fy)] !== 'q')) return [fx, fy];
+        }
     return null;
 }
 /* what a trigger of each kind may watch */
@@ -680,7 +682,7 @@ function check(DATA, m) {
     const H = find('h');
     if (H.length > MAX.rest) add('warn', `There are ${H.length} places to mend: the game keeps ${MAX.rest}.`, H.slice(MAX.rest));
     H.forEach(c => {
-        const f = frontOf(cells, c[0], c[1]);
+        const f = frontOf(cells, c[0], c[1], true);
         if (!f) add('error', 'A place to mend has no open side to be used from.', [c]);
         else if (!L[idx(f[0], f[1])]) add('warn', `A place to mend is used from (${f[0]},${f[1]}), off the dream's lanes: the dream cannot mend there.`, [f]);
     });
@@ -777,7 +779,7 @@ function check(DATA, m) {
         if (!isOpen(at(x, y))) add('error', `A ${label(DATA, t).toLowerCase()} stands in stone.`, [[x, y]]);
         else if (DOORS.has(at(x, y))) add('warn', `A ${label(DATA, t).toLowerCase()} stands in a doorway.`, [[x, y]]);
     });
-    const restF = H.map(c => frontOf(cells, c[0], c[1])).filter(Boolean);
+    const restF = H.map(c => frontOf(cells, c[0], c[1], true)).filter(Boolean);
     m.things.filter(t => t.t === 'spawn' || t.t === 'dead').forEach(t => {
         const [x, y] = thingCell(t);
         if (t.t === 'spawn' && restF.some(f => Math.abs(f[0] - x) + Math.abs(f[1] - y) < 6)) add('warn', 'A spawn point within six steps of a place to mend: the budget sets nothing there.', [[x, y]]);

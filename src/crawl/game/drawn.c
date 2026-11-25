@@ -237,13 +237,15 @@ static char drawn_ch(int x, int y) {                               /* the letter
     x -= D->ox; y -= D->oy;
     return x < 0 || y < 0 || x >= D->w || y >= D->h ? '#' : D->map[y][x];
 }
-static int drawn_front(int wx, int wy, int *fx, int *fy) {         /* a wall's open side (north, south, west, east first): the cell
-                                                                      it is used from, and the way */
+static int drawn_front(int wx, int wy, int *fx, int *fy, int secret_ok) {   /* a wall's open side (north, south, west, east
+                                                                      first): the cell it is used from, and the way; a secret room's
+                                                                      floor only when nothing else is open and it may be */
     static const int ORDER[4] = { 3, 1, 2, 0 };
-    for (int k = 0; k < 4; k++) {
-        int d = ORDER[k];
-        if (is_open(wx + DX[d], wy + DY[d]) && !G.map[wy + DY[d]][wx + DX[d]].secret) { *fx = wx + DX[d]; *fy = wy + DY[d]; return (d + 2) & 3; }
-    }
+    for (int pass = 0; pass < 1 + !!secret_ok; pass++)
+        for (int k = 0; k < 4; k++) {
+            int d = ORDER[k];
+            if (is_open(wx + DX[d], wy + DY[d]) && (pass || !G.map[wy + DY[d]][wx + DX[d]].secret)) { *fx = wx + DX[d]; *fy = wy + DY[d]; return (d + 2) & 3; }
+        }
     *fx = *fy = -1;
     return 0;
 }
@@ -518,14 +520,14 @@ static void drawn_walls(void) {                                    /* the exit a
             char ch = D->map[y][x];
             int wx = D->ox + x, wy = D->oy + y, fx, fy, d;
             if (ch == 'X') {
-                d = drawn_front(wx, wy, &fx, &fy);
+                d = drawn_front(wx, wy, &fx, &fy, 0);
                 if (fx < 0) continue;
                 G.exit_fx = fx; G.exit_fy = fy; G.exit_dir = d; G.exit_wx = wx; G.exit_wy = wy;
                 G.exit_in_vault = vault_of_room(fx, fy);           /* level 2's is behind the crimson door */
                 G.map[wy][wx].tex = T_EXIT0;
                 light_static(fx + 0.5f + DX[d] * 0.35f, fy + 0.5f + DY[d] * 0.35f, 0.9f, 3.2f);   /* its runes light the stone */
             } else if (ch == 'h' && G.nrest < 2) {
-                d = drawn_front(wx, wy, &fx, &fy);
+                d = drawn_front(wx, wy, &fx, &fy, 1);                 /* it may face a secret room (the owner's word) */
                 if (fx < 0) continue;
                 G.map[wy][wx].tex = T_REST;
                 G.rest_x[G.nrest] = wx; G.rest_y[G.nrest] = wy; G.rest_fx[G.nrest] = fx; G.rest_fy[G.nrest] = fy; G.nrest++;
