@@ -62,6 +62,23 @@ Storage: the artifact's `db`, read and written at `admin` (the owner, and editor
 - What a drawn level still does without, as the tutorial's did: hazards' sites, puzzles, trials, places to mend laid by the generator,
   things that want a spell laid by it, spectres, the lull's watch. Each is the owner's to ask for.
 
+## 3b. Part 3: PLAY (built)
+
+The owner asked to test a level without a round trip through a build: "Can this be done in the artifact?" A throwaway artifact of the
+browser build showed it runs there, with sound and fonts (the owner, 25 November 2026). So the editor carries the game.
+
+- **The game reads the export.** `game/drawn_text.c`: `crawl_drawn_text` reads the text EXPORT C gives (the arrays and the row), the
+  same text that is pasted into `DRAWN[]`, into `g_dtext`. Names (`DT_*`, `MOB_*`, `RT_*`, `TA_*` ...) are looked up in a table the
+  compiler fills, so a value is never wrong; a name not in it, a count past the game's limits or an index out of range is refused, with
+  the line. The drawing read takes the place of whatever is drawn for its level (`drawn_level` gives `NDRAWN + 1`, `drawn()` its
+  struct), and a new run begins on its level (`pockets.c`). Nothing is saved of it.
+- **The doors.** The browser: `web_drawn_buf`, `web_drawn_cap`, `web_drawn_load` (`web_main.c`); `haunted.js` reads `window.HVS_LEVEL`
+  before the game starts, `HVS_PREFIX` keeps its storage apart, `HVS_FORCE` its settings, and `HVS_WANT_LEVEL` holds the boot till the
+  level has come; none is set on the play page, which stays as it was. The harness: `HOST_DRAWN=file`; `drawncheck` (docs/HARNESS.md).
+- **The editor.** PLAY refuses while a check is an error; else it puts the game (`play/`, the browser build that `make web` leaves in
+  `build/web`, copied by `build.py` with a few lines added to its page) over the editor in a frame and hands it the export by message.
+  BACK TO THE EDITOR closes it. Its saves are under `haunted.exe/world-editor/`, apart from anything else in that browser.
+
 ## 4. Later
 
 The in-game editor (decision 7). The stamps' altar, brazier, loot and torch marks on drawn levels.
@@ -98,3 +115,12 @@ agent, to docs/PLAN-events.md section 2b.
 changes in docs/PLAN-events.md's session 4: a place to mend may face a secret room, 120 torches, a gate an event works told to be a
 barred door. The owner's next ask: a PLAY button that runs the game's browser build in the artifact on the map being drawn (option A),
 after a Windows play test of their level 3 (option B, done first).
+
+**Session 4, part 3 (25 November 2026): PLAY.** Built as 3b says. Proof: the tutorial's two levels, exported by the editor and read
+back, are `DRAWN[0]` and `DRAWN[1]` field for field (`drawncheck`), and the owner's Storage, exported and read, is the playtest branch's
+compiled `DRAWN[2]` field for field; the dream on Storage read from text (`HOST_DRAWN`) against the dream on it compiled in (the
+playtest branch), seeds 1 and 3, 420 s: line for line the same but the time-taken line; the dream's logs without it (seeds 1 and 4,
+1,500 s) the same as `68876dd`'s. The export cut short at every 97th character (87 cuts) and a few odd texts: each refused with its line
+and reason, none crashed, under `make asan`. In Playwright's Chromium, the editor served locally: the owner's saved map (two gates) is
+refused with the checks; with barred doors, PLAY opens the game, its page names the level, it boots and the dream plays; no page errors.
+The browser build compiled here with Emscripten 6.0.13 (CI's). Not yet used by the owner.

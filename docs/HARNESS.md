@@ -24,11 +24,11 @@ Environment for the harness: `HOST_INPUT="1:+H;4.3:-H;5:+W;7:-W;8:m400,0;9:+MOUS
 (press `+`, release `-`, mouse counts `m`, wheel `w`, typed letters and digits `t`, as `6:tWORD`; key names
 as in `core.h` without `KEY_`, so `CONSOLE`, `BACK`, `PGUP`, `PGDN` too),
 `HOST_LOAD=file` (the progress to start from: a run, or the page it names; stands in for the registry),
-`HOST_SAVE=file` (the progress, each time the game writes it), `HOST_STAGE=WxH` (with `shot`: touch's stage of that size too, each frame's written beside it as `_stage.png`; no fingers, so the stones as they stand), `HOST_SLOTS=dir` (the ledger's pages as
+`HOST_DRAWN=file` (a drawn level from the world editor's export, read as its PLAY reads it: it takes the place of its level's drawing and a new run begins on that level; a text it cannot read stops the harness with the reason and its line; docs/PLAN-mapedit.md, part 3), `HOST_SAVE=file` (the progress, each time the game writes it), `HOST_STAGE=WxH` (with `shot`: touch's stage of that size too, each frame's written beside it as `_stage.png`; no fingers, so the stones as they stand), `HOST_SLOTS=dir` (the ledger's pages as
 `slot1.bin`..`slot3.bin`, the dead's mark as `mark.bin`, the pad's layout as `prefs.bin`), `BOTH=1` (scene rotation), `STAY=n`. A game
 controller in `HOST_INPUT`: buttons `+PAD_A` ... `-PAD_RT` (names as `PAD_*` in `core.h`), sticks `aLX0.8`,
 `aLY1`, `aRX-0.5`, `aRY0` (y up); any of them makes a pad plugged in. The harness prints `RUMBLE lo hi`
-and `RUMBLE off` as the motors start and stop. `M` is the map's key (1.0.0b9).
+and `RUMBLE off` as the motors start and stop. `build/host_debug drawncheck <export> <n>` reads an export and compares it with `DRAWN[n - 1]` field for field ("the same, field for field", or the first part that differs). `M` is the map's key (1.0.0b9).
 
 Debug build switches (`CRAWL_DEBUG`): `CRAWL_SEED=n` (seeds are OR-ed with 1, so 2 and 3 are the
 same), `CRAWL_HASCOMPASS=1` (the compass, already bought), `CRAWL_COMPASSTEST=1` (at a level's start, the bearing from eight places round the exit and each key lying: `EVENT compass_selftest cases n bad n`), `CRAWL_COMPASSLOG=1` (with the compass, what its readout says every five seconds: `EVENT compass LABEL | NUM bear eased`) and `CRAWL_SAVETEST=1` (at a level's start, a page packed and read back for each compass it can hold; prints `EVENT save_selftest cases n bad n`), `CRAWL_LEVEL=n` (start deeper; you start at the merchant), `CRAWL_GEAR=t` (every spell at

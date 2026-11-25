@@ -47,11 +47,18 @@ h3 { font-size: 12px; color: var(--dim); }
 .saved.ok { color: var(--green); border-color: var(--green); }
 .bar { display: flex; flex-wrap: wrap; gap: 6px; }
 
+/* PLAY: the game over the editor (docs/PLAN-mapedit.md, part 3) */
+#playLayer { position: fixed; inset: 0; z-index: 50; background: #000; display: flex; flex-direction: column; }
+#playLayer[hidden] { display: none; }
+#playLayer .playbar { display: flex; gap: 10px; align-items: center; padding: 6px 10px; background: var(--slab); border-bottom: 2px solid var(--slab-lo); flex-wrap: wrap; }
+#playLayer .playbar span { font-family: var(--display); font-size: 12px; color: var(--gold); flex: 1; min-width: 12em; }
+#playFrame { flex: 1; width: 100%; border: 0; background: #000; }
 .btn { font-family: var(--display); font-size: 12px; letter-spacing: 0.04em; padding: 6px 10px; cursor: pointer; background: var(--slab); color: var(--bone);
   border: 2px solid; border-color: var(--slab-hi) var(--slab-lo) var(--slab-lo) var(--slab-hi); }
 .btn:hover { color: var(--gold); }
 .btn:active, .btn[aria-pressed=true] { border-color: var(--slab-lo) var(--slab-hi) var(--slab-hi) var(--slab-lo); background: var(--well); color: var(--gold); }
 .btn.warn { color: var(--crimson); }
+.btn.play { color: var(--gold); }
 .btn:disabled { opacity: 0.45; cursor: default; }
 input[type=text], input[type=number], select, textarea { background: var(--well); border: 2px solid; border-color: var(--slab-lo) var(--slab-hi) var(--slab-hi) var(--slab-lo); padding: 3px 6px; }
 input[type=number] { width: 5.5em; }
@@ -154,6 +161,7 @@ input[type=range] { width: 100%; accent-color: var(--gold); }
       <button class="btn" id="bBackup">BACKUP FILE</button>
       <button class="btn" id="bLoadFile">LOAD FILE</button>
       <button class="btn" id="bExport">EXPORT C</button>
+      <button class="btn play" id="bPlay" title="Play this level in the game, here">PLAY</button>
       <input type="file" id="fileIn" accept=".json,application/json" hidden>
     </div>
   </header>
@@ -199,6 +207,10 @@ input[type=range] { width: 100%; accent-color: var(--gold); }
   <footer class="status slab" id="status"><span>Cell <b id="sCell">-</b></span><span>Block <b id="sBlock">-</b></span><span>Lane <b id="sLane">-</b></span><span id="sHint">Choose a tool at the left.</span></footer>
 </div>
 <div id="modal"></div>
+<div id="playLayer" hidden>
+  <div class="playbar"><span id="playTitle"></span><button class="btn" id="bPlayClose">BACK TO THE EDITOR</button></div>
+  <iframe id="playFrame" title="The game, playing this level" allow="autoplay; fullscreen; gamepad"></iframe>
+</div>
 
 <script>
 /*@CORE@*/
@@ -1150,8 +1162,32 @@ $('fileIn').addEventListener('change', e => {
 });
 $('bExport').addEventListener('click', () => {
   const errs = S.checks.filter(c => c.sev === 'error').length, n = S.map.slot || 3, x = C.exportDrawn(DATA, S.map, n);
-  showText(`EXPORT FOR DRAWN.C (SLOT ${n})`, (x.events ? 'This level has events or torches: it compiles once the game has their side (docs/PLAN-events.md, steps 3 to 5). ' : '') + (errs ? `${errs} check${errs > 1 ? 's say' : ' says'} this level would break: see CHECKS before pasting. ` : '') +
+  showText(`EXPORT FOR DRAWN.C (SLOT ${n})`, ('') + (errs ? `${errs} check${errs > 1 ? 's say' : ' says'} this level would break: see CHECKS before pasting. ` : '') +
     `Paste the arrays above DRAWN[] in src/crawl/game/drawn.c and the last two lines into DRAWN[], then raise NDRAWN. The row carries the level it is laid on (${S.map.level}), the first time down.`, x.text, `drawn-level-${S.map.level}-slot-${n}.txt`);
+});
+
+/* ---------- PLAY: the game's browser build in play/, over the editor, given this level as its export (docs/PLAN-mapedit.md, part 3).
+   The game reads the same text EXPORT C gives, and a new run there begins on this level. ---------- */
+let playText = null;
+const sameOrigin = () => (location.origin && location.origin !== 'null' ? location.origin : '*');
+function playStop() { $('playFrame').src = 'about:blank'; $('playLayer').hidden = true; playText = null; }
+$('bPlay').addEventListener('click', () => {
+  const errs = S.checks.filter(c => c.sev === 'error');
+  if (errs.length) {
+    ask('Mend it first?', `${errs.length} check${errs.length > 1 ? 's are errors' : ' is an error'}, and the game would refuse the level or lay it wrong. The first: ${errs[0].msg}`, 'SHOW THE CHECKS',
+      () => { const t = document.querySelector('[data-tab="checks"]'); if (t) t.click(); }, 'KEEP EDITING');
+    return;
+  }
+  playText = C.exportDrawn(DATA, S.map, S.map.slot || 3).text;
+  $('playTitle').textContent = `PLAYING ${String(S.map.name || 'THIS LEVEL').toUpperCase()}: LEVEL ${S.map.level}. A NEW RUN BEGINS THERE. ITS SAVES ARE KEPT APART FROM THE GAME'S.`;
+  $('playLayer').hidden = false;
+  $('playFrame').src = 'play/index.html?t=' + Date.now();
+  $('playFrame').focus();
+});
+$('bPlayClose').addEventListener('click', playStop);
+addEventListener('message', e => {                       /* the game's page asks for the level when it loads (again, after fleeing) */
+  if (!playText || e.source !== $('playFrame').contentWindow || !e.data || e.data.type !== 'hvs-play-ready') return;
+  e.source.postMessage({ type: 'hvs-level', text: playText, name: S.map.name, level: S.map.level }, sameOrigin());
 });
 
 /* ---------- starting ---------- */

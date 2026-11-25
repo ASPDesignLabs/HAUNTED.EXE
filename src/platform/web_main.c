@@ -52,6 +52,17 @@ KEEP void web_slot_load(int i, int len) { app_slot_load(i, g_slot, len); }
 /* a slot the game wrote since last asked: its bytes in web_slot_buf, its length, or 0 */
 KEEP int web_slot_take(int i) { return app_slot_take(i, g_slot, sizeof g_slot); }
 
+/* a drawn level from the world editor's export, before web_start (its PLAY, docs/PLAN-mapedit.md): the page puts the text's
+ * bytes in web_drawn_buf; then "" if it was read, else why not */
+int crawl_drawn_text(const char *text, char *err, int nerr);
+static char g_dtxt[262144], g_derr[256];
+KEEP char *web_drawn_buf(void) { return g_dtxt; }
+KEEP int web_drawn_cap(void) { return (int)sizeof g_dtxt; }
+KEEP const char *web_drawn_load(int len) {
+    g_dtxt[len < 0 ? 0 : len < (int)sizeof g_dtxt ? len : (int)sizeof g_dtxt - 1] = 0;
+    return crawl_drawn_text(g_dtxt, g_derr, sizeof g_derr) ? g_derr : "";
+}
+
 KEEP void web_start(void) {
     if (g_started) return;
     g_started = 1;
