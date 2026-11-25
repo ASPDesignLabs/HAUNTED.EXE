@@ -215,7 +215,7 @@ static const DrawnRoom DRAWN2_ROOM[] = {
 /* Storage: level 3, drawn in the map editor (docs/PLAN-mapedit.md) */
 static const char *const DRAWN3_MAP[43] = {
     "########+++#+++#+++#############",    /*  0 */
-    "######.##D###D###D##+###########",    /*  1 */
+    "######+##D###D###D##+###########",    /*  1 */
     "######+++++++++++++++###########",    /*  2 */
     "####+#+#############+#+#########",    /*  3 */
     "####+D+#+++#+++#+++#+D+cqqqqqqq#",    /*  4 */
@@ -319,7 +319,7 @@ static const DrawnTrig DRAWN3_TRIG[] = {
     { TG_PLACE, TT_TOGGLE, 0.00f, 1, 9, 0, 0, -1, -1, 0x0u, 1, 1, 2, 0 },    /* Open Compass Room */
     { TG_STEP, TT_EVERY, 0.00f, 1, 12, 0, 0, -1, -1, 0x1u, 2, 1, 3, 0 },    /* Close Backroom Entrance */
     { TG_USE, TT_ONCE, 0.00f, 1, 13, 0, 0, -1, -1, 0x0u, 3, 1, 4, 0 },    /* Miniboss Spawn */
-    { TG_USE, TT_ONCE, 0.00f, 1, 10, 0, 0, -1, -1, 0x0u, 4, 1, 5, 0 },    /* Back room exit (added for the test) */
+    { TG_USE, TT_TOGGLE, 5.00f, 1, 10, 0, 0, -1, -1, 0x1u, 4, 1, 5, 0 },    /* Trigger 5 */
 };
 /* actions: the kind; the group or the sound; a door's cell in the drawing; after how long, s; the line */
 static const DrawnAct DRAWN3_ACT[] = {
@@ -457,7 +457,8 @@ static int drawn_torches(void) {
     for (int i = 0; i < D->ntorch && EV.nt < EV_TORCHES; i++) {
         const DrawnTorch *t = &D->torch[i];
         int wx = D->ox + t->x, wy = D->oy + t->y, d = t->d & 3, fx = wx + DX[d], fy = wy + DY[d];
-        if (wx < 1 || wy < 1 || wx >= MAPN - 1 || wy >= MAPN - 1 || G.map[wy][wx].kind != K_WALL || G.map[wy][wx].secret || !is_open(fx, fy)) continue;
+        if (wx < 0 || wy < 0 || wx >= MAPN || wy >= MAPN || fx < 1 || fy < 1 || fx >= MAPN - 1 || fy >= MAPN - 1   /* the ring too, facing in */
+            || G.map[wy][wx].kind != K_WALL || G.map[wy][wx].secret || !is_open(fx, fy)) continue;
         Cell *w = &G.map[wy][wx];
         w->tex = T_TORCH0; w->ftorch = (uint8_t)(d + 1);
         int k = EV.nt++;
