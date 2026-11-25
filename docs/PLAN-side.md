@@ -230,3 +230,6 @@ been changed outside the repository. Built as section 2c says. Tested:
 Not used by the owner; nothing under Wine; the Windows build left to CI. Still to do: the crypt's dream walking into side doorways
 (step 7), lives at the merchant and in the save (11), touch and the controller (12), the creatures' own art and the caster in the
 gear (13); in the editor, a dream's walk for passages as the crypt's has.
+Published as a new artifact, https://claude.ai/artifact/9f163JHMAJesUR8bPgMyWP (with `play/`; `db` at `admin` for `maps`, and
+`downloads`, as the first), since the first editor's artifact could not be updated from this session (the tool took it as from outside
+the account). Its store starts empty: maps from the first come across by BACKUP FILE there and LOAD FILE here.
