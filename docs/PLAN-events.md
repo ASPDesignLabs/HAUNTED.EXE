@@ -361,3 +361,8 @@ hands and the cut alight; the **lever**, a stone post, a toothed iron quadrant a
 floor texture, a flagstone in a deep joint with a rose cut in a roundel, and pressed, sunk, darker, dust at the joint. A row in
 the dark, and crops of the game's view at its own size in the Crypts and the Deep. Nothing in the game. *For the owner:* the
 relic is one look for every relic whatever it is named; the hands are small at a distance; in the Deep the barred door is dark.
+
+**The owner on the events' things' sheet (25 November 2026).** One relic look is fine for now; **from here on, think of twelve unique
+relic types** (a sheet of twelve when the time comes, each its own shape, chosen per relic in the editor). The socket's small hands and the
+Deep's dark barred door: left as they are for now. **An unlock shows the bar gone** (the sheet's "unbarred" look) before the door is
+opened. One detail pass more over the sheet, then back to the owner.

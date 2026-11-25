@@ -78,3 +78,8 @@ mean; the game has no such light yet.
 candles; the corona is wider, barbed and spoked, with no skull); whether the sanctuary lamp's glow, red glass in brass, is the
 colour wanted (its light's colour is step 4's); whether the Deep's violet glint is welcome or noise; whether the cage's dappled
 light is wanted, which would be new work in the light code.
+
+**The owner on the sheets (25 November 2026).** The corona is different enough from the chandelier; the sanctuary lamp's red is right;
+the Deep's violet glints are welcome; the cage lantern's **dappled light is wanted** (new work in the light code: a light that throws
+spots through the cage's holes on the walls and floor; a step of its own once the sheet is approved); one detail pass more over both
+sheets "to reduce the simple shapes", then back to the owner.
