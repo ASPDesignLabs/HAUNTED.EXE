@@ -28,7 +28,7 @@ personal direction." It is an artifact on claude.ai, so it opens anywhere, and i
 | `tools/mapedit/extract.py` | Reads the game's source into `data.json`: the 40 stamps, the 24 kinds (name, first level, top rank, cost), the budget table, gold values, room types, elements, and both tutorial levels |
 | `tools/mapedit/core.js` | The logic, no drawing: the map, stamps laid and turned, letters both ways, the checks, the budgets, the dream's walk |
 | `tools/mapedit/editor.html` | The page |
-| `tools/mapedit/build.py` | Puts `core.js` and the data into the page: `python3 -I tools/mapedit/build.py` writes `build/mapedit/catacomb-map-editor.html`, the file published as the artifact |
+| `tools/mapedit/build.py` | Puts `core.js` and the data into the page: `python3 -I tools/mapedit/build.py` writes `build/mapedit/haunted-world-editor.html`, the file published as the artifact (*HAUNTED.EXE World Editor*, renamed from *Catacomb Map Editor* at the owner's word) |
 | `tools/mapedit/test.js` | `node tools/mapedit/test.js`: both tutorial levels in and out again must match `drawn.c` exactly; then their checks and the dream |
 
 The map is the whole 45 x 45 (`MAPN`); the export trims it to the box of what is not stone, which gives `w`, `h`, `ox` and `oy`.

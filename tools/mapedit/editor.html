@@ -1,4 +1,4 @@
-<title>Catacomb Map Editor</title>
+<title>HAUNTED.EXE World Editor</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=VT323&display=swap">
@@ -141,7 +141,7 @@ input[type=range] { width: 100%; accent-color: var(--gold); }
 
 <div class="app" id="app">
   <header class="top slab">
-    <h1>CATACOMB MAP EDITOR</h1>
+    <h1>HAUNTED.EXE WORLD EDITOR</h1>
     <div class="name">
       <input type="text" id="mapName" aria-label="Map name" value="">
       <label for="mapLevel">Level</label><input type="number" id="mapLevel" min="1" max="160" value="3">
@@ -1137,14 +1137,14 @@ function showText(title, note, text, filename) {
 }
 $('bBackup').addEventListener('click', () => {
   const slug = S.map.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'map';
-  offer(`catacomb-level-${S.map.level}-${slug}.json`, JSON.stringify({ format: 'catacomb-map-editor', v: 1, saved: Date.now(), map: pack(S.map) }, null, 1));
+  offer(`haunted-level-${S.map.level}-${slug}.json`, JSON.stringify({ format: 'haunted-world-editor', v: 1, saved: Date.now(), map: pack(S.map) }, null, 1));
 });
 $('bLoadFile').addEventListener('click', () => guard(() => $('fileIn').click()));
 $('fileIn').addEventListener('change', e => {
   const f = e.target.files[0]; e.target.value = ''; if (!f) return;
   f.text().then(t => {
     const j = JSON.parse(t);
-    if (j.format !== 'catacomb-map-editor' || !j.map || !j.map.grid) throw new Error('format');
+    if (!['haunted-world-editor', 'catacomb-map-editor'].includes(j.format) || !j.map || !j.map.grid) throw new Error('format');
     load(null, { map: j.map }, false); S.dirty = true; savedBadge(); toast('LOADED: SAVE TO KEEP IT HERE');
   }).catch(() => toast('THAT FILE IS NOT A MAP FROM THIS EDITOR'));
 });

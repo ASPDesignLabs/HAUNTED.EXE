@@ -700,8 +700,10 @@ function check(DATA, m) {
     if (keyOf(0).length && !find('G').length) add('warn', 'There is a gold key but no gold door.', keyOf(0).map(thingCell));
     if (keyOf(2).length && !find('C').length) add('warn', 'There is a crimson key but no crimson door.', keyOf(2).map(thingCell));
     const gates = find('='), seals = m.things.filter(t => t.t === 'gseal');
-    if (gates.length > 1) add('error', 'There is more than one gate: the game keeps one.', gates);
-    if (gates.length && !seals.length) add('error', 'The gate has no seal to open it.', gates);
+    const evDoor = new Set(); for (const e of (m.events || [])) for (const a of (e.actions || []).concat(e.back || [])) if (a.door) evDoor.add(a.door.join());
+    const byEvent = gates.filter(g => evDoor.has(g.join())), hint = byEvent.length ? ' An event opens or shuts the one at ' + byEvent.map(g => '(' + g + ')').join(' and ') + ': a door an event works is a Barred door (B), not a gate.' : '';
+    if (gates.length > 1) add('error', 'There is more than one gate: the game keeps one.' + hint, gates);
+    if (gates.length && !seals.length) add('error', 'The gate has no seal to open it.' + (gates.length > 1 ? '' : hint), gates);
     if (seals.length && !gates.length) add('warn', 'There is a gate\'s seal but no gate.', seals.map(thingCell));
     const fire = cells.filter(c => c === 'F').length, ice = cells.filter(c => c === 'I').length;
     if (fire > MAX.fire) add('error', `${fire} cells of burning floor: a level keeps ${MAX.fire}.`, find('F').slice(MAX.fire));
