@@ -134,3 +134,5 @@ hazard wakes* and *A hazard stops*; drawn in its element's colour, the anchor as
 it, no cells, no box, never goes off, another run's, two of one name, the limits). Until the game's side lands, PLAY offers to play a
 level without its hazards (`PLAY_HAZARDS`). Tested by `test.js` (the export, its checks, `fixtures/hazards.c`) and in Playwright's
 Chromium (placing, painting, the pane, the events' list, PLAY's offer); not used by the owner.
+The game's side of hazards merged (docs/PLAN-events.md, its log): PLAY lays them now (`PLAY_HAZARDS`), the browser build made again
+with them; a level with hazards boots in it in Playwright's Chromium, no page errors.

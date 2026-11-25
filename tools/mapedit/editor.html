@@ -1284,7 +1284,7 @@ $('bExport').addEventListener('click', () => {
 /* ---------- PLAY: the game's browser build in play/, over the editor, given this level as its export (docs/PLAN-mapedit.md, part 3).
    The game reads the same text EXPORT C gives, and a new run there begins on this level. ---------- */
 let playText = null;
-const PLAY_HAZARDS = false;                              /* the game in play/ lays hazards (docs/PLAN-events.md, 2c): true once it does */
+const PLAY_HAZARDS = true;                               /* the game in play/ lays hazards (docs/PLAN-events.md, 2c): true once it does */
 const sameOrigin = () => (location.origin && location.origin !== 'null' ? location.origin : '*');
 function playStop() { $('playFrame').src = 'about:blank'; $('playLayer').hidden = true; playText = null; }
 $('bPlay').addEventListener('click', () => {
