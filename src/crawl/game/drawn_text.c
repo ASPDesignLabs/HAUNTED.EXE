@@ -18,6 +18,8 @@ static struct {
     const char *relic[DXT_RELICS]; int nrelic;
     DrawnPick pick[EV_THINGS]; int npick;
     DrawnField field[EV_FIELDS]; int nfield;
+    DrawnHaz haz[MAXSITE]; int nhaz;
+    DrawnCell hzcell[DH_CELLS]; int nhzcell;
     char pool[DXT_POOL]; int npool;                                 /* the strings: relics' names, lines */
 } DXT;
 
@@ -29,7 +31,12 @@ static const struct { const char *n; int v; } DXT_NAMES[] = {
     DXN(TT_ONCE), DXN(TT_EVERY), DXN(TT_TOGGLE), DXN(TT_TIMED),
     DXN(TA_FLICKER_ON), DXN(TA_FLICKER_OFF), DXN(TA_LIGHT_ON), DXN(TA_LIGHT_OFF), DXN(TA_FLICKER_ALL), DXN(TA_FIELD_ON),
     DXN(TA_FIELD_OFF), DXN(TA_DOOR_OPEN), DXN(TA_DOOR_UNLOCK), DXN(TA_DOOR_SHUT), DXN(TA_WAKE), DXN(TA_SECRET), DXN(TA_LINE),
-    DXN(TA_SOUND), DXN(DF_FIRE), DXN(DF_ICE),
+    DXN(TA_SOUND), DXN(TA_HAZ_ON), DXN(TA_HAZ_OFF), DXN(DF_FIRE), DXN(DF_ICE),
+    DXN(HH_CLOCK), DXN(HH_ENTER),                                  /* the hazards (section 2c): every one the editor offers, by run */
+    DXN(HZ_CENSER), DXN(HZ_BREATH), DXN(HZ_COLD), DXN(HZ_ROCK), DXN(HZ_VOTIVE), DXN(HZ_RELIQ),
+    DXN(HZ_SLUICE), DXN(HZ_SNARE), DXN(HZ_BILE), DXN(HZ_GALV), DXN(HZ_SILT), DXN(HZ_SAINT),
+    DXN(HZ_TIMBER), DXN(HZ_DAMP), DXN(HZ_CART), DXN(HZ_LODE), DXN(HZ_FIRE), DXN(HZ_TITHE),
+    DXN(HZ_FISSURE), DXN(HZ_CRYSTAL), DXN(HZ_DCOLD), DXN(HZ_VOID), DXN(HZ_ASH), DXN(HZ_GLASS), DXN(HZ_MIRROR),
     DXN(RT_HALL), DXN(RT_OSSUARY), DXN(RT_BURIAL), DXN(RT_CHAPTER), DXN(RT_KNIGHTS), DXN(RT_UNDER), DXN(RT_MERCHANT),
     DXN(RT_PLOT), DXN(RT_SAINTS), DXN(RT_CISTERN), DXN(RT_NAVE), DXN(RT_CANAL), DXN(RT_SPINNERS), DXN(RT_GALLERY),
     DXN(RT_STOPE), DXN(RT_CHARNEL), DXN(RT_FOSSIL), DXN(RT_CHAPEL), DXN(RT_GEODE), DXN(RT_GLASS), DXN(RT_CINDER),
@@ -132,7 +139,20 @@ static void dxt_parens(Xp *P) {                                    /* past a ( .
         if (t.t == XT_MARK && t.c == ')') depth--;
     }
 }
-static Xv dxt_value(Xp *P) {
+static Xv dxt_value1(Xp *P);
+static Xv dxt_value(Xp *P) {                                       /* and two numbers or names with | between (HH_CLOCK | HH_ENTER) */
+    Xv v = dxt_value1(P);
+    for (;;) {
+        Xt n = dxt_peek(P);
+        if (P->bad || !(n.t == XT_MARK && n.c == '|')) return v;
+        dxt_next(P);
+        Xv w = dxt_value1(P);
+        if (P->bad) return v;
+        if (v.k != XV_NUM || w.k != XV_NUM) { dxt_fail(P, "a '|' between things that are not numbers", NULL); return v; }
+        v.v = (double)((int64_t)v.v | (int64_t)w.v);
+    }
+}
+static Xv dxt_value1(Xp *P) {
     Xv v; memset(&v, 0, sizeof v);
     Xt t = dxt_next(P);
     const char *suffix;
@@ -218,6 +238,13 @@ static void dxt_item(Xp *P, const char *part, Xv *v, int n) {     /* one { ... }
     } else if (!strcmp(part, "FIELD")) {
         NEED(7, 7) ROOM(DXT.nfield, EV_FIELDS)
         DXT.field[DXT.nfield++] = (DrawnField){ XI(0), XI(1), XI(2), XI(3), XI(4), XI(5), XI(6) };
+    } else if (!strcmp(part, "HAZ")) {
+        NEED(19, 19) ROOM(DXT.nhaz, MAXSITE)
+        DXT.haz[DXT.nhaz++] = (DrawnHaz){ XI(0), XI(1), XI(2), XI(3), XI(4), XI(5), XI(6), XF(7), XF(8), XF(9), XI(10), XI(11), XI(12), XI(13),
+                                          XI(14), XI(15), XI(16), XI(17), XF(18) };
+    } else if (!strcmp(part, "HZCELL")) {
+        NEED(2, 2) ROOM(DXT.nhzcell, DH_CELLS)
+        DXT.hzcell[DXT.nhzcell++] = (DrawnCell){ XI(0), XI(1) };
     } else dxt_fail(P, "a part this game does not read", part);
     #undef NEED
     #undef ROOM
@@ -242,7 +269,7 @@ static void dxt_part(Xp *P, const char *part) {                    /* DRAWNn_PAR
         Xt t = dxt_next(P);
         if (t.t == XT_MARK && t.c == '}') return;
         if (t.t == XT_STR) dxt_string(P, name, t.s);
-        else if (t.t == XT_MARK && t.c == '{') { Xv v[16]; int n = dxt_group(P, v, 16); if (!P->bad) dxt_item(P, name, v, n); }
+        else if (t.t == XT_MARK && t.c == '{') { Xv v[24]; int n = dxt_group(P, v, 24); if (!P->bad) dxt_item(P, name, v, n); }
         else { dxt_fail(P, "something out of place in", name); return; }
         if (P->bad) return;
         t = dxt_next(P);
@@ -304,6 +331,15 @@ int crawl_drawn_text(const char *text, char *err, int nerr) {
     if (DXT.nrelic) { g_dtext.relic = DXT.relic; g_dtext.nrelic = DXT.nrelic; }
     if (DXT.npick) { g_dtext.pick = DXT.pick; g_dtext.npick = DXT.npick; }
     if (DXT.nfield) { g_dtext.field = DXT.field; g_dtext.nfield = DXT.nfield; }
+    if (DXT.nhaz) { g_dtext.haz = DXT.haz; g_dtext.nhaz = DXT.nhaz; }
+    if (DXT.nhzcell) { g_dtext.hzcell = DXT.hzcell; g_dtext.nhzcell = DXT.nhzcell; }
+    if (nrow > 27) {                                               /* the row's hazards, as many as were read */
+        if (nrow != 31) BAD("the row's hazards are not four values (the hazards, how many, their cells, how many)");
+        if ((v[27].k != XV_PART && v[27].k != XV_NULL) || (v[29].k != XV_PART && v[29].k != XV_NULL)) BAD("the row's hazards are not named parts");
+        if (XI(28) != DXT.nhaz || XI(30) != DXT.nhzcell) BAD("the row's count of hazards or of their cells is not what was read");
+        if (P->bad) return 1;
+    }
+    if (DXT.nhaz && !DXT.nhzcell) BAD("hazards with no cells (DRAWNn_HZCELL)");
     /* what the compiled drawings are trusted with, checked: every index in range */
     for (int i = 0; i < DXT.nroom; i++) { const DrawnRoom *r = &DXT.room[i];
         if (r->x < 0 || r->y < 0 || r->w < 1 || r->h < 1 || r->x + r->w > w || r->y + r->h > h || r->rtype < 0 || r->rtype >= NRT) BAD("a room outside the map, or of no type"); }
@@ -314,14 +350,25 @@ int crawl_drawn_text(const char *text, char *err, int nerr) {
             || (t->what == DT_KEY && (t->kind < 0 || t->kind >= NKEYS)) || (t->what == DT_RELIC && (t->kind < 0 || t->kind >= DXT.nrelic))
             || (t->what == DT_SOCKET && (t->kind < -1 || t->kind >= DXT.nrelic)) || (t->what == DT_MARK && (t->kind < 0 || t->kind > 2))) BAD("a thing of a kind this game does not have"); }
     for (int i = 0; i < DXT.nspawn; i++) { const DrawnSpawn *s = &DXT.spawn[i];
-        if (s->kind < -1 || s->kind >= NKINDS || s->rank < -1 || s->rank > RK_GILDED || s->elem < -1 || s->elem >= NELEM || s->x < 0.0f || s->y < 0.0f || s->x >= (float)w || s->y >= (float)h || s->wake < 0 || s->spot < 0) BAD("a spawn point out of range"); }
+        if (s->kind < -1 || s->kind >= NKINDS || s->rank < -1 || s->rank > RK_GILDED || s->elem < -1 || s->elem >= NELEM || s->wake < 0 || s->spot < 0
+            || (s->spot ? !(fabsf(s->x) <= (float)MAPN && fabsf(s->y) <= (float)MAPN)   /* (one laid at a spot is written off the map) */
+                        : !(s->x >= 0.0f && s->y >= 0.0f && s->x < (float)w && s->y < (float)h))) BAD("a spawn point out of range"); }
     for (int i = 0; i < DXT.ntorch; i++) if (DXT.torch[i].d < 0 || DXT.torch[i].d > 3 || DXT.torch[i].group < 0) BAD("a torch out of range");
     for (int i = 0; i < DXT.ntrig; i++) { const DrawnTrig *t = &DXT.trig[i];
         if (t->kind < TG_PICKUP || t->kind > TG_ALL || t->type < TT_ONCE || t->type > TT_TIMED || t->thing < -1 || t->thing >= DXT.nthing
             || t->act < 0 || t->nact < 0 || t->act + t->nact > DXT.nact || t->back < 0 || t->nback < 0 || t->back + t->nback > DXT.nact) BAD("a trigger out of range"); }
-    for (int i = 0; i < DXT.nact; i++) if (DXT.act[i].kind < TA_FLICKER_ON || DXT.act[i].kind > TA_SOUND) BAD("an action of a kind this game does not have");
+    for (int i = 0; i < DXT.nact; i++) if (DXT.act[i].kind < TA_FLICKER_ON || DXT.act[i].kind > TA_HAZ_OFF) BAD("an action of a kind this game does not have");
+    for (int i = 0; i < DXT.nact; i++) if ((DXT.act[i].kind == TA_HAZ_ON || DXT.act[i].kind == TA_HAZ_OFF) && (DXT.act[i].arg < 0 || DXT.act[i].arg >= DXT.nhaz)) BAD("an action on a hazard that is not there");
     for (int i = 0; i < DXT.npick; i++) if (DXT.pick[i].thing < 0 || DXT.pick[i].thing >= DXT.nthing) BAD("a pick of a thing that is not there");
     for (int i = 0; i < DXT.nfield; i++) if ((DXT.field[i].kind != DF_FIRE && DXT.field[i].kind != DF_ICE) || DXT.field[i].x < 0 || DXT.field[i].x >= w || DXT.field[i].y < 0 || DXT.field[i].y >= h) BAD("a field out of range");
+    for (int i = 0; i < DXT.nhaz; i++) { const DrawnHaz *z = &DXT.haz[i];   /* the hazards: a kind the editor offers; the anchor in the */
+        if (!dh_kind_ok(z->kind)) BAD("a hazard of a kind this game does not lay");   /* drawing or its ring (a wall set in the edge) */
+        if (z->ax < -1 || z->ay < -1 || z->ax > w || z->ay > h || g_dtext.ox + z->ax < 0 || g_dtext.oy + z->ay < 0 || g_dtext.ox + z->ax >= MAPN || g_dtext.oy + z->ay >= MAPN) BAD("a hazard's anchor outside the map");
+        if (z->cell < 0 || z->ncell < 0 || z->cell + z->ncell > DXT.nhzcell) BAD("a hazard's cells are not in DRAWNn_HZCELL");
+        if ((z->zone != 0 && z->zone != 1) || z->how < 0 || z->how > (HH_CLOCK | HH_ENTER) || (z->on != 0 && z->on != 1) || z->kills < -1 || z->kills > 1
+            || z->harm < -1 || z->harm > 100 || z->chance < -1 || z->chance > 100 || !(z->every >= 0.0f) || !(z->give >= 0.0f) || !(z->first >= 0.0f)
+            || !(z->warn >= -1.0f) || z->every > 3600.0f || z->give > 3600.0f || z->first > 3600.0f || z->warn > 60.0f) BAD("a hazard's settings out of range"); }
+    for (int i = 0; i < DXT.nhzcell; i++) if (DXT.hzcell[i].x < 0 || DXT.hzcell[i].y < 0 || DXT.hzcell[i].x >= w || DXT.hzcell[i].y >= h) BAD("a hazard's cell outside the map");
     #undef BAD
     g_dtext_on = 1;
     return 0;
@@ -356,6 +403,8 @@ int crawl_drawn_same(int n, char *why, int nwhy) {
     for (int i = 0; i < a->nrelic; i++) if (strcmp(a->relic[i], b->relic[i])) DIFF("a relic's name");
     if (a->npick != b->npick || (a->npick && memcmp(a->pick, b->pick, sizeof *a->pick * (size_t)a->npick))) DIFF("the picks");
     if (a->nfield != b->nfield || (a->nfield && memcmp(a->field, b->field, sizeof *a->field * (size_t)a->nfield))) DIFF("the fields");
+    if (a->nhaz != b->nhaz || (a->nhaz && memcmp(a->haz, b->haz, sizeof *a->haz * (size_t)a->nhaz))) DIFF("the hazards");
+    if (a->nhzcell != b->nhzcell || (a->nhzcell && memcmp(a->hzcell, b->hzcell, sizeof *a->hzcell * (size_t)a->nhzcell))) DIFF("the hazards' cells");
     #undef DIFF
     why[0] = 0;
     return 0;

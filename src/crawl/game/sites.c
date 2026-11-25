@@ -219,12 +219,12 @@ static Hazard *site_fire(HzSite *s, int i) {
         if (h) { h->ang = s->state ? atan2f((float)-DY[s->d], (float)-DX[s->d]) : atan2f((float)DY[s->d], (float)DX[s->d]); s->state ^= 1; sfx_at(SFX_RUMBLE, h->x, h->y, 1.0f); }
         break;
     }
-    case HZ_LODE: h = hz_disc(HZ_LODE, s->ax, s->ay, 1.5f, 1.2f, 0.15f, 0.5f, 0.14f); if (h) sfx_at(SFX_CRACKLE, s->ax, s->ay, 0.8f); break;
-    case HZ_CRYSTAL: h = hz_disc(HZ_CRYSTAL, s->x + 0.5f, s->y + 0.5f, 3.0f, 1.6f, 0.15f, 0.5f, 0.14f); if (h) sfx_at(SFX_HUM, s->x + 0.5f, s->y + 0.5f, 0.9f); break;
+    case HZ_LODE: h = hz_disc(HZ_LODE, s->ax, s->ay, s->amp > 0.0f ? s->amp : 1.5f, 1.2f, 0.15f, 0.5f, 0.14f); if (h) sfx_at(SFX_CRACKLE, s->ax, s->ay, 0.8f); break;
+    case HZ_CRYSTAL: h = hz_disc(HZ_CRYSTAL, s->x + 0.5f, s->y + 0.5f, s->amp > 0.0f ? s->amp : 3.0f, 1.6f, 0.15f, 0.5f, 0.14f); if (h) sfx_at(SFX_HUM, s->x + 0.5f, s->y + 0.5f, 0.9f); break;
     default: break;
     }
     hz_quiet = 0;
-    if (h) { h->site = i; s->haz = (int)(h - G.haz); }
+    if (h) { h->site = i; s->haz = (int)(h - G.haz); if (s->dh) hz_dapply(h, s->dh); }   /* a drawn one's harm and warning */
     return h;
 }
 static float site_rest(int kind) {                                 /* the wait between its turns */
@@ -242,8 +242,9 @@ static float site_rest(int kind) {                                 /* the wait b
     }
 }
 static void censer_bob(const HzSite *s, float t, float *bx, float *by, float *v) {
-    float per = 5.0f - 0.08f * (float)crawl_step(G.level), ph = t * TAU_F / per;
-    *bx = s->x + 0.5f + DX[s->d] * 1.4f * sinf(ph); *by = s->y + 0.5f + DY[s->d] * 1.4f * sinf(ph);
+    float per = s->per > 0.0f ? s->per : 5.0f - 0.08f * (float)crawl_step(G.level), ph = t * TAU_F / per, amp = s->amp > 0.0f ? s->amp : 1.4f;   /* (a drawn
+                                                                      one's own swing, if it has one) */
+    *bx = s->x + 0.5f + DX[s->d] * amp * sinf(ph); *by = s->y + 0.5f + DY[s->d] * amp * sinf(ph);
     if (v) *v = cosf(ph);
 }
 static int mirror_sees(const HzSite *s) {                          /* you, within three cells before its face */
@@ -256,6 +257,24 @@ static void update_sites(float dt) {
     int px = (int)G.px, py = (int)G.py;
     for (int i = 0; i < G.nsite; i++) {
         HzSite *s = &G.site[i];
+        af_dchance = hz_dchance(s->dh);                            /* a drawn one's chance of its status */
+        if (s->idle) {                                             /* a drawn one not live: still, and its wall at rest */
+            s->drink = 0;
+            if (s->wx >= 0) {
+                int tex = G.map[s->wy][s->wx].tex;
+                switch (s->kind) {
+                case HZ_BREATH: tex = T_HZ_SLAB; break;
+                case HZ_SLUICE: tex = T_HZ_SLUICE; break;
+                case HZ_SAINT: tex = T_HZ_SAINT; break;
+                case HZ_LODE: tex = T_HZ_SEAM; break;
+                case HZ_FISSURE: tex = T_HZ_FISSURE0; break;
+                case HZ_MIRROR: tex = T_HZ_MIRROR; break;
+                default: break;
+                }
+                G.map[s->wy][s->wx].tex = (uint8_t)tex;
+            }
+            continue;
+        }
         float cx = s->x + 0.5f, cy = s->y + 0.5f, wx = s->wx >= 0 ? s->ax : cx, wy = s->wx >= 0 ? s->ay : cy;
         float d = hypotf(G.px - wx, G.py - wy);
         if (!G.dead && d < 9.0f && line_clear(G.px, G.py, wx - (s->wx >= 0 ? DX[s->d] * 0.1f : 0.0f), wy - (s->wx >= 0 ? DY[s->d] * 0.1f : 0.0f))) hz_name(s->kind);
@@ -275,7 +294,7 @@ static void update_sites(float dt) {
             if (!G.dead && G.level_t > 2.0 && s->hit_t <= 0.0f && hypotf(G.px - bx, G.py - by) < 0.55f) {
                 s->hit_t = 1.2f;
                 sfx_at(SFX_BOOM, bx, by, 0.5f);
-                if (hz_strike(HZ_CENSER, 0.12f, bx, by) > 0) hz_shove(DX[s->d] * v, DY[s->d] * v, 1.0f);
+                if (hz_strike(HZ_CENSER, hz_dshare(s->dh, 0.12f), bx, by) > 0) hz_shove(DX[s->d] * v, DY[s->d] * v, 1.0f);
             }
             break;
         }
@@ -284,7 +303,8 @@ static void update_sites(float dt) {
             hz_mark(s->x, s->y, HZ_SOFT);
             if (!G.dead && px == s->x && py == s->y) {
                 s->state = 1;
-                G.snare_t = 1.5f * (1.0f - 0.5f * gear_slow_resist(&RUN.gear));
+                if (hz_dchance(s->dh) < 0.0f || rndf() < hz_dchance(s->dh)) G.snare_t = 1.5f * (1.0f - 0.5f * gear_slow_resist(&RUN.gear));   /* (a drawn
+                                                                      one holds you at its own chance) */
                 sfx_at(SFX_SKITTER, cx, cy, 1.0f); sfx_at(SFX_CREAK, cx, cy, 0.4f);
                 for (int j = 0; j < MAXMOBS; j++) {                /* and the spiders near wake to it */
                     Mob *m = &G.mobs[j];
@@ -297,15 +317,15 @@ static void update_sites(float dt) {
             break;
         case HZ_DCOLD:                                             /* rime where the fire went out: it is always there */
             for (int k = 0; k < s->n; k++) hz_mark(s->cx[k], s->cy[k], HZ_SOFT);
-            for (int k = 0; k < s->n; k++) if (!G.dead && s->cx[k] == px && s->cy[k] == py) { if (af_off()) hz_chill(0.65f); else af_cold(dt); hz_seep(HZ_DCOLD, 0.012f, dt); break; }
+            for (int k = 0; k < s->n; k++) if (!G.dead && s->cx[k] == px && s->cy[k] == py) { if (af_off()) hz_chill(0.65f); else af_cold(dt); hz_seep(HZ_DCOLD, hz_dshare(s->dh, 0.012f), dt); break; }
             break;
         case HZ_TITHE:                                             /* the chalk takes its tithe while you stand in it */
             hz_mark_disc(cx, cy, 1.4f, HZ_SOFT);
-            if (!G.dead && d < 1.4f) { drink = 1; hz_sap(HZ_TITHE, 0.8f, 0.0f, dt, cx, cy, &s->took); }
+            if (!G.dead && d < 1.4f) { drink = 1; hz_sap(HZ_TITHE, 0.8f, hz_dshare(s->dh, 0.0f), dt, cx, cy, &s->took); }
             break;
         case HZ_MIRROR:
             hz_mark_disc(s->ax - DX[s->d] * 1.5f, s->ay - DY[s->d] * 1.5f, 1.6f, HZ_SOFT);
-            if (!G.dead && mirror_sees(s)) { drink = 1; hz_sap(HZ_MIRROR, 1.0f, 0.0f, dt, s->ax, s->ay, &s->took); }
+            if (!G.dead && mirror_sees(s)) { drink = 1; hz_sap(HZ_MIRROR, 1.0f, hz_dshare(s->dh, 0.0f), dt, s->ax, s->ay, &s->took); }
             break;
         case HZ_RELIQ:                                             /* shut; its lid lifting; open and drinking; shut again a while */
             hz_mark_disc(cx, cy, 2.0f, HZ_SOFT);                   /* it drinks, it doesn't strike: hurried past, not fled */
@@ -316,14 +336,19 @@ static void update_sites(float dt) {
             } else {
                 s->k += dt;
                 if (G.dead || d >= 2.0f || s->k >= 8.0f) { s->state = 0; s->wait = 6.0f; sfx_at(SFX_KNOCK, cx, cy, 0.8f); }
-                else { drink = 1; hz_sap(HZ_RELIQ, 1.0f, 0.006f, dt, cx, cy, &s->took); }
+                else { drink = 1; hz_sap(HZ_RELIQ, 1.0f, hz_dshare(s->dh, 0.006f), dt, cx, cy, &s->took); }
             }
             break;
         default:                                                   /* the rhythmic ones: rest, then a turn */
-            if (!h && G.level_t > 4.0 && (s->wait -= dt) <= 0.0f) { h = site_fire(s, i); s->wait = site_rest(s->kind); }
+            if (!h && G.level_t > 4.0 && (s->wait -= dt) <= 0.0f) {
+                h = site_fire(s, i); s->wait = site_rest(s->kind);
+#ifdef CRAWL_DEBUG
+                if (h && s->dh) fprintf(stderr, "EVENT dhaz %d %s own at (%d,%d) t=%.2f\n", s->dh - 1, HZ_TAG[s->kind], drawn()->haz[s->dh - 1].ax, drawn()->haz[s->dh - 1].ay, G.t);
+#endif
+            }
             if (h && s->kind == HZ_SAINT && hz_phase(h) < 2 && !G.dead) {
                 int k = hz_in_cells(h, px, py);
-                if (k && hz_bile_wet(h, k - 1) > 0.5f) { drink = 1; hz_sap(HZ_SAINT, 1.0f, 0.004f, dt, s->ax, s->ay, &s->took); }
+                if (k && hz_bile_wet(h, k - 1) > 0.5f) { drink = 1; hz_sap(HZ_SAINT, 1.0f, hz_dshare(s->dh, 0.004f), dt, s->ax, s->ay, &s->took); }
             }
             break;
         }
@@ -342,6 +367,7 @@ static void update_sites(float dt) {
             G.map[s->wy][s->wx].tex = (uint8_t)tex;
         }
     }
+    af_dchance = -1.0f;
 }
 /* the arising ones: one near you every so often, from the run's third level */
 static void update_arising(float dt) {

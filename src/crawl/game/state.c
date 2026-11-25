@@ -149,6 +149,8 @@ typedef struct {
     int8_t cx[HZ_CELLS], cy[HZ_CELLS]; uint8_t cd[HZ_CELLS];
     float pre;                                                     /* Premonition's second, before its own warning */
     int site; uint64_t hitmask;                                    /* the fixed one it is a turn of (-1: none); the creatures it has struck */
+    int dh, droll;                                                 /* a drawn level's (docs/PLAN-events.md, 2c): 1 + its hazard there, 0 none;
+                                                                      its status rolled for this turn, 0 not yet, 1 it takes, 2 not */
 } Hazard;
 /* a fixed hazard (1.0.0b13): where it stands (a wall cell and the point on its face, for what is set in a wall), its
  * cells, its clock and state, its turn now (a hazard), whether it is drinking from you and what it has taken */
@@ -156,6 +158,9 @@ typedef struct {
     int kind, x, y, d, wx, wy, n, state, haz, drink;
     float t, wait, k, took, hit_t, ax, ay;
     int8_t cx[HZ_CELLS], cy[HZ_CELLS]; uint8_t cd[HZ_CELLS];
+    int dh, idle;                                                  /* a drawn level's: 1 + its hazard there (0 none), and not live */
+    float amp, per;                                                /* and its painted reach (the censer's swing, the seam's, the crystal's) and
+                                                                      the censer's swing, s; 0 the game's own */
 } HzSite;
 /* a thing a puzzle lays out (1.0.0b13, docs/PLAN-b13.md section 6): what it is (TR_*), drawn as a sprite (one frame a state
  * when it has frames) with a mark carved on it, or on the floor; an item sits in a place (in), and was taken from one (home)
