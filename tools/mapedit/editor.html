@@ -1391,6 +1391,7 @@ document.addEventListener('click', e => { const d = $('layersBox'); if (d.open &
 /* ---------- PLAY: the game's browser build in play/, over the editor, given this level as its export (docs/PLAN-mapedit.md, part 3).
    The game reads the same text EXPORT C gives, and a new run there begins on this level. ---------- */
 let playText = null;
+const PLAY_LIGHTS = false;                               /* the game in play/ reads lights (docs/PLAN-lights.md): true once it does */
 const PLAY_HAZARDS = true;                               /* the game in play/ lays hazards (docs/PLAN-events.md, 2c): true once it does */
 const sameOrigin = () => (location.origin && location.origin !== 'null' ? location.origin : '*');
 function playStop() { $('playFrame').src = 'about:blank'; $('playLayer').hidden = true; playText = null; }
@@ -1399,6 +1400,11 @@ $('bPlay').addEventListener('click', () => {
   if (errs.length) {
     ask('Mend it first?', `${errs.length} check${errs.length > 1 ? 's are errors' : ' is an error'}, and the game would refuse the level or lay it wrong. The first: ${errs[0].msg}`, 'SHOW THE CHECKS',
       () => { const t = document.querySelector('[data-tab="checks"]'); if (t) t.click(); }, 'KEEP EDITING');
+    return;
+  }
+  if ((S.map.lights || []).length && !PLAY_LIGHTS) {
+    ask('Play it without your lights?', `The game inside the editor cannot hang lights laid by hand yet: their side is being built (docs/PLAN-lights.md). This play lays the generator's lights in their place; your ${S.map.lights.length} stay in the map.`, 'PLAY WITHOUT THEM',
+      () => { const m = JSON.parse(JSON.stringify(S.map)); m.lights = []; playOpen(C.exportDrawn(DATA, m, m.slot || 3).text); }, 'KEEP EDITING');
     return;
   }
   if ((S.map.hazards || []).length && !PLAY_HAZARDS) {
