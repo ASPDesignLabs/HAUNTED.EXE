@@ -350,3 +350,14 @@ change.
 *Left:* the owner's hand on any of it; the editor's palette, settings and painting for hazards (the other track's); whether `harm` should
 lift the quarter-a-stroke cap for a drawn hazard; the mirror, tithe and reliquary from their painted cells, if the owner wants them so;
 the browser's and Windows builds compiled by CI.
+
+**The things' sheet (25 November 2026), for the owner.** `media/sheets/events/event_things.png`, drawn by `build/lightmock things`
+(`tools/lightmock.c`; docs/PLAN-lights.md section 4 has the tool). Today's borrowed looks on its top row, then each run's: the
+**barred door**, the run's own door with a beam across it in two staples and a chain crossed over it to an iron plate with a hand
+cut in it (no keyhole, so nothing says a key opens it), and unbarred, the beam and plate gone and a chain hung loose, for an
+unlock before the door slides; the **relic**, a bone bound in gold, a key's teeth at its end, a red seal on a cord; the
+**socket**, a plinth with two stone hands held up on it and the relic's shape cut in its face, and holding, the relic across the
+hands and the cut alight; the **lever**, a stone post, a toothed iron quadrant and a twisted arm, up and down; the **plate**, a
+floor texture, a flagstone in a deep joint with a rose cut in a roundel, and pressed, sunk, darker, dust at the joint. A row in
+the dark, and crops of the game's view at its own size in the Crypts and the Deep. Nothing in the game. *For the owner:* the
+relic is one look for every relic whatever it is named; the hands are small at a distance; in the Deep the barred door is dark.

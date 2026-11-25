@@ -53,3 +53,28 @@ line (CLAUDE.md). If a creature's senses read the light (`minds.c`), the pulse i
 | 4 | The new lights in the game, once the sheet is approved | after step 2 |
 
 ## 4. Hand-off log
+
+**Step 2: the sheets, for the owner (25 November 2026).** `make build/lightmock`; `build/lightmock lights
+media/sheets/lights/hanging_lights.png` and `build/lightmock things media/sheets/events/event_things.png`. The tool #includes
+`crawl_art.c` whole, so the new drawings use its canvas, candles, chains, skulls and bones as a part does and can move into
+`src/art/parts/` as they stand (`lm_keep` where the game's would be `cv_store`). Nothing went in the game: no sprite, texture or
+slot was added, and the game's build is untouched.
+
+*The lights,* each beside today's chandelier and lantern for scale, then in each run (levels 3, 13, 23, 33): every frame twice its
+size in its own light, the first darker, and at the game's own size in a crop of its view, hung two and a half cells off. The
+**iron corona**: a wheel 58 pixels across on four chains, two bands with a zigzag of bars between, eight barbed spikes and eight
+candles on prickets, six spokes to a boss and a long pointed drop; three frames. The **sanctuary lamp**: a brass rose and smoke
+bell, three fine chains, a gadrooned brass cup holding a beaker of red glass with a small flame seen through it; two frames, barely
+different, as it should burn steady. The **bone candelabrum**: a great skull (the hand-drawn one), a stag's antlers bound to its
+temples, a small skull hung on cord under each antler's end, ribs round a spine below, a jaw at the foot; a stub of candle in each
+eye of each skull, the flame rising from the socket over the brow; three frames. The **pierced cage lantern**: tall, of black iron,
+a crocketed spire, a lancet over a quatrefoil in front and a lattice of holes round the sides, the light coming through them; three
+frames. The runs: the Catacombs' water by `prop_wash` (rust and drips, as the chandelier gets), the Hollows' soot (iron darker,
+brass tarnished), the Deep's black candles (as its altar's) and a violet glint in its iron; bone and stone follow each level's
+palette as everything does. The cage's view throws its holes' light in spots on the walls and floor, to show what "dappled" might
+mean; the game has no such light yet.
+
+*Left for the owner:* whether the four read as meant; whether the corona is far enough from the chandelier (both are rings of
+candles; the corona is wider, barbed and spoked, with no skull); whether the sanctuary lamp's glow, red glass in brass, is the
+colour wanted (its light's colour is step 4's); whether the Deep's violet glint is welcome or noise; whether the cage's dappled
+light is wanted, which would be new work in the light code.

@@ -125,6 +125,10 @@ UI_SRC   = src/art/crawl_ui.c src/art/ui_art.c src/core/gfx.c src/crawl/crawl_tu
 build/torchmock: $(call objs,rel,$(ART_SRC) tools/torchmock.c)
 	gcc $(CFLAGS) -o $@ $^ -lm -lz
 
+# the new hanging lights and the events' things, for the owner (docs/PLAN-lights.md): it #includes the art whole
+build/lightmock: $(call objs,rel,src/data/hand_img.c src/data/face_img.c src/data/cat_img.c src/data/font_vga.c tools/lightmock.c)
+	gcc $(CFLAGS) -o $@ $^ -lm -lz
+
 build/uisheet: $(call objs,rel,$(ART_SRC) $(UI_SRC) src/art/crawl_title.c tools/uisheet.c)
 	gcc $(CFLAGS) -o $@ $^ -lm -lz
 
