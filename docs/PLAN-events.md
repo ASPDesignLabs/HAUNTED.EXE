@@ -366,3 +366,13 @@ relic is one look for every relic whatever it is named; the hands are small at a
 relic types** (a sheet of twelve when the time comes, each its own shape, chosen per relic in the editor). The socket's small hands and the
 Deep's dark barred door: left as they are for now. **An unlock shows the bar gone** (the sheet's "unbarred" look) before the door is
 opened. One detail pass more over the sheet, then back to the owner.
+
+**The things' detail pass (25 November 2026), back to the owner.** The barred door's beam has a grain, two knots and checked ends,
+rounded to the light; its bands are hammered and riveted, its staples bevelled and bolted; the plate is domed hammered iron with a
+raised rim, rivets, rust, and the hand cut with its lower walls lit. The relic: a gold ferrule on its knuckle, its bands wound wire,
+the seal stamped with a drip, the cord twisted. The socket and the lever's post are dressed stone (`dressed` in the tool: arrises
+turned to the light, a chamfered top, the chisel's courses, pits, a chipped corner, a hairline crack); the socket has a roll at its
+foot, a sunk panel round the cut shape and a moulded capital, its hands knuckled and worn; the lever's head is coped, its quadrant
+hammered and riveted, its slot's lip lit, a little rust, the grip turned, the ball and pin with a highlight. The plate: grit in the
+joint, tooled, worn smooth in the middle, two corners chipped, a crack in from its edge, the border's and roundel's lips lit where
+they face the light, the rose raised round a boss, the studs domed with rust round them. At 1x each reads as before.

@@ -83,3 +83,12 @@ light is wanted, which would be new work in the light code.
 the Deep's violet glints are welcome; the cage lantern's **dappled light is wanted** (new work in the light code: a light that throws
 spots through the cage's holes on the walls and floor; a step of its own once the sheet is approved); one detail pass more over both
 sheets "to reduce the simple shapes", then back to the owner.
+
+**The detail pass (25 November 2026), back to the owner.** `tools/lightmock.c`, both sheets drawn again, each drawing looked at
+twice its size and at 1x before and after. The corona: the outer band a twisted bar, its turns lit by turns, both bands hammered
+unevenly, a collar where each spoke meets the band, a ring of rivets on the boss. The sanctuary lamp: the rose in five lobes; the
+smoke bell ringed with a moulding, pierced for the smoke, beaded at its rim, tarnished; the cup's gadroons each turned to the
+light, a bead under its lip, verdigris in the seams; the knop banded, the drop an acorn. The cage lantern: the spire laid in
+fish-scale plates, the eave and the ribs riveted, the bands doubled, the faces hammered and turned a little across, soot over each
+hole and the plate's edge lit under it, the cone ringed. The bone candelabrum was left as it was: bone, cord and flame already.
+Nothing in the game.
