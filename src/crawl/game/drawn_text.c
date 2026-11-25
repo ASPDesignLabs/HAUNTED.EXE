@@ -350,7 +350,9 @@ int crawl_drawn_text(const char *text, char *err, int nerr) {
             || (t->what == DT_KEY && (t->kind < 0 || t->kind >= NKEYS)) || (t->what == DT_RELIC && (t->kind < 0 || t->kind >= DXT.nrelic))
             || (t->what == DT_SOCKET && (t->kind < -1 || t->kind >= DXT.nrelic)) || (t->what == DT_MARK && (t->kind < 0 || t->kind > 2))) BAD("a thing of a kind this game does not have"); }
     for (int i = 0; i < DXT.nspawn; i++) { const DrawnSpawn *s = &DXT.spawn[i];
-        if (s->kind < -1 || s->kind >= NKINDS || s->rank < -1 || s->rank > RK_GILDED || s->elem < -1 || s->elem >= NELEM || s->x < 0.0f || s->y < 0.0f || s->x >= (float)w || s->y >= (float)h || s->wake < 0 || s->spot < 0) BAD("a spawn point out of range"); }
+        if (s->kind < -1 || s->kind >= NKINDS || s->rank < -1 || s->rank > RK_GILDED || s->elem < -1 || s->elem >= NELEM || s->wake < 0 || s->spot < 0
+            || (s->spot ? !(fabsf(s->x) <= (float)MAPN && fabsf(s->y) <= (float)MAPN)   /* (one laid at a spot is written off the map) */
+                        : !(s->x >= 0.0f && s->y >= 0.0f && s->x < (float)w && s->y < (float)h))) BAD("a spawn point out of range"); }
     for (int i = 0; i < DXT.ntorch; i++) if (DXT.torch[i].d < 0 || DXT.torch[i].d > 3 || DXT.torch[i].group < 0) BAD("a torch out of range");
     for (int i = 0; i < DXT.ntrig; i++) { const DrawnTrig *t = &DXT.trig[i];
         if (t->kind < TG_PICKUP || t->kind > TG_ALL || t->type < TT_ONCE || t->type > TT_TIMED || t->thing < -1 || t->thing >= DXT.nthing
