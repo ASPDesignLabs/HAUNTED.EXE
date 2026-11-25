@@ -89,6 +89,13 @@ static void ev_torches(int group, int kind) {
     }
 }
 
+/* drawn, not played: an event's plate stays down while a switch or timed trigger it sets off holds, as well as while stood on */
+static int ev_plate_held(int thing) {
+    const Drawn *D = drawn();
+    for (int k = 0; k < D->ntrig && k < EV_TRIGS; k++) if (D->trig[k].kind == TG_STEP && D->trig[k].thing == thing && EV.tr[k].on) return 1;
+    return 0;
+}
+
 /* ---- the fields on and off (drawn.c ticks them) and the doors ---- */
 static void ev_field(int f, int on) {
     if (f < 0 || f >= EV.nf || EV.f[f].on == on) return;
@@ -104,7 +111,7 @@ static void ev_door(int x, int y, int kind) {
     if (x < 0 || y < 0 || x >= MAPN || y >= MAPN || G.map[y][x].kind != K_DOOR) return;
     int i = G.map[y][x].door;
     Door *d = &G.doors[i];
-    if (kind == TA_DOOR_SHUT) {                                    /* shut and barred: a portcullis now, whatever it was */
+    if (kind == TA_DOOR_SHUT) {                                    /* shut and barred now (T_BARRED), whatever it was */
         d->locked = GATED; d->opening = 0; d->idle = 99.0f; g_gate[i] = 1;
         sfx_at(SFX_RUMBLE, x + 0.5f, y + 0.5f, 1.0f);
         return;

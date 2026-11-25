@@ -364,8 +364,7 @@ static int drawn_torches(void) {
     return D->ntorch;
 }
 /* the owner's lights (docs/PLAN-lights.md), after the dressing (whose own light props gen_dress has taken off) and its clearing: each
- * laid by the generator's own hand for its style, footprint and all; the four new hanging lights a chandelier or a lantern till their
- * art is approved. Their dice are given back, so what follows on the drawing's seed lies as it would. A standing one on a lane, or where
+ * laid by the generator's own hand for its style, footprint and all, the four new hanging lights by theirs (gen_level.c). Their dice are given back, so what follows on the drawing's seed lies as it would. A standing one on a lane, or where
  * the drawing sets a thing down, is not solid (its picture and light, the cell still floor): it never shuts a way. */
 static int drawn_lights(void) { return g_drawn ? drawn()->nlight : 0; }
 static void drawn_lay_lights(void) {
@@ -389,8 +388,12 @@ static void drawn_lay_lights(void) {
         int free_ = g_lane[y][x];                                  /* a lane, or a thing's cell: kept open */
         for (int t = 0; t < D->nthing && !free_; t++) free_ = D->ox + (int)drawn_tx(t) == x && D->oy + (int)drawn_ty(t) == y;
         switch (st) {
-        case DL_CHANDELIER: case DL_CORONA: case DL_SANCTUARY: case DL_BONES: chandelier(x, y); break;   /* (the new three, for now) */
-        case DL_LANTERN: case DL_CAGE: lantern(x, y); break;                                              /* (the cage, for now) */
+        case DL_CHANDELIER: chandelier(x, y); break;
+        case DL_LANTERN: lantern(x, y); break;
+        case DL_CORONA: corona(x, y); break;
+        case DL_SANCTUARY: sanctuary(x, y); break;
+        case DL_BONES: bonelabrum(x, y); break;
+        case DL_CAGE: cage_lantern(x, y); break;
         case DL_CANDLESTAND: candlestand(x, y); break;
         case DL_BRAZIER: brazier(x, y); break;
         case DL_MINELAMP: minelamp(x, y); break;
@@ -494,7 +497,8 @@ static void gen_drawn(void) {
             int lk = ch == 'G' || ch == 'C', col = ch == 'C' ? 2 : 0, ax = is_open(x - 1, y) && is_open(x + 1, y);
             G.map[y][x].door = (int16_t)G.ndoors;
             G.doors[G.ndoors++] = (Door){ x, y, ax, 0.0f, 0.0f, 0, ch == '=' || ch == 'B' ? GATED : lk, col, 0 };
-            if (ch == 'B') g_gate[G.ndoors - 1] = 1;               /* barred: a portcullis, till an event raises it */
+            if (ch == 'B') g_gate[G.ndoors - 1] = 1;               /* barred: the run's door with a beam across it (T_BARRED), till an
+                                                                      event unbars it (T_UNBARRED) or opens it */
             if (lk) G.vault_door[col] = G.ndoors - 1;
             if (ch == '=') IC.gate_door = G.ndoors - 1;            /* the one-way gate: barred till its seal is struck from the south */
         }
@@ -690,7 +694,8 @@ static void drawn_marks(void) {                                    /* level 2's 
 }
 static int thing_new(int role, float x, float y, int spr);         /* things.c */
 /* the events' things (docs/PLAN-events.md), after the puzzles' are cleared: relics carried as a puzzle's things are, the sockets
- * that take them, levers and plates; each in the puzzles' own looks. The compass is an item (drawn_items); a spot is nothing */
+ * that take them, levers and plates; each in its own look, the owner's (media/sheets/events/event_things.png: the socket holding is
+ * drawn as it holds, the plate as a mark on the floor, draw/sprites.c and floor.c). The compass is an item (drawn_items); a spot is nothing */
 static void drawn_events(void) {
     const Drawn *D = drawn();
     for (int i = 0; i < D->nthing; i++) {
@@ -699,15 +704,15 @@ static void drawn_events(void) {
         int k = -1;
         switch (t->what) {
         case DT_RELIC:
-            k = thing_new(TR_ITEM, x, y, SP_PZ_FOSSIL);
+            k = thing_new(TR_ITEM, x, y, SP_EV_RELIC);
             if (k >= 0) { snprintf(G.thing[k].name, sizeof G.thing[k].name, "%s", t->kind >= 0 && t->kind < D->nrelic && D->relic[t->kind] ? D->relic[t->kind] : "A RELIC"); G.thing[k].val = t->kind; }
             break;
         case DT_SOCKET:
-            k = thing_new(TR_PLACE, x, y, SP_PZ_PLINTH);
+            k = thing_new(TR_PLACE, x, y, SP_EV_SOCKET0);
             if (k >= 0) { snprintf(G.thing[k].name, sizeof G.thing[k].name, "A PLINTH"); G.thing[k].hold = 0.18f; G.thing[k].want = t->kind; }
             break;
         case DT_LEVER:
-            k = thing_new(TR_LEVER, x, y, SP_PZ_LEVER0);
+            k = thing_new(TR_LEVER, x, y, SP_EV_LEVER0);
             if (k >= 0) { snprintf(G.thing[k].name, sizeof G.thing[k].name, "A LEVER"); G.thing[k].frames = 2; }
             break;
         case DT_PLATE:

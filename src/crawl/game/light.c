@@ -50,8 +50,9 @@ static float torch_flicker(const Light *L) {
 static float lm_f[MAXLIGHTS];                                      /* each light's share as the light map last took it: for the frame */
 static int three_left(void) {
 #ifdef CRAWL_DEBUG
-    static int force = -1;
-    if (force < 0) force = getenv("CRAWL_THREELEFT") ? atoi(getenv("CRAWL_THREELEFT")) : 0;   /* 1: always, to see it by */
+    static int force = -9;
+    if (force == -9) force = getenv("CRAWL_THREELEFT") ? atoi(getenv("CRAWL_THREELEFT")) : 0;   /* 1: always, to see it by; -1 never */
+    if (force < 0) return 0;
     if (force) return !G.shop && !PK.depth;
 #endif
     int left = G.kills_total - G.kills;

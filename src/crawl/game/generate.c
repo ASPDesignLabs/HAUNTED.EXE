@@ -119,7 +119,7 @@ static void light_static_ph(float lx, float ly, float power, float radius, float
     if (G.nlights >= MAXLIGHTS) return;
     Light *L = &G.lights[G.nlights++];
     L->x = lx; L->y = ly; L->power = power; L->radius = radius; L->phase = phase;
-    L->cx = (int)lx; L->cy = (int)ly; L->first = G.nlc; L->count = 0; L->torch = 0;
+    L->cx = (int)lx; L->cy = (int)ly; L->first = G.nlc; L->count = 0; L->torch = 0; L->look = LK_PLAIN;
     static int stamp[MAPN][MAPN], qx[MAPN * MAPN], qy[MAPN * MAPN], dist[MAPN][MAPN];
     static int gen;
     gen++;
@@ -188,8 +188,9 @@ static int g_drawn;                                                /* 1 + the dr
 static uint8_t g_lane[MAPN][MAPN], g_ldist[MAPN][MAPN];
 /* a drawn level's events (docs/PLAN-events.md; events.c runs them), and what the parts above it ask of them */
 static int g_events;                                               /* the drawing in play has triggers, torches or fields of its own */
-static uint8_t g_gate[MAXDOORS];                                   /* a door barred on a drawn level (B, or shut by an event): a
-                                                                      portcullis, which stays up once raised, as the tutorial's gate */
+static uint8_t g_gate[MAXDOORS];                                   /* a door barred on a drawn level (B, or shut by an event): the run's
+                                                                      door barred (T_BARRED), unbarred once an event frees it (T_UNBARRED),
+                                                                      and once opened it stays open, as the tutorial's gate */
 static int drawn_torches(void);                                    /* the owner's torches, in place of the generator's (gen_dress): how many */
 /* A drawn level's lights (docs/PLAN-lights.md, section 1: the format the editor writes): the style, its cell in the drawing. Hanging
  * ones hang over its middle, standing ones stand in it as the generator's do. The last four are the new hanging lights, laid as a

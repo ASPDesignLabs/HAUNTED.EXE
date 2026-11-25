@@ -17,9 +17,8 @@ the level we cause all torches to pulse a little bit, or shift their color to on
 
 ```c
 enum { DL_CHANDELIER, DL_LANTERN, DL_CANDLESTAND, DL_BRAZIER, DL_MINELAMP, DL_CRYSTALS, DL_FIREPIT, DL_MAGMA, DL_TOTEM,
-       DL_CORONA, DL_SANCTUARY, DL_BONES, DL_CAGE };           /* the last four: the new hanging lights, once their sheet is
-                                                                  approved; till then the game lays a chandelier (the three
-                                                                  hanging) or a lantern (the cage) in their place */
+       DL_CORONA, DL_SANCTUARY, DL_BONES, DL_CAGE };           /* the last four: the new hanging lights, each its own since
+                                                                  step 4 (till then a chandelier or a lantern stood in) */
 typedef struct { int style, x, y; } DrawnLight;                 /* its cell in the drawing; hanging ones hang over its middle,
                                                                   standing ones stand in it as the generator's do */
 /* Drawn's row, after the hazards: light, nlight. None: the generator's own, as now. Any: those alone, and none of the
@@ -174,3 +173,73 @@ Saves untouched: `save.c` and `ledger.c` did not change; the lights, `GLP` and `
 **The owner's colour for three left (25 November 2026): A, the ghost ramp** (`R_GHOST`), the default already (`TL_DEFAULT`). And: "go
 ahead with the art": step 4 (the four lights and the events' things into the game), the unbarred look on an unlock, then the cage
 lantern's dappled light.
+
+**Step 4, the art in the game, the unbarred look and the dappled light (25 November 2026; its own worktree branch, for the work
+branch).** Harness only: nobody has played it, nothing ran under Wine, the Windows and browser builds were not compiled here (no MinGW or
+Emscripten in the session; `clang -fsyntax-only` on `scene_crawl.c` and `crawl_art.c`, with and without the debug switches, shows no
+warning).
+
+*The art.* The drawings moved from `tools/lightmock.c` into `src/art/parts/lights_events.c` as they stood (`lm_keep` became
+`cv_store`, the Catacombs' wash `prop_wash` on the slot itself), listed in `crawl_art.c` after the unlit torch and made each level by
+`crawl_art_lights` once the run's door is made, in the run's look as the sheets have them. New ids only at the ends of their lists:
+sprites `SP_CORONA0`-`2`, `SP_SANCT0`-`1`, `SP_BONELAB0`-`2`, `SP_CAGE0`-`2`, `SP_EV_RELIC`, `SP_EV_SOCKET0` (empty) and `1` (holding),
+`SP_EV_LEVER0` (up) and `1` (pulled) (NSPR 681 to 697); textures `T_PLATE`, `T_PLATE_DOWN` (the plate as an overlay, C_CLEAR where the
+cell's own floor shows round it) and `T_BARRED`, `T_UNBARRED` (the run's door, `T_RDOOR`, barred and unbarred) (NTEX 119 to 123, under
+the byte `Cell.fover` holds). `build/lightmock` draws both sheets from the game's slots now, and both are byte for byte the approved
+PNGs (`cmp`); `build/torchmock`'s sheet too. Every existing sprite, texture, the palette, colormap, glints, eyes and every existing
+sprite's foot (`crawl_foot`) were hashed after `crawl_art_level` for each of the levels 1 to 40, against `37c0fac` built in a worktree:
+the same. The new feet, in texels: corona 6, sanctuary lamp 5, candelabrum 11, cage 8 (14 in the Catacombs, its drips), relic 34, socket
+30, lever 28. None is laid as a prop, so none is read.
+
+*In the game.* `DL_CORONA`, `DL_SANCTUARY`, `DL_BONES` and `DL_CAGE` hang their own (`corona`, `sanctuary`, `bonelabrum`,
+`cage_lantern` in `gen_level.c`, beside `chandelier`), swaying as the chandelier does, noted for three left and the listing as the rest.
+The three with candles change frame at four a second (`DF_SLOW`; three frames would otherwise run at the fire's nine); the sanctuary
+lamp's two at the chandelier's three. Their light: the corona 1.45 over 6.5 cells (the chandelier's 1.35 over 6), the candelabrum 1.25
+over 5.6, the cage 1.5 over 5.4 (the lantern's 1.1 over 5: its spots take light away between them), the sanctuary lamp a small 0.65
+over 3.4. The light map holds no colour, so the lamp's red is laid on as the frame is drawn, as the dapple is (below). The events' things
+take their looks: the relic, the socket (holding when a relic is set in it, the relic then drawn as part of it and not over it), the
+lever up and pulled, the plate (an overlay on the cell's floor, pressed while stood on). `B` and a door an event shuts (`g_gate`) show
+`T_BARRED` while barred and `T_UNBARRED` from the moment an event unlocks or opens it; the tutorial's gate and the puzzles' gates keep
+the portcullis, and the generated levels' things keep theirs.
+
+*The dappled light.* A light now has a look, as it is drawn (`Light.look`: `LK_DAPPLE` the cage's, `LK_RED` the sanctuary lamp's;
+the level's, never saved). Each frame `lk_begin` gathers each such light's share of the light map, as `build_lightmap` gave it (and the
+breath at three left), into a map of its own, and `lk_end` clears it after; the light map itself is never touched, so `G.lit_here`
+and all the dead sense are as they were. A floor or wall pixel the cage's share reaches has that share thrown through the holes: spots
+where a hole looks out, the iron's shade between, by the pixel's bearing and height from the lantern (`lk_spots`: fourteen holes about
+and a dozen bands up its height, the cone shading what is straight under it and the eave what is straight over); the ceiling is left
+plain. A pixel the red glass lights is tinged red (each colour's nearest red-cast colour in the level's palette, dithered as far as the
+glass's share of its light, at most 80%). `CRAWL_LIGHTLOOK=0` draws both plain; `CRAWL_THREELEFT=-1` holds three left off for frames.
+*The sheet:* `media/sheets/lights/cage_dapple.png` (`python3 -I tools/dapple_sheet.py`: the editor's `lights.c` fixture read, with two
+cage lanterns hung in its south room, in each run's level 3, 13, 23 and 33; by a wall and over the floor, without and with, at 1x and
+the lantern's corner three times over). Looked at: the spots read plainly on the walls in every run, the Deep's amethyst and the Hollows'
+timber least; on the floor as a fan of spokes and rings under the lantern, quieter, best seen near. **For the owner:** whether the spots
+are wanted so strong on the walls, and the floor's as they are; the sanctuary lamp's red is a light warm cast round it, not more.
+
+*Read where the brief left room.* A barred door unlocked shows unbarred and stays shut till walked into or opened; once open it stays open
+as before. The plate also stays down while a switch or timed trigger it set off still holds (`ev_plate_held`, drawing only): a plate
+is never seen while stood on, so without it the pressed look would never show; a plate that fires once rises when stepped off. The
+event socket's holding look is its own sprite, so the relic in it is not drawn twice. The cage's spots fall on the floor and walls, not
+on the dead or the props standing in them, and not on the ceiling. Light powers above are mine; the owner's to change.
+
+*The proof.* (a) The dream, `apl crawl 3000`, `CRAWL_RUNID=7`, seeds 1, 3, 5, 7, 11, 13, 15 and 17, against `37c0fac` built in a
+worktree: line for line the same but the two `PORTRAITS ... kept in` lines each; 8 to 11 levels a run, the tutorial's two among them.
+(b) `tools/mapedit/fixtures/lights.c` (its corona) and an export of my own (not committed: the fixture with all four new lights, two
+more cages, a lever unbarring a second barred door with `TA_DOOR_UNLOCK`, a timed plate, two more lit torches by the doors), laid as
+level 3 and as level 33. Frames from the harness, each looked at: every new light in both runs; the cage by a wall and over a floor, with
+and without; the relic; the lever up, then pulled and the north door unbarred before it is opened; the socket empty, then holding,
+then the east door sliding open unbarred on `TA_DOOR_OPEN`; the plate up, pressed while its trigger holds, up again. The dream on my
+export, 500 s: level 3, seeds 1, 3 and 5, every trigger in order (plate, compass, lever, socket, south room) and level 4 reached; level
+33, the triggers in the same order each life but a new run's caster dies to the dead there, four to six times, exactly as the build
+before does on the same export with its stand-ins (`37c0fac`: the same deaths, the same triggers); with `CRAWL_GEAR=4` it clears 33 on all
+three seeds, every death after on 34. The fixture: seeds 1 and 3, its three triggers, level 4, no death. Footprints on the drawn levels
+the same as with the stand-ins (`FOOT level 33: 24 whole ...`, seeds 1, 3, 5); the 33 log against the stand-ins differs by one creature
+losing the caster 0.3 s later (the new lights' powers). (c) `make asan`, `ASAN_OPTIONS=detect_leaks=0`, 600 s, seeds 1 and 4: my export as level 3 and as 33, and the fixture: no
+report (`apl` draws a frame twice a second, so the looks were drawn wherever the dream went); and every scripted frame above through
+`build/host_asan`: no report. (d) Saves untouched: `save.c` and `ledger.c` did not change;
+`Light.look`, the deco flag and the looks' maps are the level's or the frame's and never saved. `make smoke` passes; its 60 s bench 1.74 to 1.92 ms a frame over four runs against
+1.77 to 1.95 for `37c0fac`, the same within the noise. On my export, where three cages and the lamp hang, 2.04 to 2.13 ms with the
+looks and 1.92 to 1.95 without (the debug build).
+
+*Left:* the owner's look at the dapple's sheet and at the four lights and the things in play, and their hand on all of it; the light
+powers and the red; twelve relic looks (PLAN-events); the browser's and Windows builds compiled by CI.

@@ -451,6 +451,23 @@ static void crystals(int x, int y) {                               /* a steady g
     GLP_OUT(DL_CRYSTALS);
 }
 static void magma(int x, int y) { GLP_IN; solid_prop(x, y, SP_MAGMA_A, 3, K_PROP); light_static(prop_lx, prop_ly, 1.6f, 5.4f); GLP_OUT(DL_MAGMA); }
+/* the four new hanging lights (docs/PLAN-lights.md), laid only where a drawing hangs them: the corona a little wider than the chandelier,
+ * the sanctuary lamp a small glow tinged by its glass, the candelabrum's candles in its skulls, the cage lantern's light thrown through
+ * its holes (the last two as the frame is drawn: draw/floor.c, lk_*); the three with candles at a candle's pace (DF_SLOW) */
+static void corona(int x, int y) { GLP_IN; add_deco_ex(x + 0.5f, y + 0.5f, SP_CORONA0, 3, DF_SWAY | DF_SLOW); light_static(x + 0.5f, y + 0.5f, 1.45f, 6.5f); GLP_OUT(DL_CORONA); }
+static void sanctuary(int x, int y) {
+    GLP_IN;
+    add_deco_ex(x + 0.5f, y + 0.5f, SP_SANCT0, 2, DF_SWAY); light_static(x + 0.5f, y + 0.5f, 0.65f, 3.4f);
+    if (G.nlights > l0_) G.lights[l0_].look = LK_RED;
+    GLP_OUT(DL_SANCTUARY);
+}
+static void bonelabrum(int x, int y) { GLP_IN; add_deco_ex(x + 0.5f, y + 0.5f, SP_BONELAB0, 3, DF_SWAY | DF_SLOW); light_static(x + 0.5f, y + 0.5f, 1.25f, 5.6f); GLP_OUT(DL_BONES); }
+static void cage_lantern(int x, int y) {
+    GLP_IN;
+    add_deco_ex(x + 0.5f, y + 0.5f, SP_CAGE0, 3, DF_SWAY | DF_SLOW); light_static(x + 0.5f, y + 0.5f, 1.5f, 5.4f);
+    if (G.nlights > l0_) G.lights[l0_].look = LK_DAPPLE;
+    GLP_OUT(DL_CAGE);
+}
 
 /* The dressing comes in as you go down (PLAN-bestiary, section 8): each set lights and furnishes
  * itself in its own way, and some things show a level or two before what they warn of. In the second

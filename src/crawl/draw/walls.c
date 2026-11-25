@@ -96,7 +96,7 @@ static void render_walls(Frame *f, float dx, float dy, float plx, float ply, flo
                 }
                 if (t <= 0.0f || u < 0.0f || u >= 1.0f || u < d->open) continue;
                 static const int LOCKTEX[NKEYS] = { T_LOCKED, T_LOCKED_S, T_LOCKED_C }, RLOCKTEX[NKEYS] = { T_RLOCKED, T_RLOCKED_S, T_RLOCKED_C };
-                perp = t; tex = d->locked == WINGED ? T_WINGDOOR : g_drawn && d - G.doors == IC.gate_door ? (d->locked == GATED && G.py > d->y + 0.5f ? T_GATE_SEAL : T_GATE) : d->locked == GATED || (g_drawn && g_gate[d - G.doors]) ? T_GATE : G.tri >= 0 && d - G.doors == G.tri_door ? T_TRDOOR : d->locked ? (G.faced ? RLOCKTEX[d->color] : LOCKTEX[d->color]) : (G.faced ? T_RDOOR : T_DOOR); side = d->along_x ? 0 : 1;
+                perp = t; tex = d->locked == WINGED ? T_WINGDOOR : g_drawn && d - G.doors == IC.gate_door ? (d->locked == GATED && G.py > d->y + 0.5f ? T_GATE_SEAL : T_GATE) : g_drawn && g_gate[d - G.doors] ? (d->locked == GATED ? T_BARRED : T_UNBARRED) : d->locked == GATED ? T_GATE : G.tri >= 0 && d - G.doors == G.tri_door ? T_TRDOOR : d->locked ? (G.faced ? RLOCKTEX[d->color] : LOCKTEX[d->color]) : (G.faced ? T_RDOOR : T_DOOR); side = d->along_x ? 0 : 1;
                 texx = clampi((int)((u - d->open) * TS), 0, TS - 1);
                 hit = 1;
             }
@@ -169,6 +169,18 @@ static void render_walls(Frame *f, float dx, float dy, float plx, float ply, flo
             for (int y = y0; y < y1; y++, ty += tstep) {
                 int ti = clampi((int)ty, 0, tn - 1);
                 f->pix[y * W + x] = fogged(tl_px(cl, shade(col[ti], light + gl[ti / gs], x, y)), fog, light, x, y);
+            }
+            continue;
+        }
+        int qx = (int)floorf(hx), qy = (int)floorf(hy), lkc = lk_any && (unsigned)qx < MAPN && (unsigned)qy < MAPN ? lk_cell[qy][qx] : 0;
+        if (lkc) {                                                  /* a cage's spots, row by row; a red glass's tinge (lk_*) */
+            float lv = lm_at(hx, hy), lf = atten(perp) * (side ? 0.82f : 1.0f);
+            for (int y = y0; y < y1; y++, ty += tstep) {
+                int ti = clampi((int)ty, 0, tn - 1);
+                float l = (lkc & 1) ? lk_dapple(lv, qx, qy, hx, hy, 1.0f - ((float)ti + 0.5f) / (float)tn) * lf : light;
+                uint8_t c = tl_px(cl, shade(col[ti], l, x, y));
+                if (lkc & 2) c = lk_tinge(c, lv, qx, qy, hx, hy, x, y);
+                f->pix[y * W + x] = fogged(c, fog, l, x, y);
             }
             continue;
         }

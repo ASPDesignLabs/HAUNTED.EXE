@@ -24,6 +24,7 @@ static void crawl_render(Frame *f) {
     fm_any = hz_marks();
     por_frame();                                                   /* her rooms' portraits, as they move */
     tl_begin();                                                    /* three left: the cold flames and the breath, for this frame */
+    lk_begin();                                                    /* the cage's spots and the red glass's tinge, for this frame */
     render_floor(f, dx, dy, plx, ply, horizon);
     render_walls(f, dx, dy, plx, ply, horizon);
     render_sprites(f, dx, dy, horizon);
@@ -36,6 +37,7 @@ static void crawl_render(Frame *f) {
     if (G.web_hp > 0.0f && !G.dead && !G.shop) render_web(f);
     if (G.shop) render_shop_tags(f, dx, dy, horizon);
     if (!G.dead) { render_wards(f); render_hand(f); render_vslip(f); render_latch(f); render_af_view(f); }
+    lk_end();
     tl_end();                                                      /* and the light map as the game keeps it */
     wheel_grey(f);                                                 /* a wheel up: the world grey, what is drawn after keeps its colours */
     if (map_shown()) render_map(f);                                /* the map, as the crypt goes on under it */
