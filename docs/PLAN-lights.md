@@ -53,3 +53,77 @@ line (CLAUDE.md). If a creature's senses read the light (`minds.c`), the pulse i
 | 4 | The new lights in the game, once the sheet is approved | after step 2 |
 
 ## 4. Hand-off log
+
+**Step 3, the game's side (25 November 2026; its own worktree branch, for the work branch).** Built to section 1 as written; nothing
+in the format changed. Harness only: nobody has played it, nothing ran under Wine, the Windows and browser builds were not compiled here
+(no MinGW or Emscripten in the session; `clang -fsyntax-only` on `scene_crawl.c` with and without the debug switches, and on
+`web_main.c` against a stub `emscripten.h`, shows no new warning).
+
+*The data and the reader.* `DL_*` and `DrawnLight` are in `generate.c`, beside `g_drawn`, so that the generator can note its own light
+props by style as it lays them; `Drawn` ends `light, nlight`. `drawn_text.c` reads `LIGHT` (`{ DL_..., x, y }`, at most 96), the thirteen
+names, and a row of 33 values (the hazards' four, `NULL, 0, NULL, 0` when there are none, then the lights and their count). It refuses,
+by name: a style it has not, a cell off the drawing, a count in the row that is not what was read, lights the row does not name, a row a
+value short. `drawncheck` compares the lights. The editor's `fixtures/lights.c` reads as written.
+
+*Laying.* Each light prop (`chandelier` ... `totem`) notes itself as `dress_level` lays it (`GLP`: its style, cell, picture and light; the
+dice untouched). A drawing with lights of its own has the generator's taken off again once the dressing is done (`glp_strip`: the picture
+gone, the cell what it was, the light and its share of the light map out of the list), so the rest of the dressing lies as it would have
+with them; then, after the drawing's things are cleared of the dressing, its own are laid by the same functions, footprints and all, and
+the dice they took given back, so what follows on the drawing's seed (its spawn points) lies as it would. The four new ones are a
+chandelier (corona, sanctuary lamp, bone candelabrum) or a lantern (the cage) till their art is in. The debug build says
+`DRAWN level n: the generator's k light props taken off` and `DRAWN level n: k lights`.
+
+*The listing.* `crawl_drawn_lights(out, max)` lays the drawing read as `start_level` would for its level (its seed, its dressing, its
+torches and events' fields), without its own lights, and returns the generator's light props that keep their picture, as `DL_*` and the
+drawing's cells, in the order laid; -1 if nothing was read. Everything the laying writes (`G`, the plan, lanes, fire, ice, `EV`, `DH`, the
+faces' and the dressing's counts) is copied aside first and put back after, byte for byte: about 3 MB, most of it `G`. It needs nothing set
+up: no art, no settings, no `app_init`. The harness's `build/host_debug drawnlights <export>` prints it (`DL_CHANDELIER 14 3`); the
+browser's `web_drawn_lights()` returns a static array, the count (-1: nothing read, or no memory for the copy) then style, x, y. **What the
+editor's page calls, in order:** load `play/haunted-core.js` (`HauntedCore()`), nothing else first (no `web_config`, no `web_start`); put
+the export's bytes at `_web_drawn_buf()` (fewer than `_web_drawn_cap()`); `_web_drawn_load(len)`, which answers `""` when read, else why
+not (`UTF8ToString`); then `p = _web_drawn_lights()` and read `new Int32Array(M.HEAPU8.buffer, p, 1 + 3 * n)` (the count at `p` first;
+`HEAP32` is not among the exported runtime methods). Loading a drawing in that module makes it its level's drawing there, as PLAY's does.
+
+*Three left.* With one to three creatures still to kill (`G.kills_total - G.kills`), outside a pocket, her rooms and the tally, every torch
+(the walls' `T_TORCH0` and `T_FEAT + F1_TORCH` frames, the events' torches lit, guttering and snuffed) and every light prop takes the cold
+colour, and its light breathes: one breath in two seconds, a light's share up to 18% brighter and dimmer, the flame a step up or down its
+ramp at either end of the breath. The colour is laid over a pixel already shaded (`tl_lut`), so a cold flame is as bright as the fire was,
+whatever ramp it is; fog still covers it. The dead read the light (`G.lit_here` in `minds.c`, a Shade's showing, the spiders and the
+hidden message's sight), so the breath is never in the light map that plays: `build_lightmap` notes each light's share (`lm_f`), and
+`crawl_render` adds the breath for the frame drawn and puts the map back byte for byte after the hand (`tl_begin`, `tl_end`). A light
+knows it is a torch's (`Light.torch`, never saved).
+
+*The colour.* `media/sheets/lights/three_left.png`: each run from two places (a wall torch and a light prop; the Deep's crystals and its
+magma), the usual flame beside four candidates at the same moment, and the breath. Chosen for now: **A, the ghost ramp** (`R_GHOST`, from
+its sixth step up), a pale grave-light green-white. It reads as a sign rather than a weaker fire, which the bone ramp (C) does; the glow
+ramp (B) is the frost's and the crystals' own blue, so in the Deep it hides among them; violet (D) sinks into the Deep's amethyst walls and
+is the spirit's colour. `CRAWL_THREECOL=k` shows the others; `TL_DEFAULT` in `floor.c` changes it. **The owner's to pick.** The magma
+floor and the Deep's fire seam go cold with the rest, as the plan's list has them; the crystals have no flame and keep their colour, only
+their light breathes.
+
+*Read where the plan left room.* The listing is what the generator would lay, whether or not the drawing has lights of its own, so the
+editor can offer them again. A thing the run's dice pick into a room is taken where drawn. A generator light whose picture the drawing's
+clearing took off (on a lane, or where a thing is set down) is not listed: its light stays there with no lamp, as it did before this
+work. Only the plan's nine are the generator's light props: the floor candles, the altars' candles, the saints' and the arena's lights
+stay. A standing light of the drawing's takes the place of any dressing in its cell; on a lane or where a thing is set down it is not
+solid, so it never shuts a way; one in the stone is not laid. A hanging one hangs over anything but stone. Debug switches:
+`CRAWL_THREELEFT`, `CRAWL_THREECOL`, `CRAWL_LIGHTLIST`, `CRAWL_LIGHTLISTAT`, `CRAWL_TPPROP=-2` (docs/HARNESS.md).
+
+*The proof.* (a) The dream, `apl crawl 3000`, `CRAWL_RUNID=7`, seeds 1, 3, 5, 7, 11, 13, 15 and 17, against `2534937` built in a worktree:
+line for line the same but the two `PORTRAITS ... kept in` lines each, 7 to 9 levels a run, the tutorial's two among them. (b) A hand
+export of every style (the hazards' fixture with 15 lights: one on a lane, one in the stone) and the same lights on the events' sample:
+the 5 generator's light props taken off, 14 laid (one not solid, one refused by the stone); frames from six places beside the fixture
+without lights show the generator's chandeliers gone and the drawing's chandelier, lantern, candlestand, brazier, corona and magma where
+drawn. Pasted into a scratch copy as `DRAWN[2]` to `[5]` with `fixtures/lights.c` and `hazards.c`: "the same, field for field" each, and
+"the lights" against the wrong one. `drawnlights` on `hazards.c`, `lights.c` and the sample: the same five each time (four chandeliers,
+a fire pit), and on the tutorial's level 1 export four (chandeliers at (10,17), (12,25), (8,27), the fire pit at (0,23)), each the same on
+two runs, the same as `CRAWL_LIGHTLIST` prints as the levels are laid in play, and where the frames stand before them. `CRAWL_LIGHTLISTAT`
+asking for the listing in the middle of a run on the drawing (seed 3, 400 s): its log the same as without but the asking. (c) `make asan`,
+`ASAN_OPTIONS=detect_leaks=0`, 600 s, seeds 1 and 4: `lights.c`, the hand export and `hazards.c`, each finishing level 3 (4 or 5 reached),
+and the hand export with `CRAWL_THREELEFT=1` on every frame: no report, and that last log the same as without it but the time-taken line.
+`drawnlights` and `drawncheck` on `lights.c` cut every 5 bytes and at each of its last 1,500 (2,296 cuts), and on the hand export the
+same with its last 2,000 (2,923): every one refused or read, none crashed; nine broken texts refused by name. `make smoke` passes. (d)
+Saves untouched: `save.c` and `ledger.c` did not change; the lights, `GLP` and `Light.torch` are the level's and never saved.
+
+*Left:* the owner's pick of the colour, and their hand on all of it; the four new lights' art (step 4); the editor's page to call
+`web_drawn_lights` (above); the browser's and Windows builds compiled by CI.

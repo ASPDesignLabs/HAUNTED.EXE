@@ -119,7 +119,7 @@ static void light_static_ph(float lx, float ly, float power, float radius, float
     if (G.nlights >= MAXLIGHTS) return;
     Light *L = &G.lights[G.nlights++];
     L->x = lx; L->y = ly; L->power = power; L->radius = radius; L->phase = phase;
-    L->cx = (int)lx; L->cy = (int)ly; L->first = G.nlc; L->count = 0;
+    L->cx = (int)lx; L->cy = (int)ly; L->first = G.nlc; L->count = 0; L->torch = 0;
     static int stamp[MAPN][MAPN], qx[MAPN * MAPN], qy[MAPN * MAPN], dist[MAPN][MAPN];
     static int gen;
     gen++;
@@ -191,6 +191,19 @@ static int g_events;                                               /* the drawin
 static uint8_t g_gate[MAXDOORS];                                   /* a door barred on a drawn level (B, or shut by an event): a
                                                                       portcullis, which stays up once raised, as the tutorial's gate */
 static int drawn_torches(void);                                    /* the owner's torches, in place of the generator's (gen_dress): how many */
+/* A drawn level's lights (docs/PLAN-lights.md, section 1: the format the editor writes): the style, its cell in the drawing. Hanging
+ * ones hang over its middle, standing ones stand in it as the generator's do. The last four are the new hanging lights, laid as a
+ * chandelier (the three hanging) or a lantern (the cage) till their sheet is approved. Here, not in drawn.c, so that the generator's
+ * own light props can be noted by style as they are laid (gen_level.c), for the editor's listing and for a drawing that has its own. */
+enum { DL_CHANDELIER, DL_LANTERN, DL_CANDLESTAND, DL_BRAZIER, DL_MINELAMP, DL_CRYSTALS, DL_FIREPIT, DL_MAGMA, DL_TOTEM,
+       DL_CORONA, DL_SANCTUARY, DL_BONES, DL_CAGE, NDL };
+typedef struct { int style, x, y; } DrawnLight;
+#define GLP_MAX 96
+static struct { int n; struct { int style, x, y, deco, light, kind0; } p[GLP_MAX]; } GLP;   /* the generator's light props laid on this
+                                                                      level: the style, its cell, its decoration and light (-1 none), what
+                                                                      the cell was before it stood there; noted only, read by nothing that plays */
+static int drawn_lights(void);                                     /* the drawing's own lights (drawn.c): how many it has */
+static int glp_on;                                                 /* the generator's light props noted: while dress_level lays a level */
 static float ev_light(int l);                                      /* a light's share this frame: a torch out or guttering, all stuttering */
 static void ev_struck(int k);                                      /* a thing that wants a spell, done (mk_finish) */
 static int ev_mk_watched(int k);                                   /* a trigger waits on it struck: the dream tries it harder */

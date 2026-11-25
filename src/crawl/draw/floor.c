@@ -6,6 +6,52 @@
 /* Rendering                                                           */
 /* ================================================================== */
 
+/* Three left (docs/PLAN-lights.md, section 2), as drawn: the torches' and light props' flame in a cold ramp, a step brighter and dimmer
+ * with the breath (tl_lut, laid over a pixel already shaded, so the cold flame is as bright as the fire was), and every torch's light
+ * breathing too, added to the light map for this frame alone and taken off after (tl_begin, tl_end: the map is put back byte for byte,
+ * so the dead, the dream and everything else that plays never see it). TL_RAMPS are the candidates on the owner's sheet
+ * (media/sheets/lights/three_left.png); CRAWL_THREECOL=k shows the k-th in the debug build. */
+static const struct { uint8_t ramp, lo; } TL_RAMPS[] = { { R_GHOST, 6 }, { R_GLOW, 5 }, { R_BONE, 8 }, { R_PURPLE, 6 } };
+#define TL_DEFAULT 0                                               /* the ghost ramp: a pale grave-light green-white */
+#define TL_PERIOD 2.0f                                             /* a breath, in seconds */
+#define TL_DEPTH 0.18f                                             /* how much brighter and dimmer the light, at most */
+static int tl_on;                                                  /* this frame */
+static uint8_t tl_lut[256];                                        /* the cold flame */
+static inline uint8_t tl_px(const uint8_t *cl, uint8_t p) { return cl ? cl[p] : p; }   /* a pixel shaded, in the cold flame or as it is */
+static float tl_keep[LMN * LMN];
+static int tl_ramp(void) {
+    int k = TL_DEFAULT;
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_THREECOL")) k = clampi(atoi(getenv("CRAWL_THREECOL")), 0, (int)(sizeof TL_RAMPS / sizeof TL_RAMPS[0]) - 1);
+#endif
+    return k;
+}
+static int tl_torch_tex(int t) { return (t >= T_TORCH0 && t <= T_TORCH2) || (t >= T_FEAT + F1_TORCH && t < T_FEAT + F1_TORCH + 3) || (t >= T_UNLIT && t <= T_UNLIT_LAST); }
+static int tl_light_spr(int s) {                                   /* a light prop's picture (gen_level.c) */
+    return s == SP_CHANDELIER_A || s == SP_LANTERN_A || s == SP_CANDLESTAND_A || s == SP_BRAZIER_A || s == SP_MINELAMP_A || s == SP_CRYSTAL_A
+        || s == SP_FIREPIT_A || s == SP_MAGMA_A || s == SP_TOTEM_A;
+}
+static void tl_begin(void) {
+    tl_on = three_left();
+    if (!tl_on) return;
+    float b = sinf((float)G.t * (TAU_F / TL_PERIOD));             /* -1 to 1 */
+    int r = tl_ramp(), lo = TL_RAMPS[r].lo, step = b > 0.5f ? 1 : b < -0.5f ? -1 : 0;
+    for (int c = 0; c < 256; c++) tl_lut[c] = (uint8_t)c;
+    for (int i = 0; i < 16; i++) tl_lut[R_FLAME + i] = (uint8_t)(TL_RAMPS[r].ramp + clampi(lo + i * (15 - lo) / 15 + step, 0, 15));
+    tl_lut[C_WHITE] = (uint8_t)(TL_RAMPS[r].ramp + 15);
+    memcpy(tl_keep, G.lm, sizeof tl_keep);
+    for (int l = 0; l < G.nlights; l++) {
+        const Light *L = &G.lights[l];
+        if (!L->torch) continue;
+        float k = lm_f[l] * TL_DEPTH * b;
+        for (int j = L->first; j < L->first + L->count; j++) G.lm[G.lc_idx[j]] += G.lc_w[j] * k;
+    }
+}
+static void tl_end(void) {
+    if (tl_on) memcpy(G.lm, tl_keep, sizeof tl_keep);
+    tl_on = 0;
+}
+
 static inline uint8_t shade(uint8_t c, float light, int x, int y) {
     if (IS_FULLBRIGHT(c)) return c;
     int lv = (int)(light * LIGHT_UNIT + BAYER[y & 3][x & 3] * (1.0f / 16.0f));

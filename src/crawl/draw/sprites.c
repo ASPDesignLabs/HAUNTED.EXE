@@ -630,7 +630,7 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
     int n = 0;
     float rx = -dy, ry = dx;
     #define ADD(X, Y, Z, S, GH) do { float vx_ = (X) - G.px, vy_ = (Y) - G.py, dp_ = vx_ * dx + vy_ * dy; \
-        if (dp_ > 0.12f && dp_ < 24.0f && n < (int)(sizeof list / sizeof list[0])) list[n++] = (Draw){ X, Y, Z, dp_, S, (GH) > 0.0f ? (GH) : 1.0f, 0.0f, 1.0f, 0, 0, 0.0f, NULL, 0, 0.0f, 0.0f, 0, 0, 0, 0, 0, NULL, 0.0f, 0, 0, 0, 0 }; } while (0)
+        if (dp_ > 0.12f && dp_ < 24.0f && n < (int)(sizeof list / sizeof list[0])) list[n++] = (Draw){ X, Y, Z, dp_, S, (GH) > 0.0f ? (GH) : 1.0f, 0.0f, 1.0f, 0, 0, 0.0f, NULL, 0, 0.0f, 0.0f, 0, 0, 0, 0, 0, NULL, 0.0f, 0, 0, 0, 0, NULL }; } while (0)
     for (int i = 0; i < G.ndecos; i++) {
         const Deco *dc = &G.decos[i];
         static const float FPS[4] = { 0.0f, 0.0f, 3.0f, 9.0f };    /* by frame count: candles flicker, fire roars */
@@ -651,6 +651,7 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         if (torn > 3.0f) continue;                                 /* a torn web: gone, till it grows back (docs/PLAN-ambience.md, A10) */
         ADD(dc->x + ox, dc->y + oy, zx, spr, 0);
         if (n > n0 && torn > 0.0f) list[n - 1].alpha = fmaxf(0.05f, 1.0f - torn / 3.0f);   /* growing back */
+        if (n > n0 && tl_on && tl_light_spr(dc->spr)) list[n - 1].cold = tl_lut;   /* three left: its flame cold */
         if (n > n0 && (dc->flags & (DF_FLIP | DF_FLOAT | DF_SINK | DF_LOOP))) {
             list[n - 1].flags = ((dc->flags & DF_FLIP) ? DR_FLIPV : 0) | ((dc->flags & DF_SINK) ? DR_CLIP : 0) | ((dc->flags & DF_LOOP) ? DR_GLITCH | DR_LOOPED : 0);
         }
@@ -1327,7 +1328,7 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
                     int tyi = clampi((int)ty, 0, TS - 1), tx = (int)(tx0 - d->sway * tyi / (float)TS);
                     if (tx < 0 || tx >= TS) continue;
                     uint8_t c = img[tx * TS + tyi];
-                    if (c != C_CLEAR) f->pix[y * W + x] = fogged(shade(c, light, x, y), fog, light, x, y);
+                    if (c != C_CLEAR) f->pix[y * W + x] = fogged(tl_px(d->cold, shade(c, light, x, y)), fog, light, x, y);
                 }
             }
             continue;
@@ -1422,7 +1423,7 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
                     f->pix[y * W + x] = fogged((uint8_t)(R_GLOW + clampi((int)(((c - 1) & 15) * 0.4f + light * 3.0f), 1, 9)), fog, light, x, y);
                     continue;
                 }
-                f->pix[y * W + x] = (d->flags & DR_BRIGHT) ? c : fogged(shade(c, light, x, y), fog, light, x, y);
+                f->pix[y * W + x] = (d->flags & DR_BRIGHT) ? c : fogged(tl_px(d->cold, shade(c, light, x, y)), fog, light, x, y);
             }
         }
         if (((d->flags & DR_SHINE) && G.bmirror_t > 0.0f) || (d->flags & DR_RIPPLE)) {   /* the Mirror Rune's silver ring; Time Slip's grey */

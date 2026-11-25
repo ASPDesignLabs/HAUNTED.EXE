@@ -71,7 +71,8 @@ typedef struct { uint8_t kind, tex, theme, visits; int16_t region, door; uint8_t
  * its floor is turned (1, 2 mirrored, 4 across), bit 4 that it lies as laid, not turned at random. */
 typedef struct { int x, y, along_x; float open, idle; int opening, locked, color, was; } Door;   /* locked: 1 locked, 2 unlocked;
                                                                       was: opening last frame (its sound and its noise) */
-typedef struct { float x, y, power, radius, phase; int cx, cy, first, count; } Light;
+typedef struct { float x, y, power, radius, phase; int cx, cy, first, count, torch; } Light;   /* torch: a torch's or a light prop's,
+                                                                      which breathe at three left (docs/PLAN-lights.md, 2); drawing only */
 typedef struct { float x, y, phase; int spr, nfr, flags; } Deco;   /* nfr: frames to cycle through */
 enum { DF_SWAY = 1,                                                  /* hanging: swings a little, from the top */
        DF_FLIP = 2, DF_FLOAT = 4, DF_SINK = 8,                       /* the Backrooms' things out of place: upside down on the */

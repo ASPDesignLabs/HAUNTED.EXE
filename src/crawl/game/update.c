@@ -173,6 +173,13 @@ static void crawl_update(double dt) {
     if (getenv("CRAWL_KILLAT") && !G.dead && G.t >= atof(getenv("CRAWL_KILLAT")) && G.t - dt < atof(getenv("CRAWL_KILLAT"))) {   /* testing: struck down */
         G.level_t = fmax(G.level_t, 2.0); G.blame = (Blame){ BL_NONE, 0, 0 }; hurt_ex(99999.0f, HURT_SPELL, G.px, G.py);
     }
+    static int listed;                                             /* CRAWL_LIGHTLISTAT=s: the generator's lights listed in the middle of a
+                                                                      game, once, at scene time s: what follows must not move (docs/PLAN-lights.md) */
+    if (getenv("CRAWL_LIGHTLISTAT") && !listed && G.t >= atof(getenv("CRAWL_LIGHTLISTAT"))) {
+        DrawnLight L[64];
+        listed = 1;
+        fprintf(stderr, "LIGHTLISTAT %d lights listed t=%.2f\n", crawl_drawn_lights(L, 64), G.t);
+    }
     static int stage_level = -1;                                   /* CRAWL_STAGE: a kind stood down a hall */
     if (getenv("CRAWL_STAGE") && !G.shop && !PK.depth && stage_level != G.level && G.level_t > 0.3) {
         g_stage = clampi(atoi(getenv("CRAWL_STAGE")), 0, NKINDS - 1); stage_level = G.level;

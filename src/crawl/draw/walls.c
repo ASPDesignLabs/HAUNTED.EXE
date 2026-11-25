@@ -111,6 +111,7 @@ static void render_walls(Frame *f, float dx, float dy, float plx, float ply, flo
         float light = lm_at(hx, hy) * atten(perp) * (side ? 0.82f : 1.0f);
         float fog = fog_amount(hx, hy, 1.0f - expf(-perp * 0.28f));
         const uint8_t *col = &crawl_tex[tex][texx * TS];
+        const uint8_t *cl = tl_on && (tl_torch_tex(tex) || (over >= 0 && tl_torch_tex(over))) ? tl_lut : NULL;   /* three left: a torch burns cold */
         int y0 = clampi((int)ceilf(top - 0.5f), 0, H), y1 = clampi((int)ceilf(bot - 0.5f), 0, H);
         float tstep = TS / lineh, ty = (y0 + 0.5f - top) * tstep;
         if (over >= 0) {                                            /* what stands on the wall, over its stone */
@@ -146,7 +147,7 @@ static void render_walls(Frame *f, float dx, float dy, float plx, float ply, flo
             for (int y = y0; y < y1; y++, ty += tstep) {
                 int tyi = clampi((int)ty, 0, TS - 1), m = cm[tyi];
                 float L = m && BAYER[y & 3][x & 3] < thr ? (m == 1 ? light * 0.2f : light * 1.3f) : light;
-                f->pix[y * W + x] = fogged(shade(col[tyi], L, x, y), fog, light, x, y);
+                f->pix[y * W + x] = fogged(tl_px(cl, shade(col[tyi], L, x, y)), fog, light, x, y);
             }
             continue;
         }
@@ -167,19 +168,19 @@ static void render_walls(Frame *f, float dx, float dy, float plx, float ply, flo
             int gs = tn / TS;                                       /* texels of the column to a row of the glow */
             for (int y = y0; y < y1; y++, ty += tstep) {
                 int ti = clampi((int)ty, 0, tn - 1);
-                f->pix[y * W + x] = fogged(shade(col[ti], light + gl[ti / gs], x, y), fog, light, x, y);
+                f->pix[y * W + x] = fogged(tl_px(cl, shade(col[ti], light + gl[ti / gs], x, y)), fog, light, x, y);
             }
             continue;
         }
         for (int y = y0; y < y1; y++, ty += tstep)
-            f->pix[y * W + x] = fogged(shade(col[clampi((int)ty, 0, tn - 1)], light, x, y), fog, light, x, y);
+            f->pix[y * W + x] = fogged(tl_px(cl, shade(col[clampi((int)ty, 0, tn - 1)], light, x, y)), fog, light, x, y);
     }
 }
 
 /* alpha < 1: dithered see-through. remap: the ramp R_PURPLE turns into. flags: how it is drawn.
  * lut: a creature's rank, recolouring its body (crawl_rank_lut) */
 typedef struct { float x, y, z, depth; int spr; float alpha, twinkle, scale; int remap, flags; float sway; const uint8_t *lut; int glint; float web, mg; int mgw;
-                 int eye, etype, erank, estate; const uint8_t *ov; float vap; int ecol, ward, mflag, skit; } Draw;   /* ecol: 1 + EC_*, its eyes' colour whatever its rank; mflag: a
+                 int eye, etype, erank, estate; const uint8_t *ov; float vap; int ecol, ward, mflag, skit; const uint8_t *cold; } Draw;   /* cold: three left's flame (tl_lut), a light prop's; ecol: 1 + EC_*, its eyes' colour whatever its rank; mflag: a
                                                                                                 mouse carrying word, its mark over it (docs/PLAN-mice.md);
                                                                                                 skit: 1 + the wall spider painted on the stone */   /* ov: its rank's dressing (crawl_dress);
                                                                                                 vap: its spirit vapour, 0 none, 1 full */   /* eye: a creature's eyes go on after it (render_eyes), as its kind, rank and state */   /* mg: the hidden

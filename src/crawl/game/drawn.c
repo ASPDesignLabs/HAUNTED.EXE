@@ -61,6 +61,8 @@ typedef struct {
     const DrawnField *field; int nfield;                           /* none: the tutorial's own fire and ice (DF, IC) */
     const DrawnHaz *haz; int nhaz;                                 /* its hazards, and the cells they cover (drawn_haz.c) */
     const DrawnCell *hzcell; int nhzcell;
+    const DrawnLight *light; int nlight;                           /* its lights (docs/PLAN-lights.md; DrawnLight in generate.c): any, and
+                                                                      none of the generator's light props */
 } Drawn;
 /* What a drawn level's events hold while it is played (events.c runs them); laid with the level, never saved */
 #define EV_THINGS 256                       /* a drawing's things, for where this play lays each */
@@ -356,10 +358,58 @@ static int drawn_torches(void) {
         EV.torch[k].wx = wx; EV.torch[k].wy = wy; EV.torch[k].d = d; EV.torch[k].group = t->group; EV.torch[k].lit = t->lit != 0;
         EV.torch[k].light = G.nlights < MAXLIGHTS ? G.nlights : -1;
         light_static(fx + 0.5f - DX[d] * 0.42f, fy + 0.5f - DY[d] * 0.42f, 1.55f, 4.6f);   /* as the generator's */
-        if (EV.torch[k].light >= 0) EV.light_of[EV.torch[k].light] = (int8_t)(k + 1);
+        if (EV.torch[k].light >= 0 && G.nlights > EV.torch[k].light) { EV.light_of[EV.torch[k].light] = (int8_t)(k + 1); G.lights[EV.torch[k].light].torch = 1; }
         EV.at_torch[wy][wx] = (int8_t)(k + 1);
     }
     return D->ntorch;
+}
+/* the owner's lights (docs/PLAN-lights.md), after the dressing (whose own light props gen_dress has taken off) and its clearing: each
+ * laid by the generator's own hand for its style, footprint and all; the four new hanging lights a chandelier or a lantern till their
+ * art is approved. Their dice are given back, so what follows on the drawing's seed lies as it would. A standing one on a lane, or where
+ * the drawing sets a thing down, is not solid (its picture and light, the cell still floor): it never shuts a way. */
+static int drawn_lights(void) { return g_drawn ? drawn()->nlight : 0; }
+static void drawn_lay_lights(void) {
+    const Drawn *D = drawn();
+    if (!D->nlight) return;
+    uint32_t rs = G.rs;
+    int laid = 0, soft = 0;
+    g_foot = 1;
+    for (int i = 0; i < D->nlight; i++) {
+        const DrawnLight *L = &D->light[i];
+        int x = D->ox + L->x, y = D->oy + L->y, st = L->style;
+        if (x < 1 || y < 1 || x >= MAPN - 1 || y >= MAPN - 1 || st < 0 || st >= NDL) continue;
+        int hang = st == DL_CHANDELIER || st == DL_LANTERN || st >= DL_CORONA, k0 = G.map[y][x].kind;
+        if (k0 == K_WALL || (!hang && k0 == K_DOOR)) {           /* (a hanging one may hang over the dressing, or a doorway) */
+#ifdef CRAWL_DEBUG
+            fprintf(stderr, "DRAWN level %d: light %d (style %d) at (%d,%d) has no floor to %s\n", G.level, i, st, L->x, L->y, hang ? "hang over" : "stand on");
+#endif
+            continue;
+        }
+        if (!hang) drawn_clear(x, y);                              /* a standing one takes the place of what the dressing set there */
+        int free_ = g_lane[y][x];                                  /* a lane, or a thing's cell: kept open */
+        for (int t = 0; t < D->nthing && !free_; t++) free_ = D->ox + (int)drawn_tx(t) == x && D->oy + (int)drawn_ty(t) == y;
+        switch (st) {
+        case DL_CHANDELIER: case DL_CORONA: case DL_SANCTUARY: case DL_BONES: chandelier(x, y); break;   /* (the new three, for now) */
+        case DL_LANTERN: case DL_CAGE: lantern(x, y); break;                                              /* (the cage, for now) */
+        case DL_CANDLESTAND: candlestand(x, y); break;
+        case DL_BRAZIER: brazier(x, y); break;
+        case DL_MINELAMP: minelamp(x, y); break;
+        case DL_CRYSTALS: crystals(x, y); break;
+        case DL_FIREPIT: fire_pit(x, y); break;
+        case DL_MAGMA: magma(x, y); break;
+        default: totem(x, y); break;
+        }
+        if (!hang && free_ && (G.map[y][x].kind == K_PROP || G.map[y][x].kind == K_PILLAR)) { G.map[y][x].kind = K_FLOOR; G.foot[y][x] = 0; soft++; }
+        laid++;
+    }
+    g_foot = 0;
+    G.rs = rs;
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "DRAWN level %d: %d lights%s", G.level, laid, soft ? "" : "\n");
+    if (soft) fprintf(stderr, ", %d of them standing where the way must stay open, not solid\n", soft);
+#else
+    (void)laid; (void)soft;
+#endif
 }
 /* the owner's fire and ice (docs/PLAN-events.md): each field every cell of its kind joined to its own, with its settings */
 static void ev_fields(void) {
@@ -486,6 +536,7 @@ static void gen_drawn(void) {
     for (int i = 0; i < D->nspawn && i < EV_SPAWNS; i++) if (D->spawn[i].spot) drawn_clear(D->ox + (int)EV.sx[i], D->oy + (int)EV.sy[i]);
     for (int y = 0; y < MAPN; y++)                                 /* and no prop on a lane: the dressing doesn't know the drawn ones */
         for (int x = 0; x < MAPN; x++) if (g_lane[y][x] && G.map[y][x].kind == K_PROP) drawn_clear(x, y);
+    drawn_lay_lights();                                            /* the owner's lights, if any, clear of all that */
     for (int i = 0; i < IC.n; i++) {                               /* each cell's wait as the ice turns: by the walls first */
         int open = 0;
         for (int d = 0; d < 4; d++) open += IC.at[IC.cy[i] + DY[d]][IC.cx[i] + DX[d]] != 0;
