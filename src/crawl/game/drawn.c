@@ -254,7 +254,8 @@ static int drawn_front(int wx, int wy, int *fx, int *fy, int secret_ok) {   /* a
 }
 static void drawn_clear(int x, int y) {                            /* the dressing taken off a cell the drawing wants */
     if (x < 1 || y < 1 || x >= MAPN - 1 || y >= MAPN - 1) return;
-    if (G.map[y][x].kind == K_PROP) G.map[y][x].kind = K_FLOOR;
+    if (G.map[y][x].kind == K_PROP || G.map[y][x].kind == K_PILLAR) G.map[y][x].kind = K_FLOOR;   /* a pillar too: a drawing has none of its
+                                                                      own, and a relic laid in one could be neither seen nor taken */
     G.foot[y][x] = 0; G.bulky[y][x] = 0;
     for (int d = 0; d < G.ndecos; d++) if ((int)G.decos[d].x == x && (int)G.decos[d].y == y) G.decos[d].spr = -1;
 }

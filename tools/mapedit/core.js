@@ -11,6 +11,14 @@ const WALLS = new Set(['#', 'X', 'h', 'c']);    /* stone, and the three things s
 const LANE_OF = { '.': '+', 'F': 'f', 'I': 'i', 'q': 'Q' };
 const BASE_OF = { '+': '.', 'f': 'F', 'i': 'I', 'Q': 'q' };
 const RUNS = ['THE CRYPTS', 'THE CATACOMBS', 'THE HOLLOWS', 'THE DEEP'];
+/* the room types by the run whose generator lays them (pick_rtype, by G.look); the halls, her hall and the grave plot are any run's */
+const ROOM_RUNS = [
+    ['RT_OSSUARY', 'RT_BURIAL', 'RT_CHAPTER', 'RT_KNIGHTS', 'RT_UNDER'],
+    ['RT_SAINTS', 'RT_CISTERN', 'RT_NAVE', 'RT_CANAL', 'RT_SPINNERS'],
+    ['RT_GALLERY', 'RT_STOPE', 'RT_CHARNEL', 'RT_FOSSIL', 'RT_CHAPEL'],
+    ['RT_GEODE', 'RT_GLASS', 'RT_CINDER', 'RT_VENT', 'RT_THRONE'],
+];
+const ROOM_ANY = ['RT_HALL', 'RT_MERCHANT', 'RT_PLOT'];
 const RANKS = ['I', 'II', 'III', 'IV', 'V', 'GILDED'];
 const ELEM_CHANCE = [0, 0.15, 0.25, 0.35, 0.45, 0];   /* elem_roll's CHANCE by rank (damage.c) */
 const ELEM_FAV = [['EL_FIRE', 'EL_SPIRIT'], ['EL_FROST', 'EL_POISON'], ['EL_LIGHT', 'EL_POISON'], ['EL_FIRE', 'EL_SPIRIT']];
@@ -937,7 +945,7 @@ function sampleEvents() {
     return m;
 }
 
-const API = { fieldLive, spotTags, pickOptions, fields, fieldByName, FIELD_DEF, canWatch, TRIG_TYPES, UNDO, roomSpot, picks, layouts, dreamAll, TRIGGERS, ACTIONS, SOUNDS, SOUND_NAMES, torchGroups, wakeGroups, torchLit, sampleEvents, N, DIRS, DOORS, WALLS, LANE_OF, BASE_OF, RUNS, RANKS, ELEM_FAV, GOLD_KINDS, KEY_NAMES, MARK_NAMES, MAX, idx, inMap, isOpen,
+const API = { ROOM_RUNS, ROOM_ANY, fieldLive, spotTags, pickOptions, fields, fieldByName, FIELD_DEF, canWatch, TRIG_TYPES, UNDO, roomSpot, picks, layouts, dreamAll, TRIGGERS, ACTIONS, SOUNDS, SOUND_NAMES, torchGroups, wakeGroups, torchLit, sampleEvents, N, DIRS, DOORS, WALLS, LANE_OF, BASE_OF, RUNS, RANKS, ELEM_FAV, GOLD_KINDS, KEY_NAMES, MARK_NAMES, MAX, idx, inMap, isOpen,
               blank, clone, xformRows, stampRows, stampDef, compose, laneAt, lanes, importDrawn, exportDrawn, bounds, frontOf, dream,
               levelInfo, rankCost, budget, elemDefault, check, label, thingCell };
 if (typeof module !== 'undefined' && module.exports) module.exports = API; else root.MapCore = API;

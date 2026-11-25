@@ -230,3 +230,9 @@ as gates), a new run begins on level 3 and the build keeps its own registry key 
 apart. In the harness, seeds 1, 3 and 5, 420 s: the dream goes round the top loop (the plate in, the plate shutting it behind, the lever
 out), sets the relic, takes the compass and reaches level 4 without dying; the fire lever and its wake on seeds 1 and 5. 87 torches
 hung; 1.54 ms a frame on the level. `make asan`, seed 1: clean. The Windows build from CI's run on that branch, for the owner to play.
+
+**Session 4, later (25 November 2026).** The owner could not take the relic on Storage. The generator's dressing, laid on a drawn level
+by its seed, had set a pillar in the relic's cell (19,1): `drawn_clear` turned props back to floor but not pillars (pillars, and the
+totems, lamps and flowstone laid as them). It clears those too now; a drawing has no pillar of its own. Proof: a scripted person at the
+relic, E: "YOU TAKE A RELIC"; the dream's logs, seeds 1 and 4, 1,500 s, against `68876dd`: the same but the time-taken line; Storage read
+from text, seed 1: the same triggers in the same order, the compass, level 4 (its times a few hundredths apart, the pillar gone).

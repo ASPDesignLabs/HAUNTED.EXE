@@ -111,5 +111,12 @@ for (let t = 0; t < 8; t++) {
     const r = C.xformRows(s.rows, t), n = r.join('').replace(/#/g, '').length;
     if (n !== s.rows.join('').replace(/#/g, '').length) fail(`stamp turn ${t} lost cells`);
 }
+/* every room type the game has is in one group of the editor's list, by run or any run's */
+{
+    const grouped = C.ROOM_RUNS.flat().concat(C.ROOM_ANY);
+    DATA.rooms.forEach(r => { if (grouped.filter(g => g === r).length !== 1) fail(`room type ${r} is in ${grouped.filter(g => g === r).length} of the list's groups`); });
+    grouped.forEach(g => { if (!DATA.rooms.includes(g)) fail(`the list names ${g}, which the game does not have`); });
+    console.log(`rooms by run: ${C.ROOM_RUNS.map(r => r.length).join(' + ')} + ${C.ROOM_ANY.length} of any run = ${DATA.rooms.length} types`);
+}
 console.log(bad ? `${bad} FAILED` : 'all passed');
 process.exit(bad ? 1 : 0);
