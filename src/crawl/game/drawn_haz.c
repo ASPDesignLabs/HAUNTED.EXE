@@ -128,6 +128,8 @@ static void dh_lay(void) {                                         /* start_leve
     }
 #ifdef CRAWL_DEBUG
     if (DH.n) fprintf(stderr, "DRAWN level %d: %d hazards, %d cells\n", G.level, DH.n, cells);
+#else
+    (void)cells;
 #endif
 }
 

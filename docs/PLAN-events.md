@@ -270,3 +270,83 @@ by its seed, had set a pillar in the relic's cell (19,1): `drawn_clear` turned p
 totems, lamps and flowstone laid as them). It clears those too now; a drawing has no pillar of its own. Proof: a scripted person at the
 relic, E: "YOU TAKE A RELIC"; the dream's logs, seeds 1 and 4, 1,500 s, against `68876dd`: the same but the time-taken line; Storage read
 from text, seed 1: the same triggers in the same order, the compass, level 4 (its times a few hundredths apart, the pillar gone).
+
+**Hazards, the game's side (25 November 2026; its own worktree branch, for the work branch).** Built to section 2c as written; nothing in
+the format changed. Harness only: nobody has played it, nothing ran under Wine, the Windows and browser builds were not compiled here (no
+MinGW or Emscripten in the session; `clang -fsyntax-only` on `scene_crawl.c`, with and without the debug switches, shows no new warning).
+
+*The data and the reader.* `drawn.c` has 2c's `HH_*`, `DrawnHaz`, `DrawnCell`, `TA_HAZ_ON` and `TA_HAZ_OFF`, and `haz, nhaz, hzcell, nhzcell`
+at the end of `Drawn` (the tutorial's rows leave them off). `drawn_text.c` reads `HAZ` and `HZCELL`, the row's four new values (checked
+against what was read), every `HZ_*` the editor offers (all but the knight's arc and the Wraith's hands), and `a | b` between two names or
+numbers. It refuses, by name: a kind it does not lay, an anchor off the drawing and its ring, cells outside the drawing or past `_HZCELL`,
+a `TA_HAZ_*` on no hazard, settings out of range. `drawncheck` compares hazards and cells. It also read `events_full.c` wrongly as out of
+range (a spawn point laid at a spot is written at (-4.5,-4.5)); it reads it now.
+
+*The runner* (`game/drawn_haz.c`, after `events.c`; its state `DH` in `drawn.c`, the level's, never saved). Laid where the generated levels'
+sites are (`dh_lay` in `start_level`): drawn levels still lay none of the run's own, and nothing arises there but the drawing's. The fixed
+kinds stand as sites (`G.site`, run by `update_sites`), the rest arise as `update_arising` lays them (`G.haz`), so their art, sounds,
+warnings, harm to the dead, naming and the dream's map (`hz_dmap`) are the game's own. A hazard not live is still and shows nothing.
+`EVENT dhaz <i> <kind> <clock|enter|trigger|own> at (x,y)`, `dhaz_on`, `dhaz_off`, `dhaz_drink` (a sapper begins to drink); `DRAWN level n:
+k hazards, c cells` where it is laid, and a line for one that has nowhere to stand.
+
+*Read where 2c leaves room.*
+- **Anchors** may lie on the drawing's ring (the sample's niche is at (17,-1), a wall in the edge). A wall kind stands on the floor beside its
+  anchor that is painted, else the side nearest the first painted cell. The dressing laid on the drawing's dice (props, pillars) is cleared
+  off a hazard's cells and a floor anchor, as off the drawing's things; a cell that is not open floor (a door, a secret's room) is dropped.
+- **The clock:** the first `first` s into the level, or after a trigger wakes it; then `every` s, give or take up to `give` on the run's dice,
+  at least half a second. **The box:** the caster's cell coming into it, at most once each `every` s (the export always writes one).
+  **Neither:** each `TA_HAZ_ON` wakes it and sets it off once, at once (the editor's guidance); a fixed one with neither then runs at the
+  game's own pace while live (its first turn at the trigger). `TA_HAZ_OFF` stops it at once, its warning and all (the turn put out, the
+  grate a wall again, fallen timbers cleared); going back swaps them, as the other field actions.
+- **Fixed kinds with turns** (breath, cold, sluice, fissure, timbers, firedamp, saint, cart, lodestone, crystal): one turn each time set
+  off; a turn still running holds the clock till it ends, and a box entered meanwhile is not counted. **Those that run by themselves**
+  (censer, web, dark cold, tithe, mirror, reliquary) run while live: the clock gives the censer its swing (a swing every `every` s) and knits
+  the web again every `every` s once torn; their box does nothing.
+- **Their shape from the cells:** a line's cells in the order painted (24 at most a site or a turn, `HZ_CELLS`; the rest are dropped); a
+  patch's steps from the anchor. The censer swings the way its arc runs most, as far as its farthest painted cell (half a cell to four).
+  The lodestone and the crystal reach their farthest painted cell (one to four). The mirror, the tithe and the reliquary keep the game's
+  own reach; the web is its anchor's cell. The cart runs from the first painted cell to the last, and on the Hollows' levels its cells take
+  the rails. The crystal and the reliquary make their anchor a prop, as the game's do.
+- **What arises:** placed, a rock, void or glass on each cell (void and glass half a cell wide, so that they do not stack; a zone's is the
+  game's size); ash one fall over all its cells; votive wax the rack at the anchor and then the cells in order; Hellrent the cells in order;
+  bile, galvanic water and silt all their cells, stepping through them from the grate or the first. A zone: one cell, near the caster and in
+  sight (within six) if any is, else any, on the run's dice: a rock, void, glass or ash there; Hellrent or wax a straight run within the
+  cells from it (four to six, three or four long), the way most of them run; bile, water and silt the game's patch within the cells (two,
+  four, one or two steps). Bile's grate is the anchor's wall while it runs, as the omen's.
+- **The settings:** `harm` is the share of a strike, and of a second for what burns or seeps (Hellrent, wax, fissure, cold, ash, the dark
+  cold); a sapper drinks souls at the game's rate and, with `harm`, that share of health a second too. The game's cap of a quarter a stroke
+  (`hz_strike_el`) stands, so above 25 only the rock and what seeps feel it. `chance` takes the place of the stroke's and the cold's roll
+  (`af_dchance` while that hazard is at work), is rolled once a turn at the first touch for poison (breath, firedamp, silt, bile), sets
+  you On Fire at the first touch, as a field does, for Hellrent, wax and the fissure (whose own have no such roll), and is the web's chance
+  of holding you. `warn` goes through `hz_warn`. `kills` 0: `hurt_ex` never takes the caster under a quarter of health from a hazard of a
+  kind every drawn hazard of which may not kill. It goes by the kind, the only thing blame carries, so a fire field and a Hellrent that
+  may not kill share `HZ_FIRE`'s blame (the field's own floor still holds).
+- The first of each kind is named, as anywhere (`RUN.omens`, saved already).
+
+*The proof.* (a) The dream's logs without drawn hazards (`apl crawl 3000`, `CRAWL_RUNID=7`) against `dc7880c` built in a worktree, seeds 1
+to 8, 11, 13 and 15 (eight distinct runs): line for line the same but the time-taken line (`PORTRAITS ... kept in`), the APL lines too;
+the tutorial's two levels and 8 to 11 levels a run. (b) `tools/mapedit/fixtures/hazards.c` with `HOST_DRAWN` (a new run on its level 3),
+the dream, 500 s, seeds 1, 3, 5 and 7: the roof went off on its clock 26 to 30 times, the first 2 s into the level (t=22.53 each time),
+always at one of its three cells; the niche once each run, when the dream walked into its box (t=83.31, 79.36, 78.17, 79.33); the candles
+once each, on the compass's `TA_HAZ_ON` 1 s after it was taken (`dhaz_on 2` at 30.24 or 30.66) and never before; the level finished each
+time, no death on it. A scripted person (`CRAWL_TPAT=22.5,8.5,270`, `CRAWL_STAGE=0`, `CRAWL_STAGEDIST=99` for no creatures,
+`CRAWL_TITLE=0`, `HOST_INPUT`) stood in the top room: the frames show the grit in the dark, then the rock's blast and its rubble on (16,0)
+and health 98% to 78% (the drawing's 20); walking north into the box set the niche off (the slab cracked open, its seam lit, the view gone
+green with poison). Four scratch variants, not committed, the same map with each run's other kinds (hazard 2 of each woken by the
+compass): the Crypts' censer, cold vault, a placed rock woken, the reliquary and a wax zone sure to burn (level 3; the censer woken by the
+south room on a timed trigger and stopped 8 s later as it went back); the Catacombs' sluice, web, bile at half chance, a galvanic zone,
+silt at its box and the saint at its own pace (13); the Hollows' timbers, firedamp at its box, a lodestone woken, the cart, Hellrent
+placed and as a zone and the tithe (23); the Deep's fissure, crystal, a void zone woken, the dark cold, ash, glass by clock and box, and
+the mirror (33). Each kind went off, or drank, ran or held, with no error; the first three levels finished on every seed; on 33 a new
+run's caster died to the dead six to ten times in 500 s (none to a hazard: every death was a creature's), as it does there with no hazards
+(3 and 4 deaths, seeds 1 and 3). A frame of the Deep's: the mirror drinking, its violet thread to you. (c) `make asan`,
+`ASAN_OPTIONS=detect_leaks=0`, 600 s, seeds 1 and 4: the fixture, `events_full.c` and the four variants: clean, no report.
+`build/host_asan drawncheck` on the fixture cut short every 7 bytes (869 cuts) and at every byte of its last 1,376 (the hazards and the
+row), and on the Deep's variant at every byte of its last 1,900 (with `HH_CLOCK | HH_ENTER`): each refused, or read when the row was
+whole; no crash. Eight broken texts refused by name. The fixture pasted as `DRAWN[2]` in a scratch copy: "the same, field for field".
+`make smoke` passes. (d) Saves untouched: `Hazard`, `HzSite` and `DH` are the level's and never saved, and `save.c` and `ledger.c` did not
+change.
+
+*Left:* the owner's hand on any of it; the editor's palette, settings and painting for hazards (the other track's); whether `harm` should
+lift the quarter-a-stroke cap for a drawn hazard; the mirror, tithe and reliquary from their painted cells, if the owner wants them so;
+the browser's and Windows builds compiled by CI.
