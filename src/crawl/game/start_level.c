@@ -38,6 +38,7 @@ static void start_level(void) {
     ui_marble_make(0x51ABu ^ (unsigned)G.level * 7919u); ui_marble_lv = G.level;   /* the menus' marble, made now, not on a frame in play */
     g_drawn = drawn_level(G.level);                                /* the owner's drawing (docs/PLAN-tutorial.md), laid on its own dice */
     memset(&EV, 0, sizeof EV);                                     /* and its events (docs/PLAN-events.md) */
+    memset(&DH, 0, sizeof DH);                                     /* and its hazards (2c) */
     g_events = g_drawn && (drawn()->ntrig || drawn()->ntorch || drawn()->nfield);
     uint32_t run_rs = G.rs;
     if (g_drawn) { drawn_picks(&run_rs); G.rs = drawn()->seed; gen_drawn(); } else gen_level();   /* (where its things lie: the run's dice) */
@@ -65,7 +66,7 @@ static void start_level(void) {
         if (G.boss < 0) place_exit(G.cx, G.cy);                    /* a boss level's way out is beyond its boss */
     }
     place_altar();
-    if (g_drawn) { G.nsite = 0; G.snare_t = 0.0f; G.arise_t = 1e9f; }
+    if (g_drawn) { G.nsite = 0; G.snare_t = 0.0f; G.arise_t = 1e9f; dh_lay(); }   /* none of the run's own: the drawing's alone (2c) */
     else place_sites();                                            /* the run's fixed hazards (1.0.0b13) */
     G.nthing = 0; G.carry = 0; G.read_t = 0.0f;                    /* a puzzle's things are its level's */
     docs_clear();                                                  /* and what was read on the last */

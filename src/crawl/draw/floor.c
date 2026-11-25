@@ -201,7 +201,7 @@ static void site_marks(void) {                                     /* what the f
     for (int i = 0; i < G.nsite; i++) {
         const HzSite *s = &G.site[i];
         switch (s->kind) {
-        case HZ_DCOLD: for (int c = 0; c < s->n; c++) fm_set(s->cx[c], s->cy[c], FM_RIME, 2, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f); break;
+        case HZ_DCOLD: for (int c = 0; c < s->n && !s->idle; c++) fm_set(s->cx[c], s->cy[c], FM_RIME, 2, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f); break;
         case HZ_TITHE: fm_disc(s->x + 0.5f, s->y + 0.5f, 1.3f, FM_CHALK, 2, s->drink ? 1.0f : 0.0f); break;
         case HZ_RELIQ: if (s->state) fm_disc(s->x + 0.5f, s->y + 0.5f, 2.0f, FM_HAZE, 1, s->state == 1 ? clampf(s->k / 0.9f, 0.0f, 1.0f) * 0.6f : 0.6f); break;
         case HZ_CENSER: { float bx, by; censer_bob(s, s->t, &bx, &by, NULL); fm_disc(bx, by, 0.35f, FM_SHADOW, 2, 0.8f); break; }

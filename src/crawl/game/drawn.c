@@ -33,11 +33,19 @@ enum { TG_PICKUP, TG_PLACE, TG_STRIKE, TG_ENTER, TG_USE, TG_STEP, TG_ALL };
 enum { TT_ONCE, TT_EVERY, TT_TOGGLE, TT_TIMED };
 typedef struct { int kind, type; float hold; int undo, thing, x0, y0, x1, y1; unsigned needs; int act, nact, back, nback; } DrawnTrig;
 enum { TA_FLICKER_ON, TA_FLICKER_OFF, TA_LIGHT_ON, TA_LIGHT_OFF, TA_FLICKER_ALL, TA_FIELD_ON, TA_FIELD_OFF, TA_DOOR_OPEN,
-       TA_DOOR_UNLOCK, TA_DOOR_SHUT, TA_WAKE, TA_SECRET, TA_LINE, TA_SOUND };
+       TA_DOOR_UNLOCK, TA_DOOR_SHUT, TA_WAKE, TA_SECRET, TA_LINE, TA_SOUND, TA_HAZ_ON, TA_HAZ_OFF };   /* HAZ: arg the hazard */
 typedef struct { int kind, arg, x, y; float after; const char *text; } DrawnAct;
 typedef struct { int thing; unsigned rooms; int tag; } DrawnPick;
 enum { DF_FIRE, DF_ICE };
 typedef struct { int kind, x, y, on, dmg, chance, kills; } DrawnField;
+/* A hazard (section 2c): the game's own kind (HZ_*), its anchor (on the floor, or the wall it is set in), its cells (a run in _HZCELL,
+ * in the order painted), one place in them at a time (zone) or all, what sets it off (HH_*: its clock, every s give or take give, the
+ * first after first; the box x0, y0, x1, y1 walked into), live at the start; harm (% of health a strike), the chance of its status (%),
+ * whether it may kill and its warning (s), each -1 for the game's own */
+enum { HH_CLOCK = 1, HH_ENTER = 2 };
+typedef struct { int kind, ax, ay, cell, ncell, zone, how; float every, give, first; int x0, y0, x1, y1, on, harm, chance, kills;
+                 float warn; } DrawnHaz;
+typedef struct { int x, y; } DrawnCell;
 typedef struct {
     const char *const *map; int w, h, ox, oy, face;                 /* face: the heading at the start, as G.h */
     const DrawnRoom *room; int nroom, vault[NKEYS];                /* vault: the room each colour's doors keep, -1 none */
@@ -51,6 +59,8 @@ typedef struct {
     const char *const *relic; int nrelic;                          /* the relics' names */
     const DrawnPick *pick; int npick;
     const DrawnField *field; int nfield;                           /* none: the tutorial's own fire and ice (DF, IC) */
+    const DrawnHaz *haz; int nhaz;                                 /* its hazards, and the cells they cover (drawn_haz.c) */
+    const DrawnCell *hzcell; int nhzcell;
 } Drawn;
 /* What a drawn level's events hold while it is played (events.c runs them); laid with the level, never saved */
 #define EV_THINGS 256                       /* a drawing's things, for where this play lays each */
@@ -83,6 +93,14 @@ static struct {
     uint8_t fat[MAPN][MAPN];                                       /* 1 + the field a cell is in */
     int f_in; float f_tick, f_stack;                               /* the field the caster stands in (1 +), and its next harm, its next stack */
 } EV;
+/* What a drawn level's hazards hold while it is played (drawn_haz.c runs them): each live or not, in its box, its fixed site in
+ * G.site (-1: one that arises), when its clock next sets it off and when its box last did; laid with the level, never saved */
+#define DH_CELLS 256
+typedef struct { int live, inside, site; float next, last; } DhOne;
+static struct { float now; int n; DhOne h[MAXSITE]; } DH;
+static void dh_lay(void);                                          /* drawn_haz.c: laid with the level, where its sites would be */
+static int dh_kind_ok(int k) { return k >= 0 && k < NHZ && k != HZ_ARC && k != HZ_GRASP; }   /* the runs' own, fixed, arising or sapping:
+                                                                      every kind but the knight's arc and the Wraith's hands */
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmissing-field-initializers"     /* a row, or a spawn point, leaves off what it has none of: zeros */
 static const char *const DRAWN1_MAP[32] = {

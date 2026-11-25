@@ -24,12 +24,14 @@ static int ev_undo_of(int kind) {                                  /* an action'
     case TA_LIGHT_OFF: return TA_LIGHT_ON;
     case TA_DOOR_OPEN: case TA_DOOR_UNLOCK: return TA_DOOR_SHUT;
     case TA_DOOR_SHUT: return TA_DOOR_OPEN;
+    case TA_HAZ_ON: return TA_HAZ_OFF;
+    case TA_HAZ_OFF: return TA_HAZ_ON;
     default: return -1;
     }
 }
 #ifdef CRAWL_DEBUG
 static const char *const TA_NAME[] = { "flicker_on", "flicker_off", "light_on", "light_off", "flicker_all", "field_on", "field_off",
-                                       "door_open", "door_unlock", "door_shut", "wake", "secret", "line", "sound" };
+                                       "door_open", "door_unlock", "door_shut", "wake", "secret", "line", "sound", "haz_on", "haz_off" };
 static const char *const TG_NAME[] = { "pickup", "place", "strike", "enter", "use", "step", "all" };
 #endif
 
@@ -113,12 +115,13 @@ static void ev_door(int x, int y, int kind) {
 }
 
 /* ---- the runner: actions wait out their delays in a queue, in the order they were given ---- */
+static void dh_wake(int i, int on);                                /* drawn_haz.c: a hazard woken or stopped */
 static void ev_queue(int a, int trig, int kind, float after, int back);
 static void ev_do(int a, int kind) {
     const Drawn *D = drawn();
     const DrawnAct *A = &D->act[a];
 #ifdef CRAWL_DEBUG
-    fprintf(stderr, "EVENT ev_act %d %s arg %d (%d,%d) t=%.2f\n", a, kind >= 0 && kind <= TA_SOUND ? TA_NAME[kind] : "?", A->arg, A->x, A->y, G.t);
+    fprintf(stderr, "EVENT ev_act %d %s arg %d (%d,%d) t=%.2f\n", a, kind >= 0 && kind <= TA_HAZ_OFF ? TA_NAME[kind] : "?", A->arg, A->x, A->y, G.t);
 #endif
     switch (kind) {
     case TA_FLICKER_ON: case TA_FLICKER_OFF: case TA_LIGHT_ON: case TA_LIGHT_OFF: ev_torches(A->arg, kind); break;
@@ -136,6 +139,7 @@ static void ev_do(int a, int kind) {
         break;
     case TA_LINE: if (A->text && A->text[0]) say("%s", A->text); break;
     case TA_SOUND: if (A->arg >= 0 && A->arg < SFX_COUNT) snd_sfx_ex(A->arg, 1.0f, 0.5f); break;
+    case TA_HAZ_ON: case TA_HAZ_OFF: dh_wake(A->arg, kind == TA_HAZ_ON); break;
     default: break;
     }
 }
