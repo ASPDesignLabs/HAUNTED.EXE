@@ -220,6 +220,8 @@ static const Drawn DRAWN[NDRAWN] = {
 };
 #pragma GCC diagnostic pop
 #define DRAWN_HALL 40                                              /* the halls' region on a drawn level */
+static Drawn g_dtext;                                              /* a drawing read as the game runs (drawn_text.c: the world */
+static int g_dtext_on;                                             /* editor's PLAY), in place of what is drawn for its level */
 static int drawn_level(int level) {                                /* which drawing a level is, 1-based; 0 none */
 #ifdef CRAWL_DEBUG
     static int off = -1;
@@ -227,11 +229,12 @@ static int drawn_level(int level) {                                /* which draw
     if (off) return 0;
 #endif
     if (PK.depth) return 0;
+    if (g_dtext_on && g_dtext.level == level) return NDRAWN + 1;
     for (int i = 0; i < NDRAWN; i++) if (DRAWN[i].level == level) return i + 1;   /* the level each is laid on (docs/PLAN-mapedit.md) */
     return 0;
 }
 static int drawn_tut(int level) { int d = drawn_level(level); return d >= 1 && d <= DRAWN_TUT; }   /* one of the tutorial's two */
-static const Drawn *drawn(void) { return &DRAWN[g_drawn - 1]; }
+static const Drawn *drawn(void) { return g_drawn == NDRAWN + 1 ? &g_dtext : &DRAWN[g_drawn - 1]; }
 static char drawn_ch(int x, int y) {                               /* the letter at a cell of the level's map */
     const Drawn *D = drawn();
     x -= D->ox; y -= D->oy;

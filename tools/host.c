@@ -184,11 +184,37 @@ static void input_init(void) {
 
 #ifdef CRAWL_DEBUG
 void crawl_combat_sheet(FILE *f);
+int crawl_drawn_same(int n, char *why, int nwhy);
 #endif
+int crawl_drawn_text(const char *text, char *err, int nerr);
+static char *read_text(const char *path) {                         /* a whole file, ended with a 0; NULL if it cannot be read */
+    FILE *f = fopen(path, "rb");
+    if (!f) return NULL;
+    fseek(f, 0, SEEK_END); long n = ftell(f); fseek(f, 0, SEEK_SET);
+    char *t = n >= 0 ? malloc((size_t)n + 1) : NULL;
+    if (t) { t[fread(t, 1, (size_t)n, f)] = 0; }
+    fclose(f);
+    return t;
+}
+static int drawn_file(const char *path) {                         /* HOST_DRAWN: a level from the world editor's export, read as PLAY reads it */
+    char err[256], *t = read_text(path);
+    if (!t) { fprintf(stderr, "HOST_DRAWN: cannot read %s\n", path); return 1; }
+    int bad = crawl_drawn_text(t, err, sizeof err);
+    if (bad) fprintf(stderr, "HOST_DRAWN: %s: %s\n", path, err);
+    return bad;                                                    /* the text stays: the strings point into it */
+}
 int main(int argc, char **argv) {
 #ifdef CRAWL_DEBUG
     if (argc >= 2 && !strcmp(argv[1], "combat")) { crawl_combat_sheet(stdout); return 0; }   /* the balance sheet (docs/PLAN-combat.md) */
+    if (argc >= 4 && !strcmp(argv[1], "drawncheck")) {            /* drawncheck <export> <n>: the text read against DRAWN[n - 1] */
+        char why[256];
+        if (drawn_file(argv[2])) return 1;
+        int bad = crawl_drawn_same(atoi(argv[3]), why, sizeof why);
+        printf("%s against drawing %s: %s\n", argv[2], argv[3], bad ? why : "the same, field for field");
+        return bad;
+    }
 #endif
+    if (getenv("HOST_DRAWN") && drawn_file(getenv("HOST_DRAWN"))) return 1;
     if (argc < 4) { fprintf(stderr, "usage: see source header\n"); return 1; }
     const char *cmd = argv[1];
     AppConfig cfg;

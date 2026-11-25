@@ -410,7 +410,7 @@ static void crawl_enter(uint32_t seed) {
     G.rs = seed | 1u;
     if (!resume) {
         memset(&RUN, 0, sizeof RUN);
-        RUN.active = 1; RUN.level = 1; RUN.hp = 100; RUN.shop_next = 1;
+        RUN.active = 1; RUN.level = g_dtext_on ? g_dtext.level : 1; RUN.hp = 100;   /* a drawing read for PLAY: begun on its level */ RUN.shop_next = 1;
         RUN.run_id = new_run_id(seed); RUN.peds = 2; RUN.repo_n = 2; RUN.atone = 1;
         gear_reset(&RUN.gear);
 #ifdef CRAWL_DEBUG

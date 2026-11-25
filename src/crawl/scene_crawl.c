@@ -22,6 +22,7 @@
 #include "crawl_portrait.h"
 #include "crawl_tutor.h"
 #include "crawl_stamp.h"
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -118,6 +119,9 @@
 
 /* Drawn levels (the tutorial's two): the maps, gen_drawn, their items, dead and marks; the burning floor; the ice */
 #include "game/drawn.c"
+
+/* A drawn level read from the world editor's export as the game runs (its PLAY): crawl_drawn_text */
+#include "game/drawn_text.c"
 
 /* The mice (docs/PLAN-mice.md): their holes, their days, scurrying, the holes as ways through, the tell; the charnel rats told */
 #include "game/mice.c"
