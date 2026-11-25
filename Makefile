@@ -30,7 +30,8 @@ PARTS    = $(wildcard src/*/*/*.c)
 SRC      = src/core/app.c src/core/gfx.c src/data/font_vga.c src/core/snd.c src/crawl/scene_crawl.c src/art/crawl_art.c src/data/hand_img.c \
            src/crawl/crawl_gear.c src/data/face_img.c src/data/cat_img.c src/haunt/scene_haunt.c src/haunt/haunt_art.c src/art/crawl_ui.c \
            src/art/ui_art.c src/art/crawl_title.c src/art/crawl_portrait.c src/crawl/crawl_tutor.c \
-           src/crawl/crawl_stamp.c src/crawl/crawl_stamp_data.c
+           src/crawl/crawl_stamp.c src/crawl/crawl_stamp_data.c \
+           src/art/side_art.c
 CFLAGS  ?= -O2 -std=gnu11 -Wall -Wextra -Wno-unused-parameter -Wno-misleading-indentation
 DEBUG    = -DHAUNT_DEBUG -DCRAWL_DEBUG
 ASAN     = -O1 -g -std=gnu11 -fsanitize=address,undefined -fno-omit-frame-pointer
@@ -123,6 +124,10 @@ build/sheet: $(call objs,rel,$(ART_SRC) tools/sheet.c)
 UI_SRC   = src/art/crawl_ui.c src/art/ui_art.c src/core/gfx.c src/crawl/crawl_tutor.c
 
 build/torchmock: $(call objs,rel,$(ART_SRC) tools/torchmock.c)
+	gcc $(CFLAGS) -o $@ $^ -lm -lz
+
+# the side passages' draft art as a sheet (docs/PLAN-side.md, step 1): build/sidemock out.png   /* side (PLAN-side) */
+build/sidemock: $(call objs,rel,$(ART_SRC) src/art/side_art.c tools/sidemock.c)
 	gcc $(CFLAGS) -o $@ $^ -lm -lz
 
 # the new hanging lights and the events' things, for the owner (docs/PLAN-lights.md): it #includes the art whole

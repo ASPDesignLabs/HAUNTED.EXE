@@ -5,6 +5,7 @@
 static void save_selftest(void);                                   /* save.c, further down the list */
 static void compass_selftest(void);                                /* wisps.c, and the same */
 #endif
+static void sd_level_laid(void);                                  /* side.c: the level's side doorways (docs/PLAN-side.md) */   /* side (PLAN-side) */
 static void start_level(void) {
     line_lend();
     pocket_reset_level();
@@ -88,6 +89,7 @@ static void start_level(void) {
         if (g_events) drawn_events();                              /* the relics, sockets, levers and plates (docs/PLAN-events.md) */
     }
     ward_make();                                                   /* a soul-lamp by each challenge, out (1.0.0b18.1) */
+    sd_level_laid();                                               /* the side passages' doorways; no dice thrown */   /* side (PLAN-side) */
 #ifdef CRAWL_DEBUG
     if (getenv("CRAWL_THINGS")) things_test();
 #endif

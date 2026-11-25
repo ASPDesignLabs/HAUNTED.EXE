@@ -28,7 +28,7 @@ static struct {
 #define DXN(x) { #x, x }
 static const struct { const char *n; int v; } DXT_NAMES[] = {
     DXN(DT_GOLD), DXN(DT_KEY), DXN(DT_DEAD), DXN(DT_SGOLD), DXN(DT_MARK), DXN(DT_SWITCH), DXN(DT_GSEAL), DXN(DT_MAP),
-    DXN(DT_COMPASS), DXN(DT_RELIC), DXN(DT_SOCKET), DXN(DT_LEVER), DXN(DT_PLATE), DXN(DT_SPOT),
+    DXN(DT_COMPASS), DXN(DT_RELIC), DXN(DT_SOCKET), DXN(DT_LEVER), DXN(DT_PLATE), DXN(DT_SPOT), DXN(DT_SIDEDOOR),
     DXN(TG_PICKUP), DXN(TG_PLACE), DXN(TG_STRIKE), DXN(TG_ENTER), DXN(TG_USE), DXN(TG_STEP), DXN(TG_ALL),
     DXN(TT_ONCE), DXN(TT_EVERY), DXN(TT_TOGGLE), DXN(TT_TIMED),
     DXN(TA_FLICKER_ON), DXN(TA_FLICKER_OFF), DXN(TA_LIGHT_ON), DXN(TA_LIGHT_OFF), DXN(TA_FLICKER_ALL), DXN(TA_FIELD_ON),
@@ -358,7 +358,7 @@ int crawl_drawn_text(const char *text, char *err, int nerr) {
         if (r->x < 0 || r->y < 0 || r->w < 1 || r->h < 1 || r->x + r->w > w || r->y + r->h > h || r->rtype < 0 || r->rtype >= NRT) BAD("a room outside the map, or of no type"); }
     for (int k = 0; k < NKEYS; k++) if (g_dtext.vault[k] < -1 || g_dtext.vault[k] >= DXT.nroom) BAD("a vault that is no room");
     for (int i = 0; i < DXT.nthing; i++) { const DrawnThing *t = &DXT.thing[i];
-        if (t->what < DT_GOLD || t->what > DT_SPOT || t->x < 0.0f || t->y < 0.0f || t->x >= (float)w || t->y >= (float)h) BAD("a thing outside the map, or of no kind");
+        if (t->what < DT_GOLD || t->what > DT_SIDEDOOR || t->x < 0.0f || t->y < 0.0f || t->x >= (float)w || t->y >= (float)h) BAD("a thing outside the map, or of no kind");
         if ((t->what == DT_DEAD && (t->kind < 0 || t->kind >= NKINDS)) || ((t->what == DT_GOLD || t->what == DT_SGOLD) && (t->kind < IT_COINS || t->kind > IT_CHEST))
             || (t->what == DT_KEY && (t->kind < 0 || t->kind >= NKEYS)) || (t->what == DT_RELIC && (t->kind < 0 || t->kind >= DXT.nrelic))
             || (t->what == DT_SOCKET && (t->kind < -1 || t->kind >= DXT.nrelic)) || (t->what == DT_MARK && (t->kind < 0 || t->kind > 2))) BAD("a thing of a kind this game does not have"); }

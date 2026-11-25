@@ -148,3 +148,12 @@ overlapping a vault, a wing, a trial's room or the arena is not tested directly 
 level took, secret rooms found and gold, per seed and in all; 16 seeds of 3,000 s take about 17 minutes on four cores. Eight seeds carry
 noise of about a quarter either way: read the means.
 
+
+**Side passages** (docs/PLAN-side.md; harness only until the owner has played them). The debug build's switches: `CRAWL_SIDE=n` (straight
+into built-in side passage n, `SIDE_TEXT[n]` in `game/side_levels.c`, half a second into each level, once a level; its doorways out all lead
+back before the cell you faced), `CRAWL_TPSIDE=n` (a side doorway to passage n, every link of it, in the first wall ahead of the start: walk
+into it or press E), `CRAWL_SIDETRACE=1` (twice a second, `SIDE at x,y tile tx,ty v vx,vy ground plat crouch in L R J D C hp t`, and each of
+the dream's plans: `SIDE plan from a to b: n reached, the furthest x,y, a way|no way`). Events: `side_in`, `side_out` (its link, whether the
+goal), `side_take`, `side_switch`, `side_cast`, `side_hurt`, `side_slain`, `side_pit`, `side_life`, `side_over`, `side_dream gives up`; `SIDE
+door` when a doorway is laid and `SIDE n unreadable: line n: why` when a text is refused. The draft art's sheet: `make build/sidemock`,
+`build/sidemock out.png` (kept as `media/sheets/side/side_draft.png`).

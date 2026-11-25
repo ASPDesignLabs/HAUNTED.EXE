@@ -13,7 +13,8 @@
 typedef struct { int x, y, w, h, rtype; } DrawnRoom;
 enum { DT_GOLD, DT_KEY, DT_DEAD, DT_SGOLD, DT_MARK, DT_SWITCH, DT_GSEAL, DT_MAP,   /* SGOLD: in the secret; MARK's kind 0 a coffer,
                                                                       1 a cage (any line), 2 the class's own */
-       DT_COMPASS, DT_RELIC, DT_SOCKET, DT_LEVER, DT_PLATE, DT_SPOT };   /* the events' (docs/PLAN-events.md): RELIC's kind its
+       DT_COMPASS, DT_RELIC, DT_SOCKET, DT_LEVER, DT_PLATE, DT_SPOT,
+       DT_SIDEDOOR };   /* side (PLAN-side): a side passage's doorway on a wall cell; its kind 16 x the side passage + the link */   /* the events' (docs/PLAN-events.md): RELIC's kind its
                                                                       number in _RELIC; SOCKET's the relic it takes, -1 any; SPOT's its tag */
 typedef struct { int what, kind; float x, y; } DrawnThing;          /* kind: an IT_* for gold, a key's colour, a MOB_* */
 /* A spawn point from the map editor (docs/PLAN-mapedit.md): where, in the drawing's cells; the kind, or -1 the budget's choice; the
