@@ -92,3 +92,9 @@ more zooms (40, 48, 64 px a cell) with faint quarter lines, and the view keeps i
 walks (*Follow the dream*, remembered in the browser). A selected torch can no longer be dragged (dragging one moved a room). Tested by
 `test.js` and in Playwright's Chromium on the full test level; not used by the owner. The game's side of all of it is with another
 agent, to docs/PLAN-events.md section 2b.
+
+**Session 4 (25 November 2026).** Renamed *HAUNTED.EXE World Editor* at the owner's word (the title, the heading, the built file
+`build/mapedit/haunted-world-editor.html`, backup files `haunted-level-*.json`; older backups still load). The checks follow the game's
+changes in docs/PLAN-events.md's session 4: a place to mend may face a secret room, 120 torches, a gate an event works told to be a
+barred door. The owner's next ask: a PLAY button that runs the game's browser build in the artifact on the map being drawn (option A),
+after a Windows play test of their level 3 (option B, done first).

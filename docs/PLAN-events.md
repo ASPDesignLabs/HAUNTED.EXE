@@ -217,3 +217,16 @@ while stood on and `hold` after (the editor's guidance). A strike trigger not re
 *Left:* the owner's look at the torches, the barred door's portcullis and the borrowed looks of relic, socket, lever and plate, in the
 game (new art only on their word); the owner's level 3 with events, once drawn; the browser's and Windows builds compiled by CI; the
 owner's hand on any of it.
+
+**Session 4 (25 November 2026).** The owner's answers: new art for the barred door, relic, socket, lever and plate (a sheet first);
+level 3's path is the relic set in a socket to open the barred door; a place to mend may face a secret room; wake-group points stay
+empty till their event. Built on the work branch: a place to mend falls back to a secret room's floor when nothing else is open beside it
+(`drawn_front`'s `secret_ok`; the exit keeps to open floor), in the game and the editor's checks alike; `EV_TORCHES` 120 (the owner's
+level hangs 87; `at_torch` is a byte); a torch may hang on the map's outer ring, facing in (four of the owner's do); the editor warns
+past 120 torches and says that a gate an event works should be a barred door. Proof: the dream's logs, seeds 1 and 4, 1,500 s, against
+`68876dd`, the same but the time-taken line, for each change. The play test: the owner's Storage (saved version 18) on the branch
+`claude/optimistic-thompson-boccz1-playtest`, never to be merged: its two gates drawn as barred doors (the owner's map still has them
+as gates), a new run begins on level 3 and the build keeps its own registry key (`HalloweenVGASaver-Playtest`), so the owner's saves are
+apart. In the harness, seeds 1, 3 and 5, 420 s: the dream goes round the top loop (the plate in, the plate shutting it behind, the lever
+out), sets the relic, takes the compass and reaches level 4 without dying; the fire lever and its wake on seeds 1 and 5. 87 torches
+hung; 1.54 ms a frame on the level. `make asan`, seed 1: clean. The Windows build from CI's run on that branch, for the owner to play.
