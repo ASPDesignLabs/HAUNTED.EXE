@@ -205,6 +205,23 @@ static int drawn_file(const char *path) {                         /* HOST_DRAWN:
     if (bad) fprintf(stderr, "HOST_DRAWN: %s: %s\n", path, err);
     return bad;                                                    /* the text stays: the strings point into it */
 }
+int crawl_side_text(int n, const char *text, char *err, int nerr);
+void crawl_side_now(int n, int level);
+static int side_files(const char *list) {                         /* HOST_SIDE=file:n[,file:n]: side passages read as PLAY reads them */
+    char buf[1024];
+    snprintf(buf, sizeof buf, "%s", list);
+    for (char *tok = strtok(buf, ","); tok; tok = strtok(NULL, ",")) {
+        char *colon = strrchr(tok, ':'), err[256];
+        int n = colon ? atoi(colon + 1) : 1;
+        if (colon) *colon = 0;
+        char *t = read_text(tok);
+        if (!t) { fprintf(stderr, "HOST_SIDE: cannot read %s\n", tok); return 1; }
+        int bad = crawl_side_text(n, t, err, sizeof err);
+        free(t);
+        if (bad) { fprintf(stderr, "HOST_SIDE: %s: %s\n", tok, err); return 1; }
+    }
+    return 0;
+}
 int main(int argc, char **argv) {
 #ifdef CRAWL_DEBUG
     if (argc >= 2 && !strcmp(argv[1], "combat")) { crawl_combat_sheet(stdout); return 0; }   /* the balance sheet (docs/PLAN-combat.md) */
@@ -227,6 +244,11 @@ int main(int argc, char **argv) {
         return n < 0;
     }
     if (getenv("HOST_DRAWN") && drawn_file(getenv("HOST_DRAWN"))) return 1;
+    if (getenv("HOST_SIDE") && side_files(getenv("HOST_SIDE"))) return 1;   /* side (PLAN-side) */
+    if (getenv("HOST_SIDE_NOW")) {                                 /* HOST_SIDE_NOW=n[:level]: a run straight into passage n */
+        const char *v = getenv("HOST_SIDE_NOW"), *c = strchr(v, ':');
+        crawl_side_now(atoi(v), c ? atoi(c + 1) : 1);
+    }
     if (argc < 4) { fprintf(stderr, "usage: see source header\n"); return 1; }
     const char *cmd = argv[1];
     AppConfig cfg;

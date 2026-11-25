@@ -224,6 +224,9 @@ input[type=range] { width: 100%; accent-color: var(--gold); }
 /*@CORE@*/
 </script>
 <script>
+/*@SIDE@*/
+</script>
+<script>
 const DATA = /*@DATA@*/;
 (function () {
 'use strict';
@@ -278,6 +281,7 @@ const SPR = {
   plate: ['........', '........', '........', '........', '.gggggg.', 'gGGGGGGg', 'gkgkgkgg', '.gggggg.'],
   map: ['.wwwwww.', 'wWWWWWWw', 'wWbWWbWw', 'wWWbbWWw', 'wWbWWWWw', 'wWWWWbWw', '.wwwwww.', '........'],
 };
+SPR.sidedoor = ['.wwwwww.', 'ww....ww', 'w.yyyy.w', 'w.y..y.w', 'w.y..y.w', 'w.y..y.w', 'w.y..y.w', 'wwwwwwww'];   /* side (PLAN-side) */
 const SPC = { y: '#e9c24c', Y: '#fff1a6', c: '#4fd0e0', C: '#c8f6ff', r: '#d2473b', R: '#ff9a8a', g: '#79c15a', G: '#c6f2a8', b: '#6d3f22', B: '#9a6236',
   w: '#d8d0bd', W: '#fff7e6', k: '#17141b', m: '#7d4fa8', M: '#c79bf0' };
 const KEYCOL = ['#e9c24c', '#c9ccd4', '#d2473b'];
@@ -309,7 +313,8 @@ const THING_TOOLS = [
   [{ t: 'spawn', k: '', chance: 100 }, 'Spawn point'], [{ t: 'dead', k: 'MOB_SKEL' }, 'Fixed dead'],
   [{ t: 'map' }, 'The map'], [{ t: 'compass' }, 'The compass'], [{ t: 'relic', name: 'A relic' }, 'Relic'], [{ t: 'socket', name: 'A socket', accepts: 0 }, 'Socket'],
   [{ t: 'spot', tag: 'spot A' }, 'Spot'], [{ t: 'lever', name: '' }, 'Lever'], [{ t: 'plate', name: '' }, 'Pressure plate'], [{ t: 'mark', k: 0 }, 'Coffer'], [{ t: 'mark', k: 1 }, 'Cage'], [{ t: 'mark', k: 2 }, "Class's own"],
-  [{ t: 'switch' }, 'Switch'], [{ t: 'gseal' }, "Gate's seal"]];
+  [{ t: 'switch' }, 'Switch'], [{ t: 'gseal' }, "Gate's seal"],
+  [{ t: 'sidedoor', num: 1, link: 0 }, 'Side doorway']];   /* side (PLAN-side) */
 const RT_NAMES = DATA.rooms.map(r => r.slice(3).toLowerCase());
 const KINDS = DATA.kinds.filter(k => k.cost != null && !k.unique && k.id !== 'MOB_SAC');
 
@@ -583,6 +588,12 @@ cv.addEventListener('pointerdown', e => {
   if (T.kind === 'tile' || T.kind === 'lane') {
     if (e.shiftKey) { S.drag = { rect: { x0: p.cx, y0: p.cy, x1: p.cx, y1: p.cy, sx: p.cx, sy: p.cy } }; draw(); return; }
     S.drag = { paint: true, before: snapshot() }; paintCell(p.cx, p.cy); recompose(); draw(); return;
+  }
+  if (T.kind === 'thing' && T.proto.t === 'sidedoor') {            /* side (PLAN-side) */
+    const ch = composed.cells[C.idx(p.cx, p.cy)], open = [0, 1, 2, 3].some(k => C.isOpen(composed.cells[C.idx(p.cx + C.DIRS[k][0], p.cy + C.DIRS[k][1])] || '#'));
+    if (ch !== '#' || !open) { toast('A SIDE DOORWAY IS SET IN A WALL: CLICK STONE BESIDE THE FLOOR'); return; }
+    change(() => { const o = Object.assign({ id: S.map.next++ }, JSON.parse(JSON.stringify(T.proto)), { x: p.cx + 0.5, y: p.cy + 0.5 }); S.map.things.push(o); S.sel = { kind: 'thing', id: o.id }; });
+    setTab('inspect'); return;
   }
   if (T.kind === 'thing') {
     change(() => { const o = Object.assign({ id: S.map.next++ }, JSON.parse(JSON.stringify(T.proto)), { x: quarter(p.x), y: quarter(p.y) }); S.map.things.push(o); S.sel = { kind: 'thing', id: o.id }; });
@@ -880,6 +891,9 @@ function paneThing(t) {
       <div class="row">${S.map.rooms.map((r, i) => `<label><input type="checkbox" data-inroom="${i}"${inR.includes(i) ? ' checked' : ''}> ${i + 1} ${esc(RT_NAMES[DATA.rooms.indexOf(r.rt)] || '')}</label>`).join('')}</div>
       <p class="note">${inR.length ? `Each play the dice choose one of ${inR.length}. In a room that holds its own place it stands there; in a room with spots, at one of them; in the others, on the floor nearest the room's middle that the dream can reach. The ghosts on the map show every place.` : 'Tick rooms to let it turn up in any one of them, a different one each play. Leave all clear to keep it where it is.'}</p>`;
   }
+  if (t.t === 'sidedoor') h += `<div class="field"><label for="tSdN">Passage</label><select id="tSdN">${[0, 1, 2, 3, 4, 5, 6, 7].map(k => opt(k, k ? 'side passage ' + k : '0: the test passage', t.num)).join('')}</select></div>
+    <div class="field"><label for="tSdL">Link</label><input type="number" id="tSdL" min="0" max="15" value="${t.link}"></div>
+    <p class="note">A doorway in this wall into a side passage (docs/PLAN-side.md): walked into, it opens on that passage's doorway of the same link; a doorway there of this link comes out here. PLAY sends the newest passage saved with that number.</p>`;   /* side (PLAN-side) */
   if (t.t === 'compass') h += `<p class="note">Picked up, the compass is the player's as if bought; a death takes it, as now. One already held is worth her price in gold here.</p>`;
   if (t.t === 'spawn') h += `<div class="field"><label for="tW">Wakes with</label><input type="text" id="tW" list="wkGroups" placeholder="at the start" value="${esc(t.wake || '')}"></div>
     <datalist id="wkGroups">${C.wakeGroups(S.map).map(g => `<option value="${esc(g)}">`).join('')}</datalist>
@@ -1056,6 +1070,7 @@ function wirePane() {
     on('tN', 'change', e => change(() => { o.name = e.target.value.trim(); }));
     document.querySelectorAll('[data-inroom]').forEach(b => b.addEventListener('change', () => change(() => { const ri = +b.dataset.inroom; o.inRooms = (o.inRooms || []).filter(x => x !== ri); if (b.checked) o.inRooms.push(ri); o.inRooms.sort((a, c) => a - c); if (!o.inRooms.length) delete o.inRooms; })));
     on('tAc', 'change', e => change(() => { o.accepts = +e.target.value; }));
+    on('tSdN', 'change', e => change(() => { o.num = +e.target.value; })); on('tSdL', 'change', e => change(() => { o.link = Math.max(0, Math.min(15, +e.target.value | 0)); }));   /* side (PLAN-side) */
     on('tW', 'change', e => change(() => { o.wake = e.target.value.trim(); }));
     on('tTg', 'change', e => change(() => { o.tag = e.target.value.trim(); }));
     on('tSt', 'change', e => change(() => { if (e.target.value) o.spotTag = e.target.value; else delete o.spotTag; }));
@@ -1213,9 +1228,9 @@ function savedBadge() {
 }
 
 /* ---------- the header's fields and buttons ---------- */
-$('mapName').addEventListener('change', e => change(() => { S.map.name = e.target.value.trim() || 'Untitled level'; }, true));
-$('mapLevel').addEventListener('change', e => change(() => { S.map.level = Math.max(1, Math.min(160, +e.target.value || 1)); }));
-$('bUndo').addEventListener('click', undo); $('bRedo').addEventListener('click', redo);
+$('mapName').addEventListener('change', e => SideUI.active() ? SideUI.rename(e.target.value) : change(() => { S.map.name = e.target.value.trim() || 'Untitled level'; }, true));
+$('mapLevel').addEventListener('change', e => SideUI.active() ? SideUI.setLevel(e.target.value) : change(() => { S.map.level = Math.max(1, Math.min(160, +e.target.value || 1)); }));
+$('bUndo').addEventListener('click', undo); $('bRedo').addEventListener('click', redo);   /* (a passage has its own, in its columns) */
 $('bLattice').addEventListener('click', () => change(() => { S.map.lattice = !S.map.lattice; }));
 $('bLanes').addEventListener('click', e => { S.showLanes = !S.showLanes; e.target.setAttribute('aria-pressed', String(S.showLanes)); draw(); });
 $('bGrid').addEventListener('click', e => { S.showGrid = !S.showGrid; e.target.setAttribute('aria-pressed', String(S.showGrid)); draw(); });
@@ -1229,6 +1244,7 @@ $('bZoomIn').addEventListener('click', () => zoom(1)); $('bZoomOut').addEventLis
 document.addEventListener('keydown', e => {
   const tag = (e.target.tagName || '').toLowerCase();
   if (tag === 'input' || tag === 'textarea' || tag === 'select' || $('modal').firstChild) return;
+  if (SideUI.active()) { SideUI.key(e); return; }                  /* side (PLAN-side) */
   const k = e.key.toLowerCase();
   if ((e.ctrlKey || e.metaKey) && k === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
   if ((e.ctrlKey || e.metaKey) && k === 'y') { e.preventDefault(); redo(); return; }
@@ -1284,7 +1300,7 @@ async function save() {
     toast(S.db ? 'SAVED, WITH A SAVE POINT' : 'SAVED IN THIS BROWSER ONLY');
   } catch (e) { toast('NOT SAVED: ' + (e && e.code === 'quota_exceeded' ? 'THE STORE IS FULL' : 'TRY AGAIN')); }
 }
-$('bSave').addEventListener('click', save);
+$('bSave').addEventListener('click', () => SideUI.active() ? SideUI.save() : save());   /* side (PLAN-side) */
 async function listMaps() {
   if (S.db) { const q = await S.db.collection('maps').orderBy('updated', 'desc').limit(200).get(); return q.docs.map(d => ({ id: d.id, ...d.data() })); }
   try { const all = JSON.parse(localStorage.getItem('cme.maps') || '{}'); return Object.keys(all).map(id => ({ id, ...all[id] })).sort((a, b) => b.updated - a.updated); } catch (e) { return []; }
@@ -1294,29 +1310,40 @@ async function listVersions(id) {
   try { return JSON.parse(localStorage.getItem('cme.v.' + id) || '[]').map((v, i) => ({ vid: String(i), ...v })).reverse(); } catch (e) { return []; }
 }
 function load(id, body, example) {
+  if (SideUI.isSide(body)) { SideUI.open(id, body, example); return; }   /* side (PLAN-side) */
+  SideUI.leave();
   S.id = id; S.roll = null; S.map = unpack(body.map || body); S.hist = []; S.fut = []; S.sel = null; S.hl = null; S.dream = null; stopPlay();
   S.dirty = false; S.example = !!example; S.savedAt = example ? null : body.updated || null;
   refresh(); close();
 }
-function guard(fn) { if (S.dirty) ask('Leave the unsaved changes?', 'This map has changes that are not saved. Save first, or carry on and lose them.', 'LOSE THEM', fn, 'KEEP EDITING'); else fn(); }
+function guard(fn) { if (SideUI.active() ? SideUI.dirty() : S.dirty) ask('Leave the unsaved changes?', 'This map has changes that are not saved. Save first, or carry on and lose them.', 'LOSE THEM', fn, 'KEEP EDITING'); else fn(); }
 $('bNew').addEventListener('click', () => guard(() => {
+  $('modal').innerHTML = `<div class="veil" role="dialog" aria-modal="true" aria-labelledby="newT"><div class="dialog slab"><h2 id="newT">A NEW MAP</h2>
+    <p>A crypt level, laid on the 45 by 45 lattice; or a side passage, a platformer behind a doorway in the crypt.</p>
+    <div class="row"><button class="btn" id="newCrypt">A CRYPT LEVEL</button><button class="btn" id="newSide">A SIDE PASSAGE</button><button class="btn" id="askNo">CANCEL</button></div></div></div>`;
+  $('newCrypt').focus();
+  $('newCrypt').addEventListener('click', () => { close(); newCrypt(); }); $('newSide').addEventListener('click', () => { close(); SideUI.newPassage(); }); $('askNo').addEventListener('click', close);
+}));   /* side (PLAN-side) */
+function newCrypt() {
   const m = C.blank(3); m.name = 'New level'; m.slot = 3;   /* the tutorial has levels 1 and 2: new ones start at 3 */
   for (let y = 1; y < N - 1; y++) for (let x = 1; x < N - 1; x++) m.grid[C.idx(x, y)] = '#';
   load(null, { map: pack(m) }, false); S.dirty = true; savedBadge(); toast('A NEW MAP OF STONE');
-}));
+}
 const fmt = t => t ? new Date(t).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : '';
 $('bOpen').addEventListener('click', async () => {
   $('modal').innerHTML = `<div class="veil" role="dialog" aria-modal="true"><div class="dialog slab"><h2>OPEN A MAP</h2><p class="note">Reading the store...</p></div></div>`;
   let maps = [];
   try { maps = await listMaps(); } catch (e) { maps = null; }
+  const exSide = (DATA.sides || []).map(s => `<div class="item"><span>Side passage ${s.n}: ${esc(s.text.match(/NAME "([^"]*)"/)[1].toLowerCase())}<small>built into the game: the test passage; opens as an unsaved copy</small></span><button class="btn" data-sidex="${s.n}">OPEN</button></div>`).join('');   /* side (PLAN-side) */
   const ex = `<div class="item"><span>The compass: an example of events<small>your example: three paths of torches, a bone carried back; opens as an unsaved copy</small></span><button class="btn" data-sample="1">OPEN</button></div>` + DATA.drawn.map(D => `<div class="item"><span>Tutorial level ${D.n}<small>from drawn.c, ${D.w} x ${D.h}: opens as an unsaved copy</small></span><button class="btn" data-ex="${D.n}">OPEN</button></div>`).join('');
   $('modal').innerHTML = `<div class="veil" role="dialog" aria-modal="true" aria-labelledby="openT"><div class="dialog slab"><h2 id="openT">OPEN A MAP</h2>
     ${S.db ? '' : '<p class="note">The shared store is not reachable here, so these are the maps kept in this browser.</p>'}
-    <h3>YOUR MAPS</h3><div class="list">${maps === null ? '<p class="note">The store did not answer. Try again in a moment.</p>' : maps.length ? maps.map(m => `<div class="item"><span>${esc(m.name)}<small>level ${m.level} · saved ${esc(fmt(m.updated))}</small></span><span class="row"><button class="btn" data-open="${esc(m.id)}">OPEN</button><button class="btn" data-vers="${esc(m.id)}">SAVE POINTS</button><button class="btn warn" data-del="${esc(m.id)}">DELETE</button></span></div>`).join('') : '<p class="note">None saved yet. SAVE keeps the map you are drawing.</p>'}</div>
-    <h3>EXAMPLES</h3><div class="list">${ex}</div>
+    <h3>YOUR MAPS</h3><div class="list">${maps === null ? '<p class="note">The store did not answer. Try again in a moment.</p>' : maps.length ? maps.map(m => `<div class="item"><span>${esc(m.name)}<small>${SideUI.isSide(m) ? `side passage ${m.num != null ? m.num : ''} · played on level ${m.level}` : 'level ' + m.level} · saved ${esc(fmt(m.updated))}</small></span><span class="row"><button class="btn" data-open="${esc(m.id)}">OPEN</button><button class="btn" data-vers="${esc(m.id)}">SAVE POINTS</button><button class="btn warn" data-del="${esc(m.id)}">DELETE</button></span></div>`).join('') : '<p class="note">None saved yet. SAVE keeps the map you are drawing.</p>'}</div>
+    <h3>EXAMPLES</h3><div class="list">${ex}${exSide}</div>
     <div class="row"><button class="btn" id="askNo">CLOSE</button></div></div></div>`;
   $('askNo').addEventListener('click', close);
   document.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => guard(() => { const m = maps.find(x => x.id === b.dataset.open); load(m.id, m); toast('OPENED'); })));
+  document.querySelectorAll('[data-sidex]').forEach(b => b.addEventListener('click', () => guard(() => SideUI.example(+b.dataset.sidex))));   /* side (PLAN-side) */
   document.querySelectorAll('[data-sample]').forEach(b => b.addEventListener('click', () => guard(() => { load(null, { map: pack(C.sampleEvents()) }, true); S.evSel = 0; setTab('events'); toast('THE EXAMPLE, UNSAVED'); })));
   document.querySelectorAll('[data-ex]').forEach(b => b.addEventListener('click', () => guard(() => { const D = DATA.drawn.find(d => d.n === +b.dataset.ex); const m = C.importDrawn(D, D.n); m.slot = D.n; load(null, { map: pack(m) }, true); toast('THE EXAMPLE, UNSAVED'); })));
   document.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => {
@@ -1354,6 +1381,7 @@ function showText(title, note, text, filename) {
   const sv = $('txSave'); if (sv) sv.addEventListener('click', () => offer(filename, text));
 }
 $('bBackup').addEventListener('click', () => {
+  if (SideUI.active()) { SideUI.backup(); return; }                /* side (PLAN-side) */
   const slug = S.map.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'map';
   offer(`haunted-level-${S.map.level}-${slug}.json`, JSON.stringify({ format: 'haunted-world-editor', v: 1, saved: Date.now(), map: pack(S.map) }, null, 1));
 });
@@ -1363,10 +1391,11 @@ $('fileIn').addEventListener('change', e => {
   f.text().then(t => {
     const j = JSON.parse(t);
     if (!['haunted-world-editor', 'catacomb-map-editor'].includes(j.format) || !j.map || !j.map.grid) throw new Error('format');
-    load(null, { map: j.map }, false); S.dirty = true; savedBadge(); toast('LOADED: SAVE TO KEEP IT HERE');
+    load(null, { map: j.map, kind: j.kind }, false); if (SideUI.active()) { toast('LOADED: SAVE TO KEEP IT HERE'); return; } S.dirty = true; savedBadge(); toast('LOADED: SAVE TO KEEP IT HERE');
   }).catch(() => toast('THAT FILE IS NOT A MAP FROM THIS EDITOR'));
 });
 $('bExport').addEventListener('click', () => {
+  if (SideUI.active()) { SideUI.exportText(); return; }            /* side (PLAN-side) */
   const errs = S.checks.filter(c => c.sev === 'error').length, n = S.map.slot || 3, x = C.exportDrawn(DATA, S.map, n);
   showText(`EXPORT FOR DRAWN.C (SLOT ${n})`, ('') + (errs ? `${errs} check${errs > 1 ? 's say' : ' says'} this level would break: see CHECKS before pasting. ` : '') +
     `Paste the arrays above DRAWN[] in src/crawl/game/drawn.c and the last two lines into DRAWN[], then raise NDRAWN. The row carries the level it is laid on (${S.map.level}), the first time down.`, x.text, `drawn-level-${S.map.level}-slot-${n}.txt`);
@@ -1435,6 +1464,7 @@ const PLAY_HAZARDS = true;                               /* the game in play/ la
 const sameOrigin = () => (location.origin && location.origin !== 'null' ? location.origin : '*');
 function playStop() { $('playFrame').src = 'about:blank'; $('playLayer').hidden = true; playText = null; }
 $('bPlay').addEventListener('click', () => {
+  if (SideUI.active()) { SideUI.play(); return; }                  /* side (PLAN-side) */
   const errs = S.checks.filter(c => c.sev === 'error');
   if (errs.length) {
     ask('Mend it first?', `${errs.length} check${errs.length > 1 ? 's are errors' : ' is an error'}, and the game would refuse the level or lay it wrong. The first: ${errs[0].msg}`, 'SHOW THE CHECKS',
@@ -1452,19 +1482,21 @@ $('bPlay').addEventListener('click', () => {
         playOpen(C.exportDrawn(DATA, m, m.slot || 3).text); }, 'KEEP EDITING');
     return;
   }
-  playOpen(C.exportDrawn(DATA, S.map, S.map.slot || 3).text);
+  const text = C.exportDrawn(DATA, S.map, S.map.slot || 3).text;
+  SideUI.sidesFor(S.map).then(sides => playOpen(text, sides.length ? { sides } : null));   /* side (PLAN-side) */
 });
-function playOpen(text) {
-  playText = text;
-  $('playTitle').textContent = `PLAYING ${String(S.map.name || 'THIS LEVEL').toUpperCase()}: LEVEL ${S.map.level}. A NEW RUN BEGINS THERE. ITS SAVES ARE KEPT APART FROM THE GAME'S.`;
+let playExtra = null;                                    /* side (PLAN-side): the side passages sent with it, or one played alone */
+function playOpen(text, extra, title) {
+  playText = text; playExtra = extra || null;
+  $('playTitle').textContent = title || `PLAYING ${String(S.map.name || 'THIS LEVEL').toUpperCase()}: LEVEL ${S.map.level}. A NEW RUN BEGINS THERE. ITS SAVES ARE KEPT APART FROM THE GAME'S.`;
   $('playLayer').hidden = false;
   $('playFrame').src = 'play/index.html?t=' + Date.now();
   $('playFrame').focus();
 }
 $('bPlayClose').addEventListener('click', playStop);
 addEventListener('message', e => {                       /* the game's page asks for the level when it loads (again, after fleeing) */
-  if (!playText || e.source !== $('playFrame').contentWindow || !e.data || e.data.type !== 'hvs-play-ready') return;
-  e.source.postMessage({ type: 'hvs-level', text: playText, name: S.map.name, level: S.map.level }, sameOrigin());
+  if (playText == null || e.source !== $('playFrame').contentWindow || !e.data || e.data.type !== 'hvs-play-ready') return;
+  e.source.postMessage(Object.assign({ type: 'hvs-level', text: playText, name: S.map.name, level: S.map.level }, playExtra || {}), sameOrigin());
 });
 
 /* ---------- starting ---------- */
@@ -1476,8 +1508,10 @@ const D1 = DATA.drawn[0], first = C.importDrawn(D1, D1.n); first.slot = D1.n;
 startWith(first, true);
 setTool({ kind: 'select' }, selectBtn, 'This is the tutorial\'s first level, as an example. NEW starts a blank map; OPEN lists your maps.');
 setTimeout(() => scrollToCell([22, 20]), 50);
+SideUI.init({ S, $, esc, ask, close, toast, offer, showText, listMaps, newId, DATA, playOpen });   /* side (PLAN-side) */
 let draft = null;
 try { draft = JSON.parse(localStorage.getItem('cme.draft') || 'null'); } catch (e) {}
+if (!draft && SideUI.draftWaiting()) { const d = SideUI.draftWaiting(); ask('Pick up where you left off?', `There is an unsaved side passage from ${fmt(d.t)} in this browser ("${d.map.name}").`, 'PICK IT UP', () => SideUI.takeDraft(), 'NOT NOW'); }
 if (draft && draft.map) ask('Pick up where you left off?', `There is unsaved work from ${fmt(draft.t)} in this browser ("${draft.map.name}").`, 'PICK IT UP', () => { load(draft.id, { map: draft.map }, false); S.dirty = true; savedBadge(); }, 'NOT NOW');
 (async () => {
   if (!window.claude || !window.claude.use) return;

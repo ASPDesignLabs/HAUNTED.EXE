@@ -108,11 +108,25 @@ SWITCH x y thing [TOGGLE]      ; the crypt thing (an index in its _THING) whose 
 
 ### 2c. The editor's side (step 9)
 
-A second kind of map in the World Editor: a side passage, drawn in its tiles, its things laid with the same palette and checks,
-and exported as 2b's text; PLAY runs it. The crypt map gets a thing, a side doorway (`DT_SIDEDOOR`, its kind `16 * side + link`),
-laid on a wall cell of a room, a hall or a secret room, and the side passage's switches choose their crypt thing from a list.
-It is built in files of its own (`tools/mapedit/side.js`) and a few marked lines in `editor.html`, to keep out of the other
-agent's way.
+Built (session 2). A second kind of map in the World Editor. NEW asks which: a crypt level or a side passage. OPEN lists both,
+each passage marked with its number, and offers the built-in test passage as an example.
+- `tools/mapedit/side.js` (`window.SideCore`): a passage as the editor keeps it (`kind: 'side'`, `num` its place in `SIDE_TEXT`,
+  `level` the level PLAY begins on, `w`, `h`, `grid`, `things`); `exportText` writes 2b's text (an F in a row for a falling block
+  with the game's own timings over the dark, else a FALL line; seconds with a decimal, tiles without), `exportC` the same as a block
+  for `SIDE_TEXT[]`, `parse` reads text back by `sd_read`'s rules with the same refusals, `check` the errors and warnings.
+- `tools/mapedit/side_ui.js` (`window.SideUI`): its own three columns, shown in place of the crypt's while a passage is open: select,
+  erase, the seven tiles (shift and drag for a box), doorway, goal doorway, platform, lift, falling block, poison flow, torch,
+  creature, the five golds, the three keys, a life, a switch; the canvas (a platform's way and its far end ghosted, a flow's box
+  dashed with its clock, a doorway's link); CHOSEN (the passage's number, level and size, or the thing's fields) and CHECKS; its own
+  undo. It saves to the same store as the crypt maps (`maps/<id>`, `kind: 'side'`), with save points; a draft in the browser.
+- The crypt map's **side doorway** (`t: 'sidedoor'`, `num`, `link`): laid only on stone with floor beside it, at the cell's middle;
+  exported as `{ DT_SIDEDOOR, 16 * num + link, x, y }`; the export's box takes in its wall when it lies just outside the floor's box.
+- **PLAY.** A passage alone: a new run on its level, straight in (`sideNow`); its doorways lead back to where it began. A crypt
+  level: its export, and for each passage number its side doorways name, the newest passage saved with that number (a number none is
+  saved for is the game's own). The play page's shim (`build.py`) takes `sides`, `sideNow` and `level` from the message;
+  `haunted.js` hands each to `web_side_load` and `web_side_now`; the game's `crawl_side_text` and `crawl_side_now` (`side.c`).
+- The hooks in `editor.html`, each marked `side (PLAN-side)`: the script's placeholder, the tool and its picture, its fields, its
+  placing, the header's buttons, the keys, OPEN, NEW, load, PLAY. `core.js`: the export, the label, the checks.
 
 ## 3. Steps
 
@@ -126,8 +140,8 @@ agent's way.
 | 5 | The creatures (the run's kinds, in their bestiary pictures until their own are drawn) | A first version: walkers, fliers, throwers |
 | 6 | Keys, gold, lives to find, switches firing the crypt's triggers | Done; a switch on a drawn level not yet tried |
 | 7 | The dream in a side passage | A first version: finishes the test passage; the crypt's dream does not yet walk into side doorways by itself |
-| 8 | The text format and its reader; `HOST_SIDE=file` and `sidecheck` in the harness | The reader done (`sd_read`); the harness's door not yet |
-| 9 | The World Editor: the side map, its export, its checks, PLAY; the crypt's side doorway | |
+| 8 | The text format and its reader; `HOST_SIDE=file` and `HOST_SIDE_NOW` in the harness | Done |
+| 9 | The World Editor: the side map, its export, its checks, PLAY; the crypt's side doorway | Done, harness and Playwright only; not used by the owner |
 | 10 | Side doorways on drawn levels (rooms, halls, secret rooms); the crypt doorway's own texture | |
 | 11 | Lives at the merchant, 500 gold; `LG_SIDE` in the ledger | |
 | 12 | Touch's stones and the controller in a side passage | |
@@ -194,3 +208,25 @@ the side passages and nothing else (22 files). Tested on the merged tree: every 
 builds not here: no compilers for them in this container, so CI alone), `node tools/mapedit/test.js` passed, `make smoke` passed, the
 dream's log line for line the same as main's (seeds 1, 2, 4, 6, run 7, 1,500 s, but the time-taken line), the side passage on eight seeds
 as before (27 in, 26 at the goal, one run ended), 400 s of it under `make asan`: clean.
+
+**Session 2 (25 to 26 November 2026): the World Editor's side (step 9).** The owner chose the editor before a play-test build. Read
+first: the published artifact against this repository's build of the editor, the same but for the host's wrapper, so nothing had
+been changed outside the repository. Built as section 2c says. Tested:
+- `node tools/mapedit/test.js`: every built-in passage read and written back letter for letter (the test passage, 30 things); a new
+  passage with every kind of thing exported and read back the same; six bad texts refused with `sd_read`'s reasons; a side doorway's
+  export (`DT_SIDEDOOR, 37`) inside the map though its wall lies outside the floor's box (it lay at y -0.5 before the fix); its checks.
+  The fixtures it writes (`side_0.txt`, `side_new.txt`, `side_crypt.c`) read by the game: `HOST_SIDE` both, the new one played straight
+  in on level 4 by the dream to its goal; `HOST_DRAWN` the crypt export, its side doorway laid where the editor put it.
+- Playwright's Chromium on the built page served locally: the example opened; a new passage drawn (tiles painted and a box of ledge,
+  each kind of thing laid), a platform chosen and turned upward, the checks, SAVE, EXPORT TEXT, undo and redo; back to a crypt map,
+  a side doorway laid on a wall and refused on floor, its passage and link set, EXPORT C; OPEN listing the passage. No page errors.
+  The page's `.main` is a grid, which `[hidden]` does not hide: both sets of columns showed at once until `side_ui.js` added its rule.
+- PLAY, with the browser build made here (Emscripten 6.0.13, as CI): the example passage played alone, the game booted on level 3 and
+  straight into it, the dream playing; a crypt level (the tutorial's first, a side doorway laid) sent its export with
+  `DT_SIDEDOOR, 16` and the passage saved as number 1.
+- The game: `make host`, `build/host_debug`, `make asan`, `make web` with no new warnings; under the sanitizers a passage handed over
+  by `HOST_SIDE` played 300 s and a crypt with a side doorway 60 s, clean; the dream's log, seeds 1 and 4, 1,500 s, line for line
+  main's (`af939ef`) but the time-taken line.
+Not used by the owner; nothing under Wine; the Windows build left to CI. Still to do: the crypt's dream walking into side doorways
+(step 7), lives at the merchant and in the save (11), touch and the controller (12), the creatures' own art and the caster in the
+gear (13); in the editor, a dream's walk for passages as the crypt's has.

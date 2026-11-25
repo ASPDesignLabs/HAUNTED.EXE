@@ -182,5 +182,44 @@ DATA.hazards.fixed.flat().concat(DATA.hazards.arise.flat(), DATA.hazards.sapper)
     grouped.forEach(g => { if (!DATA.rooms.includes(g)) fail(`the list names ${g}, which the game does not have`); });
     console.log(`rooms by run: ${C.ROOM_RUNS.map(r => r.length).join(' + ')} + ${C.ROOM_ANY.length} of any run = ${DATA.rooms.length} types`);
 }
+/* side passages (docs/PLAN-side.md): each built in read and written back letter for letter; a new one, its export read back; the
+ * crypt's side doorway; the reader refusing what the game would. The files under fixtures/ are for the harness's HOST_SIDE. */
+{
+    const SC = require('./side.js'), ids = DATA.kinds.map(k => k.id);
+    for (const s of DATA.sides) {
+        const r = SC.parse(s.text, ids);
+        if (r.error) { fail(`side passage ${s.n}: line ${r.line}: ${r.error}`); continue; }
+        const out = SC.exportText(r.map);
+        if (out !== s.text) { const a = s.text.split('\n'), b = out.split('\n'), i = a.findIndex((l, k) => l !== b[k]); fail(`side passage ${s.n}: line ${i + 1} "${b[i]}" was "${a[i]}"`); }
+        const errs = SC.check(r.map).filter(c => c.sev === 'error');
+        if (errs.length) fail(`side passage ${s.n}: ${errs[0].msg}`);
+        fs.writeFileSync(path.join(__dirname, 'fixtures', `side_${s.n}.txt`), out);
+    }
+    const m = SC.blank(40, 14);
+    SC.add(m, { k: 'plat', x: 10, y: 8, w: 2, dx: 0, dy: -1, dist: 4.5, speed: 1.25, loop: true, wait: 0.75, at: 0.5 });
+    SC.add(m, { k: 'flow', x: 20, y: 9, w: 3, h: 2, on: 2.5, off: 6, at: 1 });
+    SC.add(m, { k: 'fall', x: 15, y: 8, delay: 0.3, back: 2 }); SC.add(m, { k: 'fall', x: 16, y: 8, delay: SC.FALL_DELAY, back: SC.FALL_BACK });
+    SC.add(m, { k: 'mob', x: 25, y: 10, kind: 'MOB_SKEL', rank: 'RK_II' }); SC.add(m, { k: 'switch', x: 30, y: 10, thing: 4, toggle: true });
+    SC.add(m, { k: 'gold', x: 12, y: 10, it: 'IT_CROWN' }); SC.add(m, { k: 'key', x: 13, y: 10, c: 2 });
+    const t1 = SC.exportText(m), back = SC.parse(t1, ids);
+    if (back.error) fail(`a new passage's export: line ${back.line}: ${back.error}`);
+    else if (SC.exportText(back.map) !== t1) fail("a new passage's export does not read back the same");
+    fs.writeFileSync(path.join(__dirname, 'fixtures', 'side_new.txt'), t1);
+    [['SIDE 2\n', 'version'], ['SIDE 1\nSIZE 10 10\n', 'SIZE wants'], ['SIDE 1\nSIZE 20 10\nROW "#"\n', 'a ROW is'],
+     ['SIDE 1\nSIZE 20 10\n' + 'ROW "....................."\n', 'a ROW is'], ['SIDE 1\nSIZE 20 10\n' + 'ROW "...................."\n'.repeat(10), 'no doorway'],
+     ['SIDE 1\nSIZE 20 10\n' + 'ROW "...................."\n'.repeat(10) + 'PLAT 1 1 3 0 0 4 2\n', "way is"]].forEach(([t, want]) => {
+        const r = SC.parse(t, ids); if (!r.error || !r.error.includes(want)) fail(`the reader took a bad passage (wanted "${want}"): ${r.error || 'no refusal'}`); });
+    const cm = C.blank(3); cm.things.push({ id: 1, t: 'sidedoor', num: 2, link: 5, x: 10.5, y: 10.5 });
+    for (let x = 9; x <= 13; x++) cm.grid[C.idx(x, 11)] = '+'; cm.grid[C.idx(9, 11)] = 'S'; cm.grid[C.idx(13, 10)] = 'X';   /* a hall, its start and exit */
+    const cx = C.exportDrawn(DATA, cm, 3).text;
+    if (!cx.includes('{ DT_SIDEDOOR, 37, ')) fail("the crypt's side doorway did not export as DT_SIDEDOOR 37");
+    const sd = cx.match(/\{ DT_SIDEDOOR, \d+, (-?[\d.]+)f, (-?[\d.]+)f \}/);
+    if (!sd || +sd[1] < 0 || +sd[2] < 0) fail(`a side doorway above the floor's box exported outside the map: ${sd && sd[0]}`);
+    fs.writeFileSync(path.join(__dirname, 'fixtures', 'side_crypt.c'), cx);
+    if (C.check(DATA, cm).some(c => c.msg.includes('side doorway'))) fail("a side doorway in a wall by the floor was refused");
+    cm.things[0].x = 10.5; cm.things[0].y = 11.5;
+    if (!C.check(DATA, cm).some(c => c.msg.includes('not in stone'))) fail("a side doorway on the floor was not refused");
+    console.log(`side passages: ${DATA.sides.length} built in read and written back; a new one's export read back; the side doorway`);
+}
 console.log(bad ? `${bad} FAILED` : 'all passed');
 process.exit(bad ? 1 : 0);

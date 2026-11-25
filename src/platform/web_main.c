@@ -63,6 +63,19 @@ KEEP const char *web_drawn_load(int len) {
     return crawl_drawn_text(g_dtxt, g_derr, sizeof g_derr) ? g_derr : "";
 }
 
+/* a side passage from the world editor (docs/PLAN-side.md), before web_start: its text in web_side_buf, then web_side_load with its
+ * number; "" if it was read, else why not. web_side_now: a new run begins on that level and goes straight into passage n */   /* side (PLAN-side) */
+int crawl_side_text(int n, const char *text, char *err, int nerr);
+void crawl_side_now(int n, int level);
+static char g_stxt[65536], g_serr[256];
+KEEP char *web_side_buf(void) { return g_stxt; }
+KEEP int web_side_cap(void) { return (int)sizeof g_stxt; }
+KEEP const char *web_side_load(int n, int len) {
+    g_stxt[len < 0 ? 0 : len < (int)sizeof g_stxt ? len : (int)sizeof g_stxt - 1] = 0;
+    return crawl_side_text(n, g_stxt, g_serr, sizeof g_serr) ? g_serr : "";
+}
+KEEP void web_side_now(int n, int level) { crawl_side_now(n, level); }
+
 /* the generator's lights on the drawing loaded (docs/PLAN-lights.md): after web_drawn_load, with or without web_start (the editor
  * loads this module in its own page only to ask). A static array: how many, then style (DL_*), x, y for each, in the drawing's cells;
  * the count -1 if no drawing was read, or if there was no memory to keep the game's state while it is laid (about 3 MB; not seen) */

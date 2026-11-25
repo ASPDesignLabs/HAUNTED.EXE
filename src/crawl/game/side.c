@@ -701,7 +701,7 @@ static void sd_place_at(int link) {
     SD.camy = clampf(SD.y - 100.0f, 0.0f, fmaxf(0.0f, (float)(L->h * SD_TILE - SD_VIEW_H)));
 }
 static int sd_enter(int side, int link, int cx, int cy) {
-    if (side < 0 || side >= SD_SIDES || side >= NSIDE_TEXT) return 0;
+    if (side < 0 || side >= SD_SIDES || (side >= NSIDE_TEXT && !sdl_read[side])) return 0;   /* built in, or handed over by PLAY */
     side_art_init();                                               /* the tiles and the figure, made once */
     if (!sdl_read[side]) {
         char err[160];
@@ -889,8 +889,24 @@ static int sd_frame(float dt) {                                    /* crawl_upda
         sd_enter(atoi(s), 0, G.cx + DX[G.h], G.cy + DY[G.h]);
     }
 #endif
+    static int went_now = -1;                                      /* the World Editor's PLAY of a passage: straight in, once a level */
+    if (g_side_now >= 0 && !SD.on && went_now != sd_stamp && !G.shop && !G.dead && !G.tally && G.level_t > 0.5) {
+        went_now = sd_stamp;
+        sd_enter(g_side_now, 0, G.cx + DX[G.h], G.cy + DY[G.h]);
+    }
     if (!SD.on) return 0;
     G.ui_t += dt;
     sd_update(dt);
     return 1;
 }
+
+/* ---- the World Editor's PLAY (docs/PLAN-side.md, 2c): passages handed over as text, before the game starts ---- */
+int crawl_side_text(int n, const char *text, char *err, int nerr);   /* 0: read into slot n, in place of what is built in; else why not */
+int crawl_side_text(int n, const char *text, char *err, int nerr) {
+    if (n < 0 || n >= SD_SIDES) { snprintf(err, (size_t)nerr, "a side passage's number is 0 to %d", SD_SIDES - 1); return 1; }
+    if (!sd_read(text, &SDL[n], err, nerr)) { sdl_read[n] = 0; return 1; }
+    sdl_read[n] = 1;
+    return 0;
+}
+void crawl_side_now(int n, int level);                             /* a new run begins on level, and goes straight into passage n */
+void crawl_side_now(int n, int level) { g_side_now = n >= 0 && n < SD_SIDES ? n : -1; g_side_level = level < 1 ? 1 : level; }

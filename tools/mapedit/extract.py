@@ -69,5 +69,15 @@ hazards = {"names": hz_names, "fixed": hz_rows(r"HZ_FIXED\[4\]\[4\]"), "arise": 
            "elem": {k: (None if e == "-1" else e) for k, e in zip(hz_names, hz_el)}}
 # the light styles in the game's order (docs/PLAN-lights.md): how web_drawn_lights numbers them
 dl = [t.strip() for t in re.search(r"enum \{ (DL_CHANDELIER.*?)NDL \}", read(src + "game/generate.c"), re.S).group(1).split(",") if t.strip()]
-json.dump({"drawn": drawn, "elems": elems, "hazards": hazards, "lights": dl, "stamps": stamps, "kinds": kinds, "budget": runb, "items": dict(zip(items, vals)), "rooms": rts,
+# the side passages built in (docs/PLAN-side.md): SIDE_TEXT's texts, as the editor's examples and the round trip's test
+side_src = read(src + "game/side_levels.c")
+side_body = side_src[side_src.index("{", side_src.index("SIDE_TEXT[]")):side_src.index("};", side_src.index("SIDE_TEXT[]"))]
+sides, cur = [], ""
+for line in side_body.split("\n"):
+    lit = re.match(r'\s*"((?:[^"\\]|\\.)*)"(,?)', line)
+    if not lit: continue
+    cur += lit.group(1).encode("latin-1").decode("unicode_escape")
+    if lit.group(2): sides.append({"n": len(sides), "text": cur}); cur = ""
+if not sides or not sides[0]["text"].startswith("SIDE 1"): sys.exit("no side passages found")
+json.dump({"drawn": drawn, "sides": sides, "elems": elems, "hazards": hazards, "lights": dl, "stamps": stamps, "kinds": kinds, "budget": runb, "items": dict(zip(items, vals)), "rooms": rts,
            "mapn": int(re.search(r"#define MAPN (\d+)", defs).group(1))}, sys.stdout, indent=None, separators=(",", ":"))

@@ -10,7 +10,9 @@ with open(os.path.join(here, "data.json"), "w", encoding="utf-8") as f: f.write(
 page = open(os.path.join(here, "editor.html"), encoding="utf-8").read()
 core = open(os.path.join(here, "core.js"), encoding="utf-8").read()
 if "</script" in core or "</script" in data: sys.exit("a closing script tag would end the page's script early")
-page = page.replace("/*@CORE@*/", core).replace("/*@DATA@*/", data)
+side = open(os.path.join(here, "side.js"), encoding="utf-8").read() + "\n" + open(os.path.join(here, "side_ui.js"), encoding="utf-8").read()   # side (PLAN-side)
+if "</script" in side: sys.exit("a closing script tag would end the page's script early")
+page = page.replace("/*@CORE@*/", core).replace("/*@SIDE@*/", side).replace("/*@DATA@*/", data)
 os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
 with open(out, "w", encoding="utf-8") as f: f.write(page)
 print("%s: %d bytes" % (out, len(page)))
@@ -30,11 +32,15 @@ window.HVS_PREFIX = "haunted.exe/world-editor/";
 window.HVS_FORCE = { haunt: 0, crawl: 1 };
 window.HVS_WANT_LEVEL = parent !== window;
 addEventListener("message", (e) => {
-  if (e.source !== parent || !e.data || e.data.type !== "hvs-level" || typeof e.data.text !== "string") return;
-  window.HVS_LEVEL = e.data.text;
+  if (e.source !== parent || !e.data || e.data.type !== "hvs-level" || (typeof e.data.text !== "string" && !Array.isArray(e.data.sides))) return;
+  if (typeof e.data.text === "string" && e.data.text) window.HVS_LEVEL = e.data.text;
+  if (Array.isArray(e.data.sides)) {                       /* side passages (docs/PLAN-side.md): each into its number; one to go straight into */
+    window.HVS_SIDES = e.data.sides.filter(s => s && typeof s.text === "string" && Number.isInteger(s.n));
+    if (Number.isInteger(e.data.sideNow)) { window.HVS_SIDE_NOW = e.data.sideNow; window.HVS_SIDE_LEVEL = e.data.level; }
+  }
   const note = document.createElement("p");
   note.className = "note";
-  note.textContent = "THE WORLD EDITOR'S LEVEL: " + String(e.data.name || "").toUpperCase() + ", LEVEL " + e.data.level + ". A NEW RUN BEGINS THERE.";
+  note.textContent = (Number.isInteger(e.data.sideNow) ? "THE WORLD EDITOR'S SIDE PASSAGE: " : "THE WORLD EDITOR'S LEVEL: ") + String(e.data.name || "").toUpperCase() + ", LEVEL " + e.data.level + ". A NEW RUN BEGINS THERE.";
   const press = document.getElementById("press");
   if (press) press.parentNode.insertBefore(note, press);
 });
