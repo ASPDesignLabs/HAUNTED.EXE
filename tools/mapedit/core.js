@@ -17,7 +17,7 @@ const ELEM_FAV = [['EL_FIRE', 'EL_SPIRIT'], ['EL_FROST', 'EL_POISON'], ['EL_LIGH
 const GOLD_KINDS = ['IT_COINS', 'IT_CHALICE', 'IT_GEMS', 'IT_CROWN', 'IT_CHEST'];
 const KEY_NAMES = ['GOLD', 'SILVER', 'CRIMSON'];
 const MARK_NAMES = ['COFFER', 'CAGE', "THE CLASS'S OWN"];
-const MAX = { heads: 48, mobs: 64, items: 96, fire: 96, ice: 96, rooms: 24, rest: 2, secrets: 6, fields: 8 };
+const MAX = { heads: 48, mobs: 64, items: 96, fire: 96, ice: 96, rooms: 24, rest: 2, secrets: 6, fields: 8, torches: 120 };
 
 const idx = (x, y) => y * N + x;
 const inMap = (x, y) => x >= 0 && y >= 0 && x < N && y < N;
@@ -823,6 +823,7 @@ function check(DATA, m) {
     /* the events (docs/PLAN-events.md) */
     const ev = m.events || [], tor = m.torches || [], byId = id => m.things.find(t => t.id === id);
     if (ev.length > 32) add('error', `${ev.length} triggers: a level holds 32 at most (what a trigger waits on is a bit each).`);
+    if (tor.length > MAX.torches) add('warn', `${tor.length} torches hung: the game keeps the first ${MAX.torches}, in the order they were hung.`, tor.slice(MAX.torches).map(t => [t.x, t.y]));
     tor.forEach(t => {
         const f = [t.x + DIRS[t.d][0], t.y + DIRS[t.d][1]];
         if (WALLS.has(at(t.x, t.y)) === false || at(t.x, t.y) !== '#') add('error', 'A torch must hang on plain stone.', [[t.x, t.y]]);

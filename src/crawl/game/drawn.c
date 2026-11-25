@@ -55,7 +55,7 @@ typedef struct {
 /* What a drawn level's events hold while it is played (events.c runs them); laid with the level, never saved */
 #define EV_THINGS 256                       /* a drawing's things, for where this play lays each */
 #define EV_SPAWNS 64
-#define EV_TORCHES 64
+#define EV_TORCHES 120                                            /* at_torch holds 1 + the torch in a byte */
 #define EV_TRIGS 32                         /* a bit each in a trigger's needs */
 #define EV_QUEUE 96
 #define EV_FIELDS 8
