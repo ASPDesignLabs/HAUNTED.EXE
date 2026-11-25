@@ -691,6 +691,72 @@ function levelInfo(DATA, level) {
 }
 function rankCost(r) { return r === 5 ? 1.4 : 1 + 0.2 * Math.min(r, 4); }
 function kindOf(DATA, id) { return DATA.kinds.find(k => k.id === id); }
+
+/* ---- the rolls (docs/PLAN-lights.md 4, docs/PLAN-mapedit.md): creatures and gold laid over the whole level as the generator would, on
+   a seed of the editor's own, five at a time; the owner keeps one and moves them as they please ---- */
+function mulberry(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+/* random_type's weights (spawn.c), a kind only once it has come (its debut); the new minds' kinds as they are now, on */
+function typeWeights(DATA, level) {
+    const set = levelInfo(DATA, level).set, came = id => { const k = kindOf(DATA, id); return k && k.debut <= level; };
+    const w = { MOB_SKEL: 10, MOB_BAT: set === 3 ? 2 : 5, MOB_SHIELD: 4, MOB_SHAMBLER: set <= 1 ? 5 : 3, MOB_HOUND: 4, MOB_HUNTER: 3, MOB_GHOUL: 4,
+                MOB_KNIGHT: 2, MOB_SHADE: 3, MOB_IMP: 1, MOB_DEACON: 2, MOB_WHIPPER: 1, MOB_SEXTON: 2, MOB_LIGHTLESS: 2, MOB_RAT: 3 };
+    return Object.keys(w).filter(id => w[id] > 0 && (id === 'MOB_SKEL' || id === 'MOB_BAT' || came(id))).map(id => [id, w[id]]);
+}
+function rollGround(DATA, m) {                   /* the floor each roll may use: in rooms, in the halls, how far from the start */
+    const { cells } = compose(DATA, m), start = cells.indexOf('S'), dist = new Array(N * N).fill(-1);
+    if (start >= 0) {
+        const q = [start]; dist[start] = 0;
+        while (q.length) { const i = q.shift(), x = i % N, y = (i / N) | 0;
+            for (const [dx, dy] of DIRS) { const j = idx(x + dx, y + dy); if (inMap(x + dx, y + dy) && dist[j] < 0 && isOpen(cells[j]) && cells[j] !== 'c') { dist[j] = dist[i] + 1; q.push(j); } } }
+    }
+    const roomOf = new Array(N * N).fill(-1);
+    m.rooms.forEach((r, ri) => { for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) if (inMap(x, y)) roomOf[idx(x, y)] = ri; });
+    const taken = new Set(m.things.map(t => { const [x, y] = thingCell(t); return idx(x, y); }));
+    const free = i => '.+'.includes(cells[i]) && !taken.has(i);
+    return { cells, dist, roomOf, free, start };
+}
+function rollCreatures(DATA, m, seed, whole) {   /* whole: the whole budget, as if nothing were placed */
+    const r = mulberry(seed), G = rollGround(DATA, m), b = budget(DATA, m), W = typeWeights(DATA, m.level), tw = W.reduce((a, [, w]) => a + w, 0);
+    const left = Math.max(0, whole ? b.budget : b.budget - b.expect), spots = [];   /* expect holds the fixed dead too */
+    for (let i = 0; i < N * N; i++) if (G.free(i) && G.dist[i] >= 8 && (G.roomOf[i] < 0 || (m.rooms[G.roomOf[i]].vault == null || m.rooms[G.roomOf[i]].vault < 0))) spots.push(i);
+    const out = [], used = new Set(); let spent = 0;
+    for (let tries = 0; tries < 400 && spots.length; tries++) {
+        let x = r() * tw, id = W[0][0];
+        for (const [k, w] of W) { if (x < w) { id = k; break; } x -= w; }
+        const c = (kindOf(DATA, id) || {}).cost || 1;
+        if (spent + c > left + 1e-9) { if (spent + 0.75 > left) break; continue; }
+        const inRoom = spots.filter(i => G.roomOf[i] >= 0), pool = inRoom.length && r() < 0.8 ? inRoom : spots;   /* mostly in rooms, some in the halls */
+        const i = pool[Math.floor(r() * pool.length)], x0 = i % N, y0 = (i / N) | 0;
+        if ([...used].some(j => Math.abs((j % N) - x0) <= 1 && Math.abs(((j / N) | 0) - y0) <= 1)) continue;   /* a cell between them */
+        used.add(i); spent += c;
+        out.push({ t: 'dead', k: id, x: x0 + 0.5, y: y0 + 0.5 });
+    }
+    return { items: out, spent, left, budget: b.budget };
+}
+const HOARD = ['IT_CHEST', 'IT_CROWN', 'IT_GEMS', 'IT_COINS', 'IT_COINS', 'IT_CHALICE', 'IT_GEMS', 'IT_CHALICE', 'IT_CROWN', 'IT_GEMS'];
+function rollGold(DATA, m, seed) {               /* place_items: a little in most rooms, more from level 4; the halls; the hoards */
+    const r = mulberry(seed), G = rollGround(DATA, m), out = [], used = new Set();
+    const treasure = () => { const k = Math.floor(r() * 20); return k < 9 ? 'IT_COINS' : k < 14 ? 'IT_CHALICE' : k < 18 ? 'IT_GEMS' : 'IT_CROWN'; };
+    const lay = (i, k) => { used.add(i); out.push({ t: 'gold', k, x: (i % N) + 0.5, y: ((i / N) | 0) + 0.5 }); };
+    const cellsOf = ri => { const a = []; for (let i = 0; i < N * N; i++) if (G.roomOf[i] === ri && G.free(i) && !used.has(i)) a.push(i); return a; };
+    m.rooms.forEach((rm, ri) => {
+        if (rm.vault != null && rm.vault >= 0) return;
+        const n = Math.floor(r() * 3) + (m.level >= 4 ? 1 : 0);
+        for (let k = 0; k < n; k++) { const a = cellsOf(ri).filter(i => G.dist[i] >= 0); if (!a.length) break; lay(a[Math.floor(r() * a.length)], treasure()); }
+    });
+    const halls = []; for (let i = 0; i < N * N; i++) if (G.roomOf[i] < 0 && G.free(i) && G.dist[i] >= 4) halls.push(i);
+    for (let k = 0, want = 7 + Math.floor(m.level / 2); k < want && halls.length; k++) { const j = Math.floor(r() * halls.length); lay(halls.splice(j, 1)[0], r() < 2 / 3 ? 'IT_COINS' : 'IT_CHALICE'); }
+    m.rooms.forEach((rm, ri) => {
+        if (rm.vault == null || rm.vault < 0) return;
+        const v = rm.vault, n = v === 0 ? 6 : v === 1 ? 8 : 10;   /* gold 6, silver 8, crimson 10, as the hoards */
+        for (let k = 0; k < n; k++) { const a = cellsOf(ri); if (!a.length) break; lay(a[Math.floor(r() * a.length)], HOARD[k]); }
+    });
+    const value = out.reduce((a, t) => a + (DATA.items[t.k] || 0), 0);
+    return { items: out, value };
+}
+function rolls(DATA, m, what, base, whole) {     /* five, each on its own seed */
+    return [0, 1, 2, 3, 4].map(k => { const seed = (base + k * 7919) >>> 0, R = what === 'gold' ? rollGold(DATA, m, seed) : rollCreatures(DATA, m, seed, whole); return Object.assign({ seed }, R); });
+}
 function budget(DATA, m) {
     const L = levelInfo(DATA, m.level), { cells } = compose(DATA, m);
     let B = DATA.budget[L.set][Math.min(L.step, 9)] * (m.corrupt ? 1.4 : 1) * (L.boss ? 0.5 : 1);
@@ -1038,7 +1104,7 @@ function sampleEvents() {
     return m;
 }
 
-const API = { HAZ_INFO, EL_COL, HZ_DEF, hazardsOf, hzRunOf, hzName, ROOM_RUNS, ROOM_ANY, fieldLive, spotTags, pickOptions, fields, fieldByName, FIELD_DEF, canWatch, TRIG_TYPES, UNDO, roomSpot, picks, layouts, dreamAll, TRIGGERS, ACTIONS, SOUNDS, SOUND_NAMES, torchGroups, wakeGroups, torchLit, sampleEvents, N, DIRS, DOORS, WALLS, LANE_OF, BASE_OF, RUNS, RANKS, ELEM_FAV, GOLD_KINDS, KEY_NAMES, MARK_NAMES, MAX, idx, inMap, isOpen,
+const API = { rolls, rollCreatures, rollGold, typeWeights, HAZ_INFO, EL_COL, HZ_DEF, hazardsOf, hzRunOf, hzName, ROOM_RUNS, ROOM_ANY, fieldLive, spotTags, pickOptions, fields, fieldByName, FIELD_DEF, canWatch, TRIG_TYPES, UNDO, roomSpot, picks, layouts, dreamAll, TRIGGERS, ACTIONS, SOUNDS, SOUND_NAMES, torchGroups, wakeGroups, torchLit, sampleEvents, N, DIRS, DOORS, WALLS, LANE_OF, BASE_OF, RUNS, RANKS, ELEM_FAV, GOLD_KINDS, KEY_NAMES, MARK_NAMES, MAX, idx, inMap, isOpen,
               blank, clone, xformRows, stampRows, stampDef, compose, laneAt, lanes, importDrawn, exportDrawn, bounds, frontOf, dream,
               levelInfo, rankCost, budget, elemDefault, check, label, thingCell };
 if (typeof module !== 'undefined' && module.exports) module.exports = API; else root.MapCore = API;

@@ -136,3 +136,13 @@ level without its hazards (`PLAY_HAZARDS`). Tested by `test.js` (the export, its
 Chromium (placing, painting, the pane, the events' list, PLAY's offer); not used by the owner.
 The game's side of hazards merged (docs/PLAN-events.md, its log): PLAY lays them now (`PLAY_HAZARDS`), the browser build made again
 with them; a level with hazards boots in it in Playwright's Chromium, no page errors.
+
+**Session 4, later still (25 November 2026): layers and rolls** (docs/PLAN-lights.md). *LAYERS* in the map's bar: lights, triggers
+(every trigger's box and what it watches, faint; the one being edited strong), traps (hazards, fire and ice), the dream's path, things,
+rooms; each hidden layer is neither drawn nor chosen by a click; *ALL ON*, *ALL OFF*; remembered in the browser. *ROLL CREATURES* and
+*ROLL GOLD* on the budget tab: five layouts over the whole level, each on its own seed (`rolls`, `rollCreatures`, `rollGold` in
+`core.js`): the creatures by `random_type`'s weights (`typeWeights`, a kind once it has come), to what is left of the budget ("Count what
+is placed", or the whole budget), eight cells' walk or more from the start, a cell between each, mostly in rooms, none in a vault; the
+gold as `place_items` lays it (a little in most rooms, more from level 4; coins and chalices along the halls; the hoards behind each
+coloured door). One chosen shows on the map; kept, they are ordinary things. One of the dead becomes a spawn point and back with a
+button. Tested by `test.js` and in Playwright's Chromium on the owner's Storage; not used by the owner.

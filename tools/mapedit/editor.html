@@ -59,6 +59,11 @@ h3 { font-size: 12px; color: var(--dim); }
 .btn:active, .btn[aria-pressed=true] { border-color: var(--slab-lo) var(--slab-hi) var(--slab-hi) var(--slab-lo); background: var(--well); color: var(--gold); }
 .btn.warn { color: var(--crimson); }
 .btn.play { color: var(--gold); }
+details.layers { position: relative; display: inline-block; }
+details.layers > summary { list-style: none; }
+details.layers > summary::-webkit-details-marker { display: none; }
+.layerpop { position: absolute; z-index: 20; top: calc(100% + 4px); left: 0; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; min-width: 13em; }
+.layerpop label { display: flex; gap: 8px; align-items: center; white-space: nowrap; }
 .btn:disabled { opacity: 0.45; cursor: default; }
 input[type=text], input[type=number], select, textarea { background: var(--well); border: 2px solid; border-color: var(--slab-lo) var(--slab-hi) var(--slab-hi) var(--slab-lo); padding: 3px 6px; }
 input[type=number] { width: 5.5em; }
@@ -185,6 +190,7 @@ input[type=range] { width: 100%; accent-color: var(--gold); }
         <button class="btn" id="bLattice" aria-pressed="true" title="Snap to the block lattice (G)">LATTICE</button>
         <button class="btn" id="bLanes" aria-pressed="true" title="Show the dream's lanes (L)">LANES</button>
         <button class="btn" id="bGrid" aria-pressed="true" title="Show the cell grid">GRID</button>
+        <details class="layers" id="layersBox"><summary class="btn">LAYERS</summary><div class="layerpop slab" id="layerPop"></div></details>
         <span class="sep"></span>
         <button class="btn" id="bZoomOut" title="Zoom out (-)">-</button>
         <span class="num" id="zoomLabel">16 PX</span>
@@ -289,6 +295,10 @@ function spriteOf(t) {
 const S = { map: null, id: null, hist: [], fut: [], dirty: false, savedAt: null, zoom: 16, lattice: true, showLanes: true, showGrid: true,
   tool: { kind: 'select' }, sel: null, tab: 'inspect', checks: [], hl: null, dream: null, dstep: 0, playing: null, stampT: 0,
   db: null, dl: null, example: false, hover: null };
+/* the layers: what the map shows, and what a click can choose; remembered in this browser */
+const LAYERS = [['lights', 'Lights'], ['triggers', 'Triggers'], ['traps', 'Traps: hazards, fire, ice'], ['path', 'The dream\'s path'], ['things', 'Things'], ['rooms', 'Rooms']];
+S.layers = Object.fromEntries(LAYERS.map(([k]) => [k, true]));
+try { Object.assign(S.layers, JSON.parse(localStorage.getItem('cme.layers') || '{}')); } catch (e) {}
 const TILE_TOOLS = [['#', 'Stone'], ['.', 'Floor'], ['F', 'Burning floor'], ['I', 'Ice'], ['D', 'Door'], ['G', 'Gold door'], ['C', 'Crimson door'],
   ['=', 'One-way gate'], ['B', 'Barred door'], ['S', 'Start'], ['X', 'Exit'], ['h', 'Place to mend'], ['c', 'Secret wall'], ['q', 'Secret room']];
 const THING_TOOLS = [
@@ -339,12 +349,12 @@ function draw() {
     g.lineTo(cx - d[0] * z * 0.3 + d[1] * z * 0.3, cy - d[1] * z * 0.3 + d[0] * z * 0.3);
     g.lineTo(cx - d[0] * z * 0.3 - d[1] * z * 0.3, cy - d[1] * z * 0.3 - d[0] * z * 0.3); g.closePath(); g.fill();
   }
-  C.fields(S.map, cells).forEach(f => {                           /* a field down, at the start or at the dream's step: dimmed */
+  if (S.layers.traps) C.fields(S.map, cells).forEach(f => {                           /* a field down, at the start or at the dream's step: dimmed */
     const live = S.dream ? C.fieldLive(S.dream, f, S.dstep) : f.on;
     if (!live) { g.fillStyle = 'rgba(10,8,14,0.62)'; f.cells.forEach(([x, y]) => g.fillRect(x * z, y * z, z, z)); }
     if (S.sel && S.sel.kind === 'field' && S.sel.key === f.key) { g.strokeStyle = PAL.start; g.lineWidth = 2; f.cells.forEach(([x, y]) => g.strokeRect(x * z + 1, y * z + 1, z - 2, z - 2)); }
   });
-  (S.map.hazards || []).forEach((h, i) => {                     /* hazards: their cells in their element's colour, the anchor, the box */
+  if (S.layers.traps) (S.map.hazards || []).forEach((h, i) => {                     /* hazards: their cells in their element's colour, the anchor, the box */
     const col = C.EL_COL[DATA.hazards.elem[h.kind]] || '#b07ae0', sel = S.sel && S.sel.kind === 'hazard' && S.sel.i === i, v = k => (h[k] == null ? C.HZ_DEF[k] : h[k]);
     g.globalAlpha = sel ? 0.5 : 0.3; g.fillStyle = col;
     h.cells.forEach(([x, y]) => g.fillRect(x * z, y * z, z, z));
@@ -376,7 +386,7 @@ function draw() {
   }
   /* rooms */
   g.lineWidth = 1; g.font = `${Math.max(10, Math.round(z * 0.75))}px VT323, monospace`; g.textBaseline = 'top';
-  S.map.rooms.forEach((r, i) => {
+  if (S.layers.rooms) S.map.rooms.forEach((r, i) => {
     const sel = S.sel && S.sel.kind === 'room' && S.sel.i === i;
     g.strokeStyle = sel ? PAL.start : r.vault >= 0 ? KEYCOL[r.vault] : '#d8d0bd';
     g.setLineDash(sel ? [] : [4, 3]); g.lineWidth = sel ? 2 : 1;
@@ -398,7 +408,7 @@ function draw() {
     g.fillStyle = mk.g === 's' ? '#d2473b' : '#c79bf0'; g.fillText(mk.g, mk.x * z + z * 0.33, mk.y * z + z * 0.1);
   });
   /* torches: on a wall's face, lit or not (at the dream's step, when it is shown), a ring of the group's colour */
-  (S.map.torches || []).forEach((t, i) => {
+  if (S.layers.lights) (S.map.torches || []).forEach((t, i) => {
     const d = C.DIRS[t.d], cx = t.x * z + z / 2 + d[0] * z * 0.36, cy = t.y * z + z / 2 + d[1] * z * 0.36, sel = S.sel && S.sel.kind === 'torch' && S.sel.i === i;
     const lit = S.dream ? C.torchLit(S.dream, t, S.dstep) : t.lit, r = Math.max(3, z * 0.2);
     if (lit) { g.fillStyle = 'rgba(255,170,60,0.28)'; g.beginPath(); g.arc(cx, cy, z * 0.7, 0, 7); g.fill(); }
@@ -409,7 +419,16 @@ function draw() {
   });
   /* the trigger being edited: what it watches, its box, the doors its actions name */
   const fe = S.tab === 'events' && S.evSel != null ? (S.map.events || [])[S.evSel] : null;
-  if (fe) {
+  if (S.layers.triggers) (S.map.events || []).forEach(e => {      /* every trigger, faint: its box, and a ring on what it watches */
+    if (e === fe) return;
+    g.globalAlpha = 0.45; g.lineWidth = 1; g.strokeStyle = '#c79bf0'; g.setLineDash([3, 3]);
+    if (e.area) g.strokeRect(e.area.x0 * z + 1, e.area.y0 * z + 1, (e.area.x1 - e.area.x0 + 1) * z - 2, (e.area.y1 - e.area.y0 + 1) * z - 2);
+    g.setLineDash([]);
+    const tt = S.map.things.find(t => t.id === e.target);
+    if (tt) { g.beginPath(); g.arc(tt.x * z, tt.y * z, z * 0.6, 0, 7); g.stroke(); }
+    g.globalAlpha = 1;
+  });
+  if (fe && S.layers.triggers) {
     g.lineWidth = 2; g.strokeStyle = '#c79bf0'; g.setLineDash([5, 3]);
     if (fe.area) g.strokeRect(fe.area.x0 * z + 1, fe.area.y0 * z + 1, (fe.area.x1 - fe.area.x0 + 1) * z - 2, (fe.area.y1 - fe.area.y0 + 1) * z - 2);
     g.setLineDash([]);
@@ -421,12 +440,12 @@ function draw() {
   /* things */
   const ts = Math.max(8, Math.round(z * 0.5));
   const st0 = S.sel && S.sel.kind === 'thing' ? S.map.things.find(t => t.id === S.sel.id) : null;
-  if (st0 && ((st0.inRooms || []).length || st0.spotTag)) {        /* where the dice may lay it: a ghost at each place */
+  if (S.layers.things && st0 && ((st0.inRooms || []).length || st0.spotTag)) {        /* where the dice may lay it: a ghost at each place */
     g.globalAlpha = 0.45;
     C.pickOptions(S.map, composed.cells, laneMask, st0).forEach(o => { const p = o.pos; if (p) { g.drawImage(spriteOf(st0), Math.round(p[0] * z - ts / 2), Math.round(p[1] * z - ts / 2), ts, ts); g.strokeStyle = '#c79bf0'; g.strokeRect(Math.round(p[0] * z - ts / 2) - 2, Math.round(p[1] * z - ts / 2) - 2, ts + 4, ts + 4); } });
     g.globalAlpha = 1;
   }
-  S.map.things.forEach((t, i) => {
+  if (S.layers.things) S.map.things.forEach((t, i) => {
     const dp = S.dream && S.dream.pos && S.dream.pos.get(t.id), tx = dp ? dp[0] : t.x, ty = dp ? dp[1] : t.y;
     const px = tx * z - ts / 2, py = ty * z - ts / 2, sel = S.sel && S.sel.kind === 'thing' && S.sel.id === t.id;
     g.globalAlpha = t.t === 'spot' ? 0.7 : 1;
@@ -435,6 +454,12 @@ function draw() {
     if (t.t === 'spawn' && t.k) { g.fillStyle = '#ff9a8a'; g.fillRect(Math.round(px + ts - 3), Math.round(py), 3, 3); }
     if (sel) { g.strokeStyle = PAL.start; g.lineWidth = 2; g.strokeRect(Math.round(px) - 2, Math.round(py) - 2, ts + 4, ts + 4); }
   });
+  /* a roll being looked at: its things, faint, ringed in gold */
+  if (S.roll && S.roll.cur != null) {
+    const L = S.roll.layouts[S.roll.cur], ts = Math.max(8, Math.round(z * 0.9));
+    L.items.forEach(t => { g.globalAlpha = 0.85; g.drawImage(spriteOf(t), Math.round(t.x * z - ts / 2), Math.round(t.y * z - ts / 2), ts, ts); g.globalAlpha = 1;
+      g.strokeStyle = PAL.start; g.lineWidth = 1; g.strokeRect(Math.round(t.x * z - ts / 2) - 1.5, Math.round(t.y * z - ts / 2) - 1.5, ts + 3, ts + 3); });
+  }
   /* the check being looked at */
   if (S.hl) {
     g.lineWidth = 2;
@@ -442,7 +467,7 @@ function draw() {
     S.hl.cells.forEach(([x, y]) => g.strokeRect(x * z + 1, y * z + 1, z - 2, z - 2));
   }
   /* the dream's walk, as far as the step shown */
-  if (S.dream && S.dream.route.length) {
+  if (S.layers.path && S.dream && S.dream.route.length) {
     const R = S.dream.route, n = Math.min(S.dstep, R.length - 1);
     g.strokeStyle = 'rgba(199,155,240,0.95)'; g.lineWidth = Math.max(2, z / 6); g.lineJoin = 'round';
     g.beginPath(); R.slice(0, n + 1).forEach(([x, y], k) => { const px = x * z + z / 2, py = y * z + z / 2; k ? g.lineTo(px, py) : g.moveTo(px, py); }); g.stroke();
@@ -479,13 +504,13 @@ function stampSnap(cx, cy, name) {
 }
 function hit(p) {
   const r = Math.max(0.3, 6 / S.zoom);
-  for (let i = (S.map.hazards || []).length - 1; i >= 0; i--) { const h = S.map.hazards[i]; if (h.ax === p.cx && h.ay === p.cy) return { kind: 'hazard', i }; }
-  for (let i = (S.map.torches || []).length - 1; i >= 0; i--) { const t = S.map.torches[i]; if (t.x === p.cx && t.y === p.cy) return { kind: 'torch', i }; }
-  for (let i = S.map.things.length - 1; i >= 0; i--) { const t = S.map.things[i]; if (Math.abs(t.x - p.x) <= r && Math.abs(t.y - p.y) <= r) return { kind: 'thing', id: t.id }; }
+  if (S.layers.traps) for (let i = (S.map.hazards || []).length - 1; i >= 0; i--) { const h = S.map.hazards[i]; if (h.ax === p.cx && h.ay === p.cy) return { kind: 'hazard', i }; }
+  if (S.layers.lights) for (let i = (S.map.torches || []).length - 1; i >= 0; i--) { const t = S.map.torches[i]; if (t.x === p.cx && t.y === p.cy) return { kind: 'torch', i }; }
+  if (S.layers.things) for (let i = S.map.things.length - 1; i >= 0; i--) { const t = S.map.things[i]; if (Math.abs(t.x - p.x) <= r && Math.abs(t.y - p.y) <= r) return { kind: 'thing', id: t.id }; }
   for (let i = S.map.stamps.length - 1; i >= 0; i--) { const st = S.map.stamps[i], rows = C.stampRows(DATA, st); if (p.cx >= st.x && p.cy >= st.y && p.cx < st.x + rows[0].length && p.cy < st.y + rows.length) return { kind: 'stamp', i }; }
   const fc = composed.cells[C.idx(p.cx, p.cy)];
-  if (fc === 'F' || fc === 'I') { const f = C.fields(S.map, composed.cells).find(f => f.cells.some(([x, y]) => x === p.cx && y === p.cy)); if (f) return { kind: 'field', key: f.key }; }
-  for (let i = S.map.rooms.length - 1; i >= 0; i--) { const rm = S.map.rooms[i]; if (p.cx >= rm.x && p.cy >= rm.y && p.cx < rm.x + rm.w && p.cy < rm.y + rm.h) return { kind: 'room', i }; }
+  if (S.layers.traps && (fc === 'F' || fc === 'I')) { const f = C.fields(S.map, composed.cells).find(f => f.cells.some(([x, y]) => x === p.cx && y === p.cy)); if (f) return { kind: 'field', key: f.key }; }
+  if (S.layers.rooms) for (let i = S.map.rooms.length - 1; i >= 0; i--) { const rm = S.map.rooms[i]; if (p.cx >= rm.x && p.cy >= rm.y && p.cx < rm.x + rm.w && p.cy < rm.y + rm.h) return { kind: 'room', i }; }
   return null;
 }
 function paintCell(cx, cy) {
@@ -786,7 +811,8 @@ function paneThing(t) {
   if (t.t === 'mark') h += `<div class="field"><label for="tK">Kind</label><select id="tK">${[0, 1, 2].map(k => opt(k, ['a bound coffer (any spell)', 'a cage (any spell)', "the class's own"][k], t.k)).join('')}</select></div>`;
   const kindOpts = cur => KINDS.map(k => opt(k.id, `${k.name.toLowerCase()} · ${k.cost} · from ${k.debut}${k.debut > S.map.level ? ' (early)' : ''}`, cur)).join('');
   if (t.t === 'dead') h += `<div class="field"><label for="tK">Kind</label><select id="tK">${kindOpts(t.k)}</select></div>
-    <p class="note">One of the dead, set where drawn at rank I, as the tutorial's are. It is not drawn from the budget.</p>`;
+    <p class="note">One of the dead, set where drawn at rank I, as the tutorial's are. It is not drawn from the budget.</p>
+    <div class="row"><button class="btn" id="tToSpawn">MAKE IT A SPAWN POINT</button></div><p class="note">A spawn point keeps this kind and may be given a chance, a rank, an element and a wake group.</p>`;
   if (t.t === 'spawn') {
     const ri = t.rank ? C.RANKS.indexOf(t.rank) : -1, def = ri >= 0 ? C.elemDefault(S.map.level, ri) : null, fav = C.ELEM_FAV[L.set].map(e => e.slice(3).toLowerCase()).join(' and ');
     h += `<div class="field"><label for="tK">Creature</label><select id="tK">${opt('', "budget's choice", t.k)}${kindOpts(t.k)}</select></div>
@@ -797,6 +823,7 @@ function paneThing(t) {
       ${t.echance == null ? `<p class="note">${ri >= 0 ? `At rank ${esc(t.rank)} the game gives ${Math.round(def * 100)}%.` : 'Rank I none; II 15%, III 25%, IV 35%, V 45%; gilded none.'} On ${esc(L.runName.toLowerCase())} it favours ${esc(fav)}.</p>`
         : `<div class="field"><label for="tEc">Chance</label><div class="row"><input type="range" id="tEc" min="0" max="100" step="5" value="${t.echance}" style="flex:1"><span class="num" id="tEcV">${t.echance}%</span></div></div>`}
       <div class="field"><label for="tEl">Which</label><select id="tEl">${opt('', "run's favourite", t.el || '')}${DATA.elems.filter(e => e !== 'EL_PHYS').map(e => opt(e, e.slice(3).toLowerCase(), t.el || '')).join('')}</select></div>
+      ${t.k ? '<div class="row"><button class="btn" id="tToDead">MAKE IT ONE OF THE DEAD</button></div>' : ''}
       <p class="note">A creature chosen here comes whenever its chance falls, budget or not. The budget's choice comes only while the level's budget can pay for it (at rank I).</p>`;
   }
   if (t.t === 'relic') h += `<div class="field"><label for="tN">Name</label><input type="text" id="tN" value="${esc(t.name || '')}"></div>
@@ -835,11 +862,27 @@ function paneBudget() {
     <div class="kv"><span>Heads, expected</span><span>${b.heads.toFixed(1)}</span><span>Heads at most</span><span>${b.headsMost} of ${C.MAX.heads}</span></div>
     <div class="meter"><i class="${b.headsMost > C.MAX.heads ? 'over' : ''}" style="width:${hp(b.headsMost)}%"></i></div>
     <p class="note">A head costs by its kind (a skeleton 1, a knight 2) and a fifth more a rank. A point with the budget's choice is counted as a skeleton. The budget is the generator's for this level; the tutorial's levels hold more than theirs.</p>
+    ${rollBox('dead')}
     <h2>GOLD</h2>
     <div class="kv"><span>In the open</span><span>${g.open} in ${g.n}</span><span>In secrets</span><span>${g.secret} in ${g.ns}</span><span>All told</span><span>${g.open + g.secret}</span>${kinds}</div>
     <h2>SECRETS</h2>
     ${b.secrets.length ? `<div class="kv">${b.secrets.map((s, i) => `<span>Secret ${i + 1} at (${s.x},${s.y}), ${s.cells} cells</span><span>${s.gold} in ${s.n}</span>`).join('')}<span>Running total</span><span>${b.secrets.reduce((a, s) => a + s.gold, 0)}</span></div>` : '<p class="note">No secret yet: a cracked wall (c) with its room (q) behind it, or a secret room stamp.</p>'}
-    <p class="note">Gold in a secret is kept out of the level's count, as the game keeps it.</p>`;
+    <p class="note">Gold in a secret is kept out of the level's count, as the game keeps it.</p>
+    ${rollBox('gold')}`;
+}
+/* the rolls: five layouts over the whole level, chosen to see on the map, one kept */
+function rollBox(what) {
+  const R = S.roll && S.roll.what === what ? S.roll : null, noun = what === 'gold' ? 'GOLD' : 'CREATURES';
+  let h = `<div class="row"><button class="btn" data-roll="${what}">${R ? 'ROLL AGAIN' : 'ROLL ' + noun}</button>${R ? `<button class="btn" data-rollx="1">PUT IT AWAY</button>` : ''}</div>`;
+  if (what === 'dead') h += `<div class="row"><label><input type="checkbox" id="rollCount"${S.rollWhole ? '' : ' checked'}> Count what is placed</label></div>`;
+  if (R && what === 'dead' && R.layouts.every(L => !L.items.length)) h += `<p class="note">Nothing fits: the creatures already placed spend all but ${R.layouts[0].left.toFixed(2)} of the budget, less than the cheapest kind. Clear "Count what is placed" to roll the whole budget.</p>`;
+  if (!R) return h + `<p class="note">Five layouts of ${what === 'gold' ? 'gold, laid as the generator lays it: a little in most rooms, coins along the halls, the hoards behind each coloured door' : 'creatures, kinds as the game draws them for this level, to what is left of its budget, eight cells or more from the start'}. Choose one to see it; keep the one you like.</p>`;
+  R.layouts.forEach((L, k) => {
+    const tally = {}; L.items.forEach(t => { const n = C.label(DATA, t); tally[n] = (tally[n] || 0) + 1; });
+    h += `<button class="btn" data-rollpick="${k}" aria-pressed="${R.cur === k}" style="text-align:left;display:block;width:100%;margin-top:4px">${k + 1}. ${L.items.length} ${what === 'gold' ? `worth ${L.value}` : `cost ${L.spent.toFixed(2)} of ${L.left.toFixed(2)}`}<br><span class="note">${esc(Object.entries(tally).map(([n, c]) => c + ' ' + n.toLowerCase()).join(', '))}</span></button>`;
+  });
+  if (R.cur != null) h += `<div class="row" style="margin-top:6px"><button class="btn play" data-rollok="1">KEEP LAYOUT ${R.cur + 1}</button></div><p class="note">Kept, they are yours: move them, take some away, or make any of the dead a spawn point.</p>`;
+  return h;
 }
 function paneChecks() {
   const c = S.checks, n = s => c.filter(x => x.sev === s).length;
@@ -966,6 +1009,8 @@ function wirePane() {
     on('tX', 'change', e => change(() => { o.x = Math.max(0.125, Math.min(N - 0.125, +e.target.value)); }));
     on('tY', 'change', e => change(() => { o.y = Math.max(0.125, Math.min(N - 0.125, +e.target.value)); }));
     on('tK', 'change', e => change(() => { o.k = o.t === 'key' || o.t === 'mark' ? +e.target.value : e.target.value; }));
+    on('tToSpawn', 'click', () => change(() => { o.t = 'spawn'; o.chance = 100; }));
+    on('tToDead', 'click', () => change(() => { o.t = 'dead'; ['chance', 'rank', 'echance', 'el', 'wake', 'spotTag'].forEach(k => delete o[k]); }));
     on('tCh', 'input', e => { $('tChV').textContent = e.target.value + '%'; });
     on('tCh', 'change', e => change(() => { o.chance = +e.target.value; }));
     on('tR', 'change', e => change(() => { o.rank = e.target.value; }));
@@ -1040,6 +1085,15 @@ function wirePane() {
     on('fDel', 'click', () => change(() => { S.map.fields = (S.map.fields || []).filter(x => `${x.x},${x.y}` !== o.key); }));
   }
   wireEvents(on);
+  document.querySelectorAll('[data-roll]').forEach(b => b.addEventListener('click', () => {
+    S.roll = { what: b.dataset.roll, layouts: C.rolls(DATA, S.map, b.dataset.roll, (Date.now() & 0x7fffffff) >>> 0, !!S.rollWhole), cur: 0 }; draw(); pane(); }));
+  on('rollCount', 'change', e => { S.rollWhole = !e.target.checked; if (S.roll && S.roll.what === 'dead') S.roll = null; draw(); pane(); });
+  document.querySelectorAll('[data-rollx]').forEach(b => b.addEventListener('click', () => { S.roll = null; draw(); pane(); }));
+  document.querySelectorAll('[data-rollpick]').forEach(b => b.addEventListener('click', () => { S.roll.cur = +b.dataset.rollpick; draw(); pane(); }));
+  document.querySelectorAll('[data-rollok]').forEach(b => b.addEventListener('click', () => {
+    const L = S.roll.layouts[S.roll.cur], n = L.items.length;
+    change(() => { L.items.forEach(t => S.map.things.push(Object.assign({ id: S.map.next++ }, t))); });
+    S.roll = null; toast(`KEPT: ${n} SET DOWN. UNDO TAKES THEM BACK`); draw(); pane(); }));
   if (o && S.sel.kind === 'room') {
     [['rX', 'x'], ['rY', 'y'], ['rW', 'w'], ['rH', 'h']].forEach(([id, k]) => on(id, 'change', e => change(() => { o[k] = Math.max(k === 'w' || k === 'h' ? 1 : 0, Math.min(N, +e.target.value | 0)); })));
     on('rT', 'change', e => change(() => { o.rt = e.target.value; }));
@@ -1203,7 +1257,7 @@ async function listVersions(id) {
   try { return JSON.parse(localStorage.getItem('cme.v.' + id) || '[]').map((v, i) => ({ vid: String(i), ...v })).reverse(); } catch (e) { return []; }
 }
 function load(id, body, example) {
-  S.id = id; S.map = unpack(body.map || body); S.hist = []; S.fut = []; S.sel = null; S.hl = null; S.dream = null; stopPlay();
+  S.id = id; S.roll = null; S.map = unpack(body.map || body); S.hist = []; S.fut = []; S.sel = null; S.hl = null; S.dream = null; stopPlay();
   S.dirty = false; S.example = !!example; S.savedAt = example ? null : body.updated || null;
   refresh(); close();
 }
@@ -1280,6 +1334,22 @@ $('bExport').addEventListener('click', () => {
   showText(`EXPORT FOR DRAWN.C (SLOT ${n})`, ('') + (errs ? `${errs} check${errs > 1 ? 's say' : ' says'} this level would break: see CHECKS before pasting. ` : '') +
     `Paste the arrays above DRAWN[] in src/crawl/game/drawn.c and the last two lines into DRAWN[], then raise NDRAWN. The row carries the level it is laid on (${S.map.level}), the first time down.`, x.text, `drawn-level-${S.map.level}-slot-${n}.txt`);
 });
+
+/* ---------- the layers' menu ---------- */
+function buildLayers() {
+  const P = $('layerPop'), save = () => { try { localStorage.setItem('cme.layers', JSON.stringify(S.layers)); } catch (e) {} };
+  P.innerHTML = LAYERS.map(([k, n]) => `<label><input type="checkbox" data-layer="${k}"${S.layers[k] ? ' checked' : ''}> ${esc(n)}</label>`).join('')
+    + '<div class="row"><button class="btn" id="layAll">ALL ON</button><button class="btn" id="layNone">ALL OFF</button></div>';
+  P.querySelectorAll('[data-layer]').forEach(b => b.addEventListener('change', () => { S.layers[b.dataset.layer] = b.checked; save(); markLayers(); draw(); }));
+  $('layAll').addEventListener('click', () => { LAYERS.forEach(([k]) => { S.layers[k] = true; }); save(); buildLayers(); markLayers(); draw(); });
+  $('layNone').addEventListener('click', () => { LAYERS.forEach(([k]) => { S.layers[k] = false; }); save(); buildLayers(); markLayers(); draw(); });
+}
+function markLayers() {                                          /* the summary says when something is hidden */
+  const off = LAYERS.filter(([k]) => !S.layers[k]).length;
+  $('layersBox').querySelector('summary').textContent = off ? `LAYERS (${off} HIDDEN)` : 'LAYERS';
+}
+buildLayers(); markLayers();
+document.addEventListener('click', e => { const d = $('layersBox'); if (d.open && !d.contains(e.target)) d.open = false; });
 
 /* ---------- PLAY: the game's browser build in play/, over the editor, given this level as its export (docs/PLAN-mapedit.md, part 3).
    The game reads the same text EXPORT C gives, and a new run there begins on this level. ---------- */
