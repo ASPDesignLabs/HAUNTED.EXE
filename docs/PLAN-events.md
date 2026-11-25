@@ -108,6 +108,40 @@ What each part does, as the editor's dream walk has it (`dream` in `core.js`; th
 - **Doors:** `B` is a door barred till an action opens or unlocks it; `TA_DOOR_SHUT` shuts and bars any door.
 - **Rooms:** up to 24 on a drawn level; **secrets:** each `c` with its own room of `q` cells, up to `MAXSECRETS`.
 
+## 2c. Hazards on drawn levels (asked and settled 25 November 2026)
+
+The owner: "At the moment I can't place elemental traps, like rock falls or fire falls. Hazards with their impacted areas and settings
+for their logic." Asked, they settled: **both** placed hazards and zones; set off **on a clock, by walking in, and by triggers** (any mix);
+settings **harm and its status, warning time, live at the start, may kill**; the editor offers **the level's own run's** hazards, under
+the run's name (a subcategory in the palette). The kinds are the game's own (`HZ_*`: each run's fixed ones `HZ_FIXED`, arising ones
+`HZ_ARISE` and its sapper `HZ_SAPPER`, read by `extract.py`), with their art, sounds, warnings and elements; no new art.
+
+**The shape of every hazard:** an **anchor** cell (on the floor, or in a wall for those set in one: the breath's niche, the cold crack,
+bile's grate, the sluice, the weeping saint, the lodestone seam, the fissure) and the **cells it covers**, painted, in the order painted
+(a line's order: votive wax, Hellrent's cracks, the cart's rails, the censer's arc, the timber strip, the fissure's breath). **Placed**
+(`zone` 0): each time it goes off it covers all its cells, as the game lays that kind. **Zone** (`zone` 1): each time, one place within
+its cells, chosen by the run's dice, as the game would choose near you (a rock on one cell; a crack line within the cells). A fixed kind
+(a site) is always placed: its area is its own. **What sets it off** (`how`, bits): `HH_CLOCK` every `every` s with `give` s either way,
+the first after `first` s; `HH_ENTER` each time the caster walks into the box `x0, y0, x1, y1` (inclusive, the drawing's cells), at most
+once each `every` s if set; neither: only a trigger (`TA_HAZ_ON` makes it live, `TA_HAZ_OFF` not; going back swaps them). A fixed site
+that runs by itself (the censer swinging, the cart's runs, the crystal's hum) runs while live, at the game's own pace or `every` if set.
+**Live at the start** (`on`); a hazard not live does nothing and shows nothing of its warning. **Settings**, each -1 for the game's own:
+`harm` (% of health a strike takes: `Hazard.share`), `chance` (% of its status: burning, poison, chill, the hold), `warn` (seconds of
+warning, never under 0.9: `hz_warn`), and `kills` (0: it never takes the caster below a quarter of health, as the omens; 1: it may kill).
+The dream steps round them as it does every hazard (`hz_dmap`).
+
+```c
+enum { HH_CLOCK = 1, HH_ENTER = 2 };
+typedef struct { int kind, ax, ay, cell, ncell, zone, how; float every, give, first; int x0, y0, x1, y1, on, harm, chance, kills;
+                 float warn; } DrawnHaz;                       /* kind: HZ_*; cell, ncell: a run in _HZCELL */
+typedef struct { int x, y; } DrawnCell;
+/* TA_* gains, at its end: TA_HAZ_ON, TA_HAZ_OFF (arg: the hazard, its index in _HAZ) */
+/* Drawn's row, after the fields: haz, nhaz, hzcell, nhzcell */
+```
+
+At most 12 hazards a drawn level (`MAXSITE`) and 256 cells in all. The editor's dream walk ignores them (the game's dream steps round
+them; a hazard cannot shut a way). The tutorial's two levels export none.
+
 ## 3. Steps
 
 | | Step | Proof |

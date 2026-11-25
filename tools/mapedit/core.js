@@ -25,7 +25,7 @@ const ELEM_FAV = [['EL_FIRE', 'EL_SPIRIT'], ['EL_FROST', 'EL_POISON'], ['EL_LIGH
 const GOLD_KINDS = ['IT_COINS', 'IT_CHALICE', 'IT_GEMS', 'IT_CROWN', 'IT_CHEST'];
 const KEY_NAMES = ['GOLD', 'SILVER', 'CRIMSON'];
 const MARK_NAMES = ['COFFER', 'CAGE', "THE CLASS'S OWN"];
-const MAX = { heads: 48, mobs: 64, items: 96, fire: 96, ice: 96, rooms: 24, rest: 2, secrets: 6, fields: 8, torches: 120 };
+const MAX = { heads: 48, mobs: 64, items: 96, fire: 96, ice: 96, rooms: 24, rest: 2, secrets: 6, fields: 8, torches: 120, hazards: 12, hzcells: 256 };
 
 const idx = (x, y) => y * N + x;
 const inMap = (x, y) => x >= 0 && y >= 0 && x < N && y < N;
@@ -33,7 +33,7 @@ const isOpen = ch => !WALLS.has(ch);            /* is_open: a cell one may stand
 
 function blank(level) {
     return { v: 1, name: 'Untitled level', level: level || 3, face: 0, seed: '', lattice: true, corrupt: false,
-             grid: new Array(N * N).fill('#'), lane: new Array(N * N).fill(0), rooms: [], things: [], stamps: [], torches: [], events: [], next: 1 };
+             grid: new Array(N * N).fill('#'), lane: new Array(N * N).fill(0), rooms: [], things: [], stamps: [], torches: [], events: [], hazards: [], next: 1 };
 }
 function clone(m) { return JSON.parse(JSON.stringify(m)); }
 
@@ -185,10 +185,11 @@ function exportDrawn(DATA, m, n) {
         for (let i = 0; i < spawns.length; i += 2) out.push('    ' + spawns.slice(i, i + 2).join(', ') + ',');
         out.push('};');
     }
+    const hzs = m.hazards || [];
     const ev = m.events || [], tor = m.torches || [], acts = [], trigs = [], q = v => JSON.stringify(String(v || '')).replace(/\\u[0-9a-f]{4}/gi, '?');
     const actOut = a => {
         const A = ACTIONS[a.kind]; if (!A) return;
-        const arg = A.arg === 'group' ? groups.indexOf(a.group) : A.arg === 'spawn' ? wakes.indexOf(a.group) : A.arg === 'field' ? fl.findIndex(f => f.name === a.field) : A.arg === 'sound' ? (a.sound || 'SFX_DEEPCHIME') : 0;
+        const arg = A.arg === 'group' ? groups.indexOf(a.group) : A.arg === 'spawn' ? wakes.indexOf(a.group) : A.arg === 'field' ? fl.findIndex(f => f.name === a.field) : A.arg === 'haz' ? hzs.findIndex(h => hzName(m, h) === a.haz) : A.arg === 'sound' ? (a.sound || 'SFX_DEEPCHIME') : 0;
         const dx = a.door ? a.door[0] - b.x0 : 0, dy = a.door ? a.door[1] - b.y0 : 0;
         acts.push(`{ TA_${a.kind.toUpperCase()}, ${arg}, ${dx}, ${dy}, ${f2(+a.after || 0)}, ${a.kind === 'line' ? q(String(a.text || '').toUpperCase()) : 'NULL'} }`);
     };
@@ -233,8 +234,26 @@ function exportDrawn(DATA, m, n) {
         fl.forEach(f => out.push(`    { ${f.kind === 'fire' ? 'DF_FIRE' : 'DF_ICE'}, ${f.x - b.x0}, ${f.y - b.y0}, ${f.on ? 1 : 0}, ${+f.dmg || 0}, ${+f.chance || 0}, ${f.kills ? 1 : 0} },    /* ${f.name.replace(/\*\//g, '')} */`));
         out.push('};');
     }
-    const evTail = trigs.length || tor.length || relicList.length || pk.length || fl.length || tags.length
-        ? `, ${tor.length ? P + '_TORCH' : 'NULL'}, ${tor.length}, ${trigs.length ? P + '_TRIG' : 'NULL'}, ${trigs.length}, ${trigs.length ? P + '_ACT' : 'NULL'}, ${trigs.length ? Math.max(1, acts.length) : 0}, ${relicList.length ? P + '_RELIC' : 'NULL'}, ${relicList.length}, ${pk.length ? P + '_PICK' : 'NULL'}, ${pk.length}, ${fl.length ? P + '_FIELD' : 'NULL'}, ${fl.length}` : '';
+    const hzCells = [];
+    if (hzs.length) {
+        const hl = hzs.map(h => {
+            const first = hzCells.length;
+            (h.cells || []).forEach(([x, y]) => hzCells.push(`{ ${x - b.x0}, ${y - b.y0} }`));
+            const v = k => (h[k] == null ? HZ_DEF[k] : h[k]), box = v('enter') && h.box ? h.box : null, I = HAZ_INFO[h.kind] || {};
+            const how = (v('clock') ? 1 : 0) | (v('enter') ? 2 : 0), hw = how === 3 ? 'HH_CLOCK | HH_ENTER' : how === 2 ? 'HH_ENTER' : how ? 'HH_CLOCK' : '0';
+            return `{ ${h.kind}, ${h.ax - b.x0}, ${h.ay - b.y0}, ${first}, ${hzCells.length - first}, ${v('zone') && !I.site ? 1 : 0}, ${hw}, ${f2(+v('every'))}, ${f2(+v('give'))}, ${f2(+v('first'))}, `
+                + `${box ? box.x0 - b.x0 : 0}, ${box ? box.y0 - b.y0 : 0}, ${box ? box.x1 - b.x0 : -1}, ${box ? box.y1 - b.y0 : -1}, ${v('on') ? 1 : 0}, ${Math.round(+v('harm'))}, ${Math.round(+v('chance'))}, ${v('kills') ? 1 : 0}, ${f2(+v('warn'))} },    /* ${hzName(m, h).replace(/\*\//g, '')} */`;
+        });
+        out.push(`/* hazards (docs/PLAN-events.md, 2c): the kind; its anchor; its cells (a run in ${P}_HZCELL); a zone (one place at a time) or placed;`);
+        out.push(` * what sets it off; every, give, first, s; the box walked into; live at the start; harm %, its status %, may kill; warning, s (-1: the game's own) */`);
+        out.push(`static const DrawnHaz ${P}_HAZ[] = {`); hl.forEach(l => out.push('    ' + l)); out.push('};');
+        out.push(`static const DrawnCell ${P}_HZCELL[] = {`);
+        for (let i = 0; i < hzCells.length; i += 8) out.push('    ' + hzCells.slice(i, i + 8).join(', ') + ',');
+        if (!hzCells.length) out.push('    { 0, 0 },    /* the array may not be empty: paint a hazard\'s cells */');
+        out.push('};');
+    }
+    const evTail = trigs.length || tor.length || relicList.length || pk.length || fl.length || tags.length || hzs.length
+        ? `, ${tor.length ? P + '_TORCH' : 'NULL'}, ${tor.length}, ${trigs.length ? P + '_TRIG' : 'NULL'}, ${trigs.length}, ${trigs.length ? P + '_ACT' : 'NULL'}, ${trigs.length ? Math.max(1, acts.length) : 0}, ${relicList.length ? P + '_RELIC' : 'NULL'}, ${relicList.length}, ${pk.length ? P + '_PICK' : 'NULL'}, ${pk.length}, ${fl.length ? P + '_FIELD' : 'NULL'}, ${fl.length}${hzs.length ? `, ${P}_HAZ, ${hzs.length}, ${P}_HZCELL, ${Math.max(1, hzCells.length)}` : ''}` : '';
     out.push(`/* its row in DRAWN[] */`);
     out.push(`    { ${P}_MAP, ${b.w}, ${b.h}, ${b.x0}, ${b.y0}, ${m.face}, ${P}_ROOM, (int)(sizeof ${P}_ROOM / sizeof ${P}_ROOM[0]), { ${vault.join(', ')} },`);
     out.push(`      ${P}_THING, (int)(sizeof ${P}_THING / sizeof ${P}_THING[0]), ${seed}u, ${m.level}, ${spawns.length ? P + '_SPAWN' : 'NULL'}, ${spawns.length ? `(int)(sizeof ${P}_SPAWN / sizeof ${P}_SPAWN[0])` : 0}${evTail} },`);
@@ -263,12 +282,58 @@ const ACTIONS = {
     wake: { label: 'Spawn points wake', arg: 'spawn', guide: 'Every spawn point given this wake group is filled now, not when the level is laid. Use it for an ambush that answers a find.' },
     field_on: { label: 'A field comes alive', arg: 'field', guide: 'The burning floor you choose catches, or the ice you choose freezes over, with the harm and chances set on it (choose the field on the map to set them).' },
     field_off: { label: 'A field dies down', arg: 'field', guide: 'The burning floor you choose burns low and goes out, or the ice thaws. Safe to cross while it is down.' },
+    haz_on: { label: 'A hazard wakes', arg: 'haz', guide: 'The hazard you choose comes alive: on its clock, at its box, or going off now if it has neither.' },
+    haz_off: { label: 'A hazard stops', arg: 'haz', guide: 'The hazard you choose stops, its warning and all. Use it for a lever that stills the rockfall.' },
     secret: { label: 'A secret\'s wall slides', arg: 'secret', guide: 'The level\'s secret wall (c) slides open as if found.' },
     line: { label: 'A line on screen', arg: 'text', guide: 'A caption at the top of the view, in capitals, as the game\'s own are ("THE TORCHES TO THE NORTH CATCH"). Keep it short: about 40 characters.' },
     sound: { label: 'A sound', arg: 'sound', guide: 'One of the game\'s own sounds.' },
 };
 const SOUNDS = ['SFX_DEEPCHIME', 'SFX_SHIMMER', 'SFX_KNOCK', 'SFX_KEYGET', 'SFX_BONES', 'SFX_WAIL'];
 const SOUND_NAMES = ['a deep chime', 'a shimmer', 'a knock', 'a key\'s ring', 'bones', 'a wail'];
+
+/* The hazards (docs/PLAN-events.md, 2c): the game's own, by run, as extract.py reads them (DATA.hazards). Each has an anchor (in a wall
+   for those set in one) and the cells it covers, painted; line: its cells in the order painted; site: it stands where it is (always
+   placed); what each is, in the owner's sample's words (docs/PLAN-b13.md, section 5), and what its anchor and cells mean */
+const HAZ_INFO = {
+    HZ_ROCK: { name: 'Falling masonry', help: 'Grit, a hardening shadow, then a block, and rubble after. Placed: a block on each painted cell at once. Zone: on one of them at a time.' },
+    HZ_VOTIVE: { name: 'Votive spill', line: 1, help: 'A rack of candles topples and burning wax runs along the cells, burning three seconds. The anchor is the rack; paint the wax\'s run in order.' },
+    HZ_CENSER: { name: 'The swinging censer', line: 1, site: 1, help: 'A great iron censer swings across a hall on a slow arc. The anchor is where its chain hangs; paint its arc end to end. Struck, a share lost and knocked a cell aside.' },
+    HZ_BREATH: { name: 'The embalmers\' breath', wall: 1, site: 1, help: 'A burial slab cracks with a hiss; a grey-green vapour settles before its niche four seconds. The anchor is the niche in a wall; paint the floor the vapour covers.' },
+    HZ_COLD: { name: 'The cold vault', wall: 1, site: 1, help: 'A crack breathes cold; rime creeps over the cells before it, chilling and slowing. The anchor is the crack in a wall; paint the rime\'s cells.' },
+    HZ_RELIQ: { name: 'The hungry reliquary', site: 1, help: 'A gilded reliquary whose lid lifts as you come near; its haze draws souls, a soul a second, and a little health. The anchor is the plinth; paint its haze, about two cells round.' },
+    HZ_BILE: { name: 'Bile', wall: 1, line: 1, help: 'A foul sheen creeps cell by cell from a grate: poison, and a fifth slower. The anchor is the grate in a wall; paint the creep, nearest first.' },
+    HZ_GALV: { name: 'The galvanic pool', help: 'Lightning comes down into standing water; the water glows and crackles, then all in it are shocked. The anchor is where it strikes; paint the water.' },
+    HZ_SILT: { name: 'Silt gas', help: 'Bubbles rise from silt; a cloud hangs over the cells and poisons; a fire spell through it bursts it into flame. Paint the cloud; the anchor is its heart.' },
+    HZ_SLUICE: { name: 'Sluice burst', wall: 1, line: 1, site: 1, help: 'A sluice clanks open; a surge runs down the canal and pushes you two cells along it, chilled. The anchor is the sluice in a wall; paint the surge\'s run in order.' },
+    HZ_SNARE: { name: 'Web snare', site: 1, help: 'A web across a doorway you can just make out; walking into it holds you a second and a half and wakes the spiders near. The anchor is the doorway\'s cell.' },
+    HZ_SAINT: { name: 'The weeping saint', wall: 1, site: 1, help: 'A saint in an alcove weeps; the pool before it draws souls while you stand in it. The anchor is the alcove in a wall; paint the pool.' },
+    HZ_FIRE: { name: 'Hellrent', line: 1, help: 'Cracks glow along a line, in order, then burst into fire a second, and embers after. Placed: the painted line. Zone: a line within the cells.' },
+    HZ_TIMBER: { name: 'Timber collapse', line: 1, site: 1, help: 'Props creak and split, then the roof comes down along a strip; rubble closes it twenty seconds. The anchor is the props; paint the strip.' },
+    HZ_DAMP: { name: 'Firedamp', site: 1, help: 'Gas pools over the floor; breathing it poisons; a fire spell or a flaring torch bursts it. Paint the pool; the anchor is its heart.' },
+    HZ_CART: { name: 'The runaway cart', line: 1, site: 1, help: 'A cart rolls down the rails, sparks off its wheels; struck, a share lost and thrown a cell, the dead too. The anchor is where it starts; paint the rails in order.' },
+    HZ_LODE: { name: 'The lodestone seam', wall: 1, site: 1, help: 'A green-veined seam crackles, then arcs to anything within a cell and a half. The anchor is the seam in a wall; paint the cells it reaches.' },
+    HZ_TITHE: { name: 'The tithe circle', site: 1, help: 'A ring of chalk marks glows as you step in and takes its tithe of souls each second you stay. Paint the ring; the anchor is its middle.' },
+    HZ_VOID: { name: 'The void', help: 'A ring and a thin column, then a purple volume: no spells, the hand greys, the world muffled. Placed: on each painted cell. Zone: on one of them at a time.' },
+    HZ_ASH: { name: 'Ashfall', help: 'Ash comes down; the fog thickens under it and you choke while you stand in it. Paint where it falls.' },
+    HZ_GLASS: { name: 'Shatterglass', help: 'The glass floor cracks in a star round a cell, and spikes stand up there a second. Placed: each painted cell. Zone: one at a time.' },
+    HZ_FISSURE: { name: 'Fissure breath', wall: 1, line: 1, site: 1, help: 'A fissure glows brighter, then breathes flame across a line before it, on a rhythm. The anchor is the fissure in a wall; paint the flame\'s line, nearest first.' },
+    HZ_CRYSTAL: { name: 'Singing crystal', site: 1, help: 'A crystal hums higher and brighter, then arcs to the three nearest things within three cells. The anchor is the crystal; paint its reach.' },
+    HZ_DCOLD: { name: 'The dark cold', site: 1, help: 'The cold of the Deep\'s end, spreading. The anchor is its source; paint where it reaches.' },
+    HZ_MIRROR: { name: 'The mirror', site: 1, help: 'The Deep\'s soul-sapping glass. The anchor is the mirror; paint the cells it draws from.' },
+};
+const EL_COL = { EL_FIRE: '#f0742a', EL_FROST: '#8fd6f0', EL_LIGHT: '#ffe66b', EL_POISON: '#8fd65a', EL_SPIRIT: '#c79bf0', EL_PHYS: '#c9ccd4' };
+const HZ_DEF = { zone: false, clock: true, enter: false, every: 8, give: 2, first: 3, on: true, harm: -1, chance: -1, warn: -1, kills: false };
+/* the level's run's hazards: fixed (sites), its sapper, and those that arise */
+function hazardsOf(DATA, level) {
+    const L = levelInfo(DATA, level), H = DATA.hazards;
+    return { run: L.set, runName: RUNS[L.set], fixed: H.fixed[L.set], sapper: [H.sapper[L.set]], arise: H.arise[L.set] };
+}
+function hzRunOf(DATA, kind) {
+    const H = DATA.hazards;
+    for (let r = 0; r < 4; r++) if (H.fixed[r].includes(kind) || H.arise[r].includes(kind) || H.sapper[r] === kind) return r;
+    return -1;
+}
+function hzName(m, h) { return h.name || (HAZ_INFO[h.kind] || {}).name || h.kind; }
 
 function frontOf(cells, x, y, secretOk) {       /* drawn_front: a wall's open side, north, south, west, east first; a secret
                                                    room's floor only when nothing else is open and it may be (a place to mend) */
@@ -359,7 +424,7 @@ const TRIG_TYPES = {
     timed: { label: 'Timed', guide: 'On for the duration you set, then back as it was: a door held open while the player runs for it, torches that burn for a while.' },
 };
 /* an action's way back, for a trigger that returns: torches and doors as they were; the rest have none */
-const UNDO = { field_on: 'field_off', field_off: 'field_on', flicker_on: 'flicker_off', flicker_off: 'flicker_on', light_on: 'light_off', light_off: 'light_on', door_open: 'door_shut', door_unlock: 'door_shut', door_shut: 'door_open' };
+const UNDO = { haz_on: 'haz_off', haz_off: 'haz_on', field_on: 'field_off', field_off: 'field_on', flicker_on: 'flicker_off', flicker_off: 'flicker_on', light_on: 'light_off', light_off: 'light_on', door_open: 'door_shut', door_unlock: 'door_shut', door_shut: 'door_open' };
 /* The dream's walk: lanes only; a key opens its doors, the seal the gate; a relic carried to the socket that takes it, one at a time; a
  * trigger fires when its thing is reached and what it waits on has fired, and its actions open and shut doors, for good or for a time.
  * The time is the dream's pace, so a timed door shut before it gets there says so. A copy of the dream's rules (goals.c), not the
@@ -422,6 +487,7 @@ function dream(DATA, m, opts) {
         if (a.kind === 'secret') st.secret = true;
         if (A.arg === 'field') { msg += `: ${a.field || '(no field)'}`; res.fieldLog.push({ at: at(), field: a.field, on: a.kind === 'field_on' }); }
         if (A.arg === 'spawn') msg += `: ${a.group || '(no group)'}`;
+        if (A.arg === 'haz') msg += `: ${a.haz || '(no hazard)'}`;
         if (a.kind === 'line') msg += `: "${a.text || ''}"`;
         if (a.after) msg += ` (after ${a.after} s)`;
         res.events.push({ at: at(), msg: '  ' + msg + '.' });
@@ -867,6 +933,7 @@ function check(DATA, m) {
             if (A.arg === 'spawn' && !wakes.includes(a.group)) add('error', `Trigger ${nm}: "${A.label}" names a wake group no spawn point is in.`);
             if (A.arg === 'door' && (!a.door || !DOORS.has(at(a.door[0], a.door[1])))) add('error', `Trigger ${nm}: "${A.label}" has no door chosen.`, a.door ? [a.door] : []);
             if (A.arg === 'field' && !fl.some(f => f.name === a.field)) add('error', `Trigger ${nm}: "${A.label}" names no field on the map.`);
+            if (A.arg === 'haz' && !(m.hazards || []).some(h => hzName(m, h) === a.haz)) add('error', `Trigger ${nm}: "${A.label}" names no hazard on the map.`);
             if (A.arg === 'secret' && !find('c').length) add('error', `Trigger ${nm}: there is no secret's wall to slide.`);
             if (a.kind === 'line' && String(a.text || '').length > 44) add('warn', `Trigger ${nm}: its line is ${String(a.text).length} characters; the view holds about 40.`);
         });
@@ -874,7 +941,33 @@ function check(DATA, m) {
     const seen = new Set(), loop = id => { if (seen.has(id)) return true; seen.add(id); const e = ev.find(o => o.id === id); const r = e && (e.needs || []).some(loop); seen.delete(id); return r; };
     ev.forEach(e => { if (loop(e.id)) add('error', `Trigger "${e.name || 'untitled'}" waits, through others, on itself: it can never fire.`); });
     find('B').forEach(c => { if (!ev.some(e => (e.actions || []).some(a => (a.kind === 'door_open' || a.kind === 'door_unlock') && a.door && a.door[0] === c[0] && a.door[1] === c[1]))) add('warn', 'A barred door no event opens: it stays shut for good.', [c]); });
-    if (ev.length || tor.length) add('info', 'This level has events: its export needs the game\'s side of them (docs/PLAN-events.md, steps 3 to 5) before it compiles.');
+    /* hazards (docs/PLAN-events.md, 2c) */
+    const hzs = m.hazards || [], mine = hazardsOf(DATA, m.level);
+    if (hzs.length > MAX.hazards) add('error', `${hzs.length} hazards: a drawn level holds ${MAX.hazards}.`);
+    const ncell = hzs.reduce((a, h) => a + (h.cells || []).length, 0);
+    if (ncell > MAX.hzcells) add('error', `The hazards cover ${ncell} cells in all: the game holds ${MAX.hzcells}.`);
+    const names = new Set();
+    hzs.forEach(h => {
+        const I = HAZ_INFO[h.kind], nm = `"${hzName(m, h)}"`, v = k => (h[k] == null ? HZ_DEF[k] : h[k]), r = hzRunOf(DATA, h.kind);
+        if (!I) { add('error', `A hazard of a kind the game does not have (${h.kind}).`, [[h.ax, h.ay]]); return; }
+        if (names.has(hzName(m, h))) add('error', `Two hazards are called ${nm}: triggers find them by name.`, [[h.ax, h.ay]]);
+        names.add(hzName(m, h));
+        if (r !== mine.run) add('warn', `${nm} is ${RUNS[r] === undefined ? 'no run' : RUNS[r].toLowerCase()}'s, and this level is in ${mine.runName.toLowerCase()}: the editor offers a level its own run's.`, [[h.ax, h.ay]]);
+        const a = at(h.ax, h.ay);
+        if (I.wall) { if (!WALLS.has(a) || a === 'h') add('error', `${nm} is set in a wall: its anchor must be stone beside the floor.`, [[h.ax, h.ay]]);
+                      else if (!DIRS.some(([dx, dy]) => isOpen(at(h.ax + dx, h.ay + dy)))) add('error', `${nm}'s wall has no floor beside it.`, [[h.ax, h.ay]]); }
+        else if (!isOpen(a)) add('error', `${nm} stands on the floor: its anchor is in stone.`, [[h.ax, h.ay]]);
+        const cl = h.cells || [];
+        if (!cl.length) add('error', `${nm} covers no cells: choose it and paint them.`, [[h.ax, h.ay]]);
+        const bad = cl.filter(([x, y]) => !isOpen(at(x, y)));
+        if (bad.length) add('error', `${nm} covers ${bad.length} cell${bad.length > 1 ? 's' : ''} of stone.`, bad);
+        if (v('enter') && !h.box) add('error', `${nm} goes off when walked into, but has no box: draw it.`, [[h.ax, h.ay]]);
+        const named = ev.some(e => [].concat(e.actions || [], e.back || []).some(x => x.haz === hzName(m, h) && x.kind === 'haz_on'));
+        if (!v('clock') && !v('enter') && !named) add('warn', `${nm} has no clock, no box and no trigger that wakes it: it never goes off.`, [[h.ax, h.ay]]);
+        if (!v('on') && !named) add('warn', `${nm} is not live at the start and no trigger wakes it.`, [[h.ax, h.ay]]);
+        if (v('clock') && +v('every') < 1) add('warn', `${nm} goes off every ${v('every')} s: the game warns for 0.9 s at least, so it would never rest.`, [[h.ax, h.ay]]);
+        if (+v('warn') >= 0 && +v('warn') < 0.9) add('warn', `${nm} warns ${v('warn')} s: the game never warns under 0.9 s and will use that.`, [[h.ax, h.ay]]);
+    });
     return out;
 }
 function label(DATA, t) {
@@ -945,7 +1038,7 @@ function sampleEvents() {
     return m;
 }
 
-const API = { ROOM_RUNS, ROOM_ANY, fieldLive, spotTags, pickOptions, fields, fieldByName, FIELD_DEF, canWatch, TRIG_TYPES, UNDO, roomSpot, picks, layouts, dreamAll, TRIGGERS, ACTIONS, SOUNDS, SOUND_NAMES, torchGroups, wakeGroups, torchLit, sampleEvents, N, DIRS, DOORS, WALLS, LANE_OF, BASE_OF, RUNS, RANKS, ELEM_FAV, GOLD_KINDS, KEY_NAMES, MARK_NAMES, MAX, idx, inMap, isOpen,
+const API = { HAZ_INFO, EL_COL, HZ_DEF, hazardsOf, hzRunOf, hzName, ROOM_RUNS, ROOM_ANY, fieldLive, spotTags, pickOptions, fields, fieldByName, FIELD_DEF, canWatch, TRIG_TYPES, UNDO, roomSpot, picks, layouts, dreamAll, TRIGGERS, ACTIONS, SOUNDS, SOUND_NAMES, torchGroups, wakeGroups, torchLit, sampleEvents, N, DIRS, DOORS, WALLS, LANE_OF, BASE_OF, RUNS, RANKS, ELEM_FAV, GOLD_KINDS, KEY_NAMES, MARK_NAMES, MAX, idx, inMap, isOpen,
               blank, clone, xformRows, stampRows, stampDef, compose, laneAt, lanes, importDrawn, exportDrawn, bounds, frontOf, dream,
               levelInfo, rankCost, budget, elemDefault, check, label, thingCell };
 if (typeof module !== 'undefined' && module.exports) module.exports = API; else root.MapCore = API;

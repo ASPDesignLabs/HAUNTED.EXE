@@ -56,5 +56,16 @@ for m in re.finditer(r"\{ (DRAWN(\d+)_MAP), (\d+), (\d+), (\d+), (\d+), (\d+), D
     if len(rows) != int(m.group(4)) or any(len(r) != int(m.group(3)) for r in rows): sys.exit("drawn level %s: rows do not match" % n)
 if not drawn: sys.exit("no drawn levels found")
 elems = [t.strip() for t in re.search(r"enum \{ (EL_FIRE[^}]*)\}", read(src + "crawl_gear.h")).group(1).split(",") if t.strip() != "NELEM"]
-json.dump({"drawn": drawn, "elems": elems, "stamps": stamps, "kinds": kinds, "budget": runb, "items": dict(zip(items, vals)), "rooms": rts,
+# the hazards (docs/PLAN-events.md, 2c): their names in order, each run's fixed, arising and sapping ones, and each one's element
+haz_src = read(src + "game/hazards.c")
+hz_names = [t.strip() for t in re.sub(r"/\*.*?\*/", "", re.search(r"enum \{ (HZ_ROCK.*?)NHZ \}", read(src + "game/state.c"), re.S).group(1), flags=re.S).split(",") if t.strip()]
+def hz_rows(name):
+    body = re.search(name + r" = \{(.*?)\};", haz_src, re.S).group(1)
+    return [[k for k in re.findall(r"HZ_\w+", row)] for row in re.findall(r"\{([^{}]*)\}", body)]
+hz_sap = re.findall(r"HZ_\w+", re.search(r"HZ_SAPPER\[4\] = \{(.*?)\};", haz_src, re.S).group(1))
+hz_el = re.findall(r"EL_\w+|-1", re.search(r"HZ_ELEM\[NHZ\] = \{(.*?)\};", haz_src, re.S).group(1))
+if len(hz_el) != len(hz_names): sys.exit("HZ_ELEM has %d, the enum %d" % (len(hz_el), len(hz_names)))
+hazards = {"names": hz_names, "fixed": hz_rows(r"HZ_FIXED\[4\]\[4\]"), "arise": hz_rows(r"HZ_ARISE\[4\]\[3\]"), "sapper": hz_sap,
+           "elem": {k: (None if e == "-1" else e) for k, e in zip(hz_names, hz_el)}}
+json.dump({"drawn": drawn, "elems": elems, "hazards": hazards, "stamps": stamps, "kinds": kinds, "budget": runb, "items": dict(zip(items, vals)), "rooms": rts,
            "mapn": int(re.search(r"#define MAPN (\d+)", defs).group(1))}, sys.stdout, indent=None, separators=(",", ":"))

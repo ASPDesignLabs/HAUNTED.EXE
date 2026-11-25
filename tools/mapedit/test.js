@@ -111,6 +111,37 @@ for (let t = 0; t < 8; t++) {
     const r = C.xformRows(s.rows, t), n = r.join('').replace(/#/g, '').length;
     if (n !== s.rows.join('').replace(/#/g, '').length) fail(`stamp turn ${t} lost cells`);
 }
+/* hazards (docs/PLAN-events.md, 2c): three of the Crypts' on the sample (level 3), one of each way of going off; their checks clear,
+ * the export's arrays and row, and a trigger that wakes one; written out as the fixture the game's side builds against */
+{
+    const m = C.sampleEvents(), cells = C.compose(DATA, m).cells, open = [], walls = [];
+    for (let y = 1; y < C.N - 1; y++) for (let x = 1; x < C.N - 1; x++) {
+        const c = cells[C.idx(x, y)];
+        if (c === '.' || c === '+') open.push([x, y]);
+        else if (c === '#' && C.DIRS.some(([dx, dy]) => '.+'.includes(cells[C.idx(x + dx, y + dy)]))) walls.push([x, y]);
+    }
+    const w = walls[5], f = C.DIRS.map(([dx, dy]) => [w[0] + dx, w[1] + dy]).find(([x, y]) => '.+'.includes(cells[C.idx(x, y)]));
+    m.hazards = [
+        { kind: 'HZ_ROCK', name: 'The roof', ax: open[3][0], ay: open[3][1], cells: [open[3], open[4], open[5]], zone: true, clock: true, every: 6, give: 1, first: 2, harm: 20 },
+        { kind: 'HZ_BREATH', name: 'The niche', ax: w[0], ay: w[1], cells: [f], clock: false, enter: true, box: { x0: f[0] - 1, y0: f[1] - 1, x1: f[0] + 1, y1: f[1] + 1 }, warn: 1.5, chance: 60 },
+        { kind: 'HZ_VOTIVE', name: 'The candles', ax: open[10][0], ay: open[10][1], cells: [open[10], open[11], open[12]], clock: false, on: false, kills: true },
+    ];
+    m.events[0].actions.push({ kind: 'haz_on', haz: 'The candles', after: 1 });
+    const ch = C.check(DATA, m), errs = ch.filter(c => c.sev === 'error'), hzw = ch.filter(c => c.sev !== 'info' && /hazard|The roof|The niche|The candles/.test(c.msg));
+    errs.concat(hzw).forEach(c => console.log('  ' + c.sev + ' ' + c.msg));
+    if (errs.length || hzw.length) fail('the hazards sample has errors or warnings about its hazards');
+    const x = C.exportDrawn(DATA, m, 3).text;
+    ['DRAWN3_HAZ[]', 'DRAWN3_HZCELL[]', 'HZ_ROCK', 'HZ_BREATH', 'HH_ENTER', 'TA_HAZ_ON, 2,', 'DRAWN3_HAZ, 3, DRAWN3_HZCELL, 7'].forEach(k => { if (!x.includes(k)) fail('the hazards export lacks ' + k); });
+    const gone = JSON.parse(JSON.stringify(m)); gone.hazards.pop();
+    if (!C.check(DATA, gone).some(c => c.sev === 'error' && /names no hazard/.test(c.msg))) fail('a trigger naming a hazard that is gone should be an error');
+    const stone = JSON.parse(JSON.stringify(m)); stone.hazards[0].cells.push(w);
+    if (!C.check(DATA, stone).some(c => c.sev === 'error' && /of stone/.test(c.msg))) fail('a hazard over stone should be an error');
+    console.log(`hazards: ${errs.length} errors; the export ${x.length} bytes with ${m.hazards.length} hazards; the Crypts offer ${Object.values(C.hazardsOf(DATA, 3)).filter(Array.isArray).flat().join(' ')}`);
+    fs.writeFileSync(path.join(__dirname, 'fixtures', 'hazards.c'), x);
+    fs.writeFileSync(path.join(__dirname, 'fixtures', 'hazards.json'), JSON.stringify(m));
+}
+/* every kind a run offers has the editor's words for it */
+DATA.hazards.fixed.flat().concat(DATA.hazards.arise.flat(), DATA.hazards.sapper).forEach(k => { if (!C.HAZ_INFO[k]) fail(`no words for ${k}`); });
 /* every room type the game has is in one group of the editor's list, by run or any run's */
 {
     const grouped = C.ROOM_RUNS.flat().concat(C.ROOM_ANY);
