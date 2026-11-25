@@ -350,3 +350,32 @@ change.
 *Left:* the owner's hand on any of it; the editor's palette, settings and painting for hazards (the other track's); whether `harm` should
 lift the quarter-a-stroke cap for a drawn hazard; the mirror, tithe and reliquary from their painted cells, if the owner wants them so;
 the browser's and Windows builds compiled by CI.
+
+**The things' sheet (25 November 2026), for the owner.** `media/sheets/events/event_things.png`, drawn by `build/lightmock things`
+(`tools/lightmock.c`; docs/PLAN-lights.md section 4 has the tool). Today's borrowed looks on its top row, then each run's: the
+**barred door**, the run's own door with a beam across it in two staples and a chain crossed over it to an iron plate with a hand
+cut in it (no keyhole, so nothing says a key opens it), and unbarred, the beam and plate gone and a chain hung loose, for an
+unlock before the door slides; the **relic**, a bone bound in gold, a key's teeth at its end, a red seal on a cord; the
+**socket**, a plinth with two stone hands held up on it and the relic's shape cut in its face, and holding, the relic across the
+hands and the cut alight; the **lever**, a stone post, a toothed iron quadrant and a twisted arm, up and down; the **plate**, a
+floor texture, a flagstone in a deep joint with a rose cut in a roundel, and pressed, sunk, darker, dust at the joint. A row in
+the dark, and crops of the game's view at its own size in the Crypts and the Deep. Nothing in the game. *For the owner:* the
+relic is one look for every relic whatever it is named; the hands are small at a distance; in the Deep the barred door is dark.
+
+**The owner on the events' things' sheet (25 November 2026).** One relic look is fine for now; **from here on, think of twelve unique
+relic types** (a sheet of twelve when the time comes, each its own shape, chosen per relic in the editor). The socket's small hands and the
+Deep's dark barred door: left as they are for now. **An unlock shows the bar gone** (the sheet's "unbarred" look) before the door is
+opened. One detail pass more over the sheet, then back to the owner.
+
+**The things' detail pass (25 November 2026), back to the owner.** The barred door's beam has a grain, two knots and checked ends,
+rounded to the light; its bands are hammered and riveted, its staples bevelled and bolted; the plate is domed hammered iron with a
+raised rim, rivets, rust, and the hand cut with its lower walls lit. The relic: a gold ferrule on its knuckle, its bands wound wire,
+the seal stamped with a drip, the cord twisted. The socket and the lever's post are dressed stone (`dressed` in the tool: arrises
+turned to the light, a chamfered top, the chisel's courses, pits, a chipped corner, a hairline crack); the socket has a roll at its
+foot, a sunk panel round the cut shape and a moulded capital, its hands knuckled and worn; the lever's head is coped, its quadrant
+hammered and riveted, its slot's lip lit, a little rust, the grip turned, the ball and pin with a highlight. The plate: grit in the
+joint, tooled, worn smooth in the middle, two corners chipped, a crack in from its edge, the border's and roundel's lips lit where
+they face the light, the rose raised round a boss, the studs domed with rust round them. At 1x each reads as before.
+
+**The events' things' sheet approved (25 November 2026)**, after its detail pass: `media/sheets/events/event_things.png`. Next: the barred
+and unbarred door, relic, socket, lever and plate into the game's art, in place of the puzzles' borrowed looks (docs/PLAN-lights.md).

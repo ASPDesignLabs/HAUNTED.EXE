@@ -142,6 +142,34 @@ for (let t = 0; t < 8; t++) {
 }
 /* every kind a run offers has the editor's words for it */
 DATA.hazards.fixed.flat().concat(DATA.hazards.arise.flat(), DATA.hazards.sapper).forEach(k => { if (!C.HAZ_INFO[k]) fail(`no words for ${k}`); });
+/* the rolls: five layouts of creatures and of gold over the sample level, each on free floor, the creatures within the budget and
+ * away from the start, the same again for the same seed */
+{
+    const m = C.sampleEvents(), cells = C.compose(DATA, m).cells, s0 = cells.indexOf('S'), sx = s0 % C.N, sy = (s0 / C.N) | 0;
+    const R = C.rolls(DATA, m, 'dead', 12345), G = C.rolls(DATA, m, 'gold', 12345);
+    R.forEach((L, k) => {
+        if (L.spent > L.left + 1e-9) fail(`roll ${k}: the dead cost ${L.spent} of ${L.left}`);
+        L.items.forEach(t => { const x = Math.floor(t.x), y = Math.floor(t.y); if (!'.+'.includes(cells[C.idx(x, y)])) fail(`roll ${k}: a creature on '${cells[C.idx(x, y)]}'`);
+            });
+    });
+    G.forEach((L, k) => L.items.forEach(t => { const c = cells[C.idx(Math.floor(t.x), Math.floor(t.y))]; if (!'.+'.includes(c)) fail(`gold roll ${k} on '${c}'`); }));
+    if (JSON.stringify(C.rolls(DATA, m, 'dead', 12345)) !== JSON.stringify(R)) fail('the same seed should roll the same');
+    if (new Set(R.map(L => JSON.stringify(L.items))).size < 4) fail('five rolls should mostly differ');
+    console.log(`rolls: creatures ${R.map(L => L.items.length + ' (' + L.spent.toFixed(2) + '/' + L.left.toFixed(2) + ')').join(', ')}; gold ${G.map(L => L.items.length + ' worth ' + L.value).join(', ')}`);
+}
+/* lights (docs/PLAN-lights.md): their array and the row's two values, the hazards' places written empty before them when there are none */
+{
+    const m = C.sampleEvents(), cells = C.compose(DATA, m).cells, open = [];
+    for (let i = 0; i < C.N * C.N; i++) if (cells[i] === '.') open.push([i % C.N, (i / C.N) | 0]);
+    m.lights = [{ style: 'DL_CHANDELIER', x: open[2][0], y: open[2][1] }, { style: 'DL_BRAZIER', x: open[9][0], y: open[9][1] }, { style: 'DL_CORONA', x: open[20][0], y: open[20][1] }];
+    const x = C.exportDrawn(DATA, m, 3).text, errs = C.check(DATA, m).filter(c => c.sev === 'error');
+    ['DRAWN3_LIGHT[]', '{ DL_CHANDELIER,', 'NULL, 0, NULL, 0, DRAWN3_LIGHT, 3 }'].forEach(k => { if (!x.includes(k)) fail('the lights export lacks ' + k); });
+    if (errs.length) fail('the lights sample has errors: ' + errs.map(c => c.msg).join('; '));
+    const bad = JSON.parse(JSON.stringify(m)); bad.lights.push({ style: 'DL_LANTERN', x: 0, y: 0 });
+    if (!C.check(DATA, bad).some(c => c.sev === 'error' && /not over open floor/.test(c.msg))) fail('a light in stone should be an error');
+    fs.writeFileSync(path.join(__dirname, 'fixtures', 'lights.c'), x);
+    console.log(`lights: ${m.lights.length} in the export, ${errs.length} errors`);
+}
 /* every room type the game has is in one group of the editor's list, by run or any run's */
 {
     const grouped = C.ROOM_RUNS.flat().concat(C.ROOM_ANY);
