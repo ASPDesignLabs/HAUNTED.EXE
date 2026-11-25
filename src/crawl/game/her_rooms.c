@@ -533,6 +533,14 @@ static void tp_prop(int spr) {
     if (item >= 0) {
         for (int i = 0; i < G.nitems; i++)
             if (G.items[i].alive && G.items[i].type == item && nth-- <= 0 && tp_before(G.items[i].x, G.items[i].y)) return;
+    } else if (spr == -2) {                                        /* CRAWL_TPPROP=-2: before a torch on a wall (docs/PLAN-lights.md) */
+        for (int y = 1; y < MAPN - 1; y++)
+            for (int x = 1; x < MAPN - 1; x++) {
+                const Cell *c = &G.map[y][x];
+                if (c->kind != K_WALL || !c->ftorch || nth-- > 0) continue;
+                int d = c->ftorch - 1;
+                if (tp_before(x + 0.5f + DX[d] * 0.5f, y + 0.5f + DY[d] * 0.5f)) return;
+            }
     } else
         for (int i = 0; i < G.ndecos; i++) {
             const Deco *dc = &G.decos[i];

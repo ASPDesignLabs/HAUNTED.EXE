@@ -187,6 +187,8 @@ void crawl_combat_sheet(FILE *f);
 int crawl_drawn_same(int n, char *why, int nwhy);
 #endif
 int crawl_drawn_text(const char *text, char *err, int nerr);
+typedef struct { int style, x, y; } DrawnLight;                    /* as the game's (docs/PLAN-lights.md) */
+int crawl_drawn_lights(DrawnLight *out, int max);
 static char *read_text(const char *path) {                         /* a whole file, ended with a 0; NULL if it cannot be read */
     FILE *f = fopen(path, "rb");
     if (!f) return NULL;
@@ -214,6 +216,16 @@ int main(int argc, char **argv) {
         return bad;
     }
 #endif
+    if (argc >= 3 && !strcmp(argv[1], "drawnlights")) {           /* drawnlights <export>: the generator's lights on it, one a line */
+        static const char *const DLN[] = { "DL_CHANDELIER", "DL_LANTERN", "DL_CANDLESTAND", "DL_BRAZIER", "DL_MINELAMP", "DL_CRYSTALS",
+                                           "DL_FIREPIT", "DL_MAGMA", "DL_TOTEM", "DL_CORONA", "DL_SANCTUARY", "DL_BONES", "DL_CAGE" };
+        static DrawnLight L[256];
+        if (drawn_file(argv[2])) return 1;
+        int n = crawl_drawn_lights(L, 256);
+        for (int i = 0; i < n; i++) printf("%s %d %d\n", L[i].style >= 0 && L[i].style < 13 ? DLN[L[i].style] : "?", L[i].x, L[i].y);
+        fprintf(stderr, "%s: %d lights the generator hangs or stands\n", argv[2], n);
+        return n < 0;
+    }
     if (getenv("HOST_DRAWN") && drawn_file(getenv("HOST_DRAWN"))) return 1;
     if (argc < 4) { fprintf(stderr, "usage: see source header\n"); return 1; }
     const char *cmd = argv[1];

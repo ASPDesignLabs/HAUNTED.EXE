@@ -43,6 +43,12 @@ static void start_level(void) {
     g_events = g_drawn && (drawn()->ntrig || drawn()->ntorch || drawn()->nfield);
     uint32_t run_rs = G.rs;
     if (g_drawn) { drawn_picks(&run_rs); G.rs = drawn()->seed; gen_drawn(); } else gen_level();   /* (where its things lie: the run's dice) */
+#ifdef CRAWL_DEBUG
+    if (g_drawn && getenv("CRAWL_LIGHTLIST"))                      /* the generator's light props as laid in play, to set beside crawl_drawn_lights */
+        for (int i = 0; i < GLP.n; i++)
+            if (GLP.p[i].deco >= 0 && GLP.p[i].deco < G.ndecos && G.decos[GLP.p[i].deco].spr >= 0)
+                fprintf(stderr, "LIGHTLIST level %d: %d %d %d\n", G.level, GLP.p[i].style, GLP.p[i].x - drawn()->ox, GLP.p[i].y - drawn()->oy);
+#endif
     memset(G.mobs, 0, sizeof G.mobs); G.nroute = 0; G.npacks = 0; G.gathered = 0;   /* and the patrols' rounds, the packs */
     memset(G.scent, 0, sizeof G.scent); G.namb = 0; G.hunt_kind = G.hunt_on = G.hunt_said = 0; G.noise_t = -1.0f; G.still_t = 0.0f;   /* the trail */
     memset(G.shots, 0, sizeof G.shots);

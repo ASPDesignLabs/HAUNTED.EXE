@@ -146,3 +146,9 @@ is placed", or the whole budget), eight cells' walk or more from the start, a ce
 gold as `place_items` lays it (a little in most rooms, more from level 4; coins and chalices along the halls; the hoards behind each
 coloured door). One chosen shows on the map; kept, they are ordinary things. One of the dead becomes a spawn point and back with a
 button. Tested by `test.js` and in Playwright's Chromium on the owner's Storage; not used by the owner.
+
+**Session 4: the lights' game side merged** (docs/PLAN-lights.md, its log). PLAY lays lights by hand (`PLAY_LIGHTS`); *THE GENERATOR'S
+LIGHTS* asks the game (the browser build in `play/`, loaded once in the editor's page, no `web_start`) where its generator would hang and
+stand lights on the drawing (`web_drawn_load`, `web_drawn_lights`) and gives them to the owner as lights of their own (`gen`); the styles'
+order is read from the game (`extract.py`'s `lights`, held to the editor's by `test.js`). In Playwright's Chromium on the owner's
+Storage: the five it lists are the harness's `drawnlights` five, cell for cell; PLAY boots with them; no page errors.

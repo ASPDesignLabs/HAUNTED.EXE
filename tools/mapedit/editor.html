@@ -178,7 +178,7 @@ input[type=range] { width: 100%; accent-color: var(--gold); }
       <details open><summary>LANE BRUSH</summary><div class="tools" id="laneTools" style="margin-top:6px"></div></details>
       <details open><summary>THINGS</summary><div class="tools" id="thingTools" style="margin-top:6px"></div></details>
       <details open><summary id="hzSum">HAZARDS</summary><div class="tools" id="hzTools" style="margin-top:6px"></div></details>
-      <details open><summary>LIGHTS</summary><div class="tools" id="lightTools" style="margin-top:6px"></div></details>
+      <details open><summary>LIGHTS</summary><div class="row" style="margin-top:6px"><button class="btn" id="bGenLights" title="Ask the game where its generator would hang and stand lights on this drawing">THE GENERATOR'S LIGHTS</button></div><div class="tools" id="lightTools" style="margin-top:6px"></div></details>
       <details><summary>SECRET ROOMS</summary><div class="stamps" id="stampSecret" style="margin-top:6px"></div></details>
       <details><summary>JOINERS</summary><div class="stamps" id="stampJoiner" style="margin-top:6px"></div></details>
       <details><summary>PLACES</summary><div class="stamps" id="stampPlace" style="margin-top:6px"></div></details>
@@ -1372,6 +1372,45 @@ $('bExport').addEventListener('click', () => {
     `Paste the arrays above DRAWN[] in src/crawl/game/drawn.c and the last two lines into DRAWN[], then raise NDRAWN. The row carries the level it is laid on (${S.map.level}), the first time down.`, x.text, `drawn-level-${S.map.level}-slot-${n}.txt`);
 });
 
+/* ---------- the generator's lights, asked of the game itself (docs/PLAN-lights.md): the browser build in play/, loaded once in this page
+   (no web_start), lays the drawing as it would for its level and lists the light props it hung or stood ---------- */
+let gameMod = null;
+function gameModule() {
+  if (gameMod) return gameMod;
+  gameMod = new Promise((ok, no) => {
+    const sc = document.createElement('script'); sc.src = 'play/haunted-core.js';
+    sc.onload = () => window.HauntedCore({ locateFile: p => 'play/' + p, print: () => {}, printErr: () => {} }).then(ok, no);
+    sc.onerror = () => no(new Error('the game is not beside the editor'));
+    document.head.appendChild(sc);
+  });
+  gameMod.catch(() => { gameMod = null; });
+  return gameMod;
+}
+async function generatorLights() {
+  const M = await gameModule(), x = C.exportDrawn(DATA, S.map, S.map.slot || 3), bytes = new TextEncoder().encode(x.text);
+  if (bytes.length >= M._web_drawn_cap()) throw new Error('the level is too long for the game to read');
+  M.HEAPU8.set(bytes, M._web_drawn_buf());
+  const why = M.UTF8ToString(M._web_drawn_load(bytes.length));
+  if (why) throw new Error(why);
+  const p = M._web_drawn_lights(), n = new Int32Array(M.HEAPU8.buffer, p, 1)[0];
+  if (n < 0) throw new Error('the game could not lay the level');
+  const a = new Int32Array(M.HEAPU8.buffer, p, 1 + 3 * n), out = [];
+  for (let k = 0; k < n; k++) out.push({ style: DATA.lights[a[1 + 3 * k]], x: a[2 + 3 * k] + x.b.x0, y: a[3 + 3 * k] + x.b.y0, gen: true });
+  return out;
+}
+$('bGenLights').addEventListener('click', async () => {
+  if (S.checks.some(c => c.sev === 'error')) { toast('MEND THE CHECKS\' ERRORS FIRST: THE GAME WOULD REFUSE THE LEVEL'); return; }
+  toast('ASKING THE GAME...');
+  let got;
+  try { got = await generatorLights(); } catch (e) { toast('THE GAME COULD NOT SAY: ' + String(e.message || e).toUpperCase()); return; }
+  const mine = S.map.lights || [], fresh = got.filter(g => !mine.some(l => l.x === g.x && l.y === g.y));
+  if (!got.length) { toast('THE GENERATOR HANGS NO LIGHTS HERE'); return; }
+  const take = () => { change(() => { S.map.lights = mine.concat(fresh); }); S.layers.lights = true; buildLayers(); markLayers(); draw();
+    toast(`${fresh.length} OF THE GENERATOR'S LIGHTS ARE YOURS NOW: MOVE, CHANGE OR REMOVE THEM`); };
+  if (mine.length) ask('Add the generator\'s lights?', `The game would hang and stand ${got.length} lights on this drawing; ${fresh.length} are not where yours already are. They are added beside your ${mine.length}, as lights of yours to move, change or remove. With any lights of yours, the game lays only yours.`, 'ADD THEM', take, 'NOT NOW');
+  else take();
+});
+
 /* ---------- the layers' menu ---------- */
 function buildLayers() {
   const P = $('layerPop'), save = () => { try { localStorage.setItem('cme.layers', JSON.stringify(S.layers)); } catch (e) {} };
@@ -1391,7 +1430,7 @@ document.addEventListener('click', e => { const d = $('layersBox'); if (d.open &
 /* ---------- PLAY: the game's browser build in play/, over the editor, given this level as its export (docs/PLAN-mapedit.md, part 3).
    The game reads the same text EXPORT C gives, and a new run there begins on this level. ---------- */
 let playText = null;
-const PLAY_LIGHTS = false;                               /* the game in play/ reads lights (docs/PLAN-lights.md): true once it does */
+const PLAY_LIGHTS = true;                                /* the game in play/ reads lights (docs/PLAN-lights.md): true once it does */
 const PLAY_HAZARDS = true;                               /* the game in play/ lays hazards (docs/PLAN-events.md, 2c): true once it does */
 const sameOrigin = () => (location.origin && location.origin !== 'null' ? location.origin : '*');
 function playStop() { $('playFrame').src = 'about:blank'; $('playLayer').hidden = true; playText = null; }

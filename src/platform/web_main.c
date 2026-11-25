@@ -63,6 +63,21 @@ KEEP const char *web_drawn_load(int len) {
     return crawl_drawn_text(g_dtxt, g_derr, sizeof g_derr) ? g_derr : "";
 }
 
+/* the generator's lights on the drawing loaded (docs/PLAN-lights.md): after web_drawn_load, with or without web_start (the editor
+ * loads this module in its own page only to ask). A static array: how many, then style (DL_*), x, y for each, in the drawing's cells;
+ * the count -1 if no drawing was read, or if there was no memory to keep the game's state while it is laid (about 3 MB; not seen) */
+typedef struct { int style, x, y; } DrawnLight;                    /* as the game's */
+int crawl_drawn_lights(DrawnLight *out, int max);
+#define WEB_LIGHTS 256
+KEEP int *web_drawn_lights(void) {
+    static int a[1 + 3 * WEB_LIGHTS];
+    static DrawnLight L[WEB_LIGHTS];
+    int n = crawl_drawn_lights(L, WEB_LIGHTS);
+    a[0] = n < 0 ? -1 : n;
+    for (int i = 0; i < n; i++) { a[1 + 3 * i] = L[i].style; a[2 + 3 * i] = L[i].x; a[3 + 3 * i] = L[i].y; }
+    return a;
+}
+
 KEEP void web_start(void) {
     if (g_started) return;
     g_started = 1;

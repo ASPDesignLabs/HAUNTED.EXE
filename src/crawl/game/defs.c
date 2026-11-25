@@ -71,11 +71,15 @@ typedef struct { uint8_t kind, tex, theme, visits; int16_t region, door; uint8_t
  * its floor is turned (1, 2 mirrored, 4 across), bit 4 that it lies as laid, not turned at random. */
 typedef struct { int x, y, along_x; float open, idle; int opening, locked, color, was; } Door;   /* locked: 1 locked, 2 unlocked;
                                                                       was: opening last frame (its sound and its noise) */
-typedef struct { float x, y, power, radius, phase; int cx, cy, first, count; } Light;
+typedef struct { float x, y, power, radius, phase; int cx, cy, first, count, torch, look; } Light;   /* torch: a torch's or a light prop's,
+                                                                      which breathe at three left (docs/PLAN-lights.md, 2); drawing only;
+                                                                      look: how it falls as the frame is drawn (LK_*), never in the light map */
+enum { LK_PLAIN, LK_DAPPLE, LK_RED };                                /* thrown through a cage's holes; tinged by red glass (docs/PLAN-lights.md) */
 typedef struct { float x, y, phase; int spr, nfr, flags; } Deco;   /* nfr: frames to cycle through */
 enum { DF_SWAY = 1,                                                  /* hanging: swings a little, from the top */
        DF_FLIP = 2, DF_FLOAT = 4, DF_SINK = 8,                       /* the Backrooms' things out of place: upside down on the */
-       DF_LOOP = 16 };                                               /* ceiling, floating, half sunk; a creature caught in a loop */
+       DF_LOOP = 16,                                                 /* ceiling, floating, half sunk; a creature caught in a loop */
+       DF_SLOW = 32 };                                               /* three frames of candles, at a candle's pace (the new hanging lights) */
 typedef struct {
     int type, state, alive; float x, y, z, t, anim, speed; int cx, cy, tx, ty;
     int seen, attacking, hits, misses; float cool, throw_t, contact, orbit, stagger, ignore;   /* skeleton throws, bat bites */

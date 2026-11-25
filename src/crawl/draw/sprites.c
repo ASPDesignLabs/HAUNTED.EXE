@@ -630,13 +630,13 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
     int n = 0;
     float rx = -dy, ry = dx;
     #define ADD(X, Y, Z, S, GH) do { float vx_ = (X) - G.px, vy_ = (Y) - G.py, dp_ = vx_ * dx + vy_ * dy; \
-        if (dp_ > 0.12f && dp_ < 24.0f && n < (int)(sizeof list / sizeof list[0])) list[n++] = (Draw){ X, Y, Z, dp_, S, (GH) > 0.0f ? (GH) : 1.0f, 0.0f, 1.0f, 0, 0, 0.0f, NULL, 0, 0.0f, 0.0f, 0, 0, 0, 0, 0, NULL, 0.0f, 0, 0, 0, 0 }; } while (0)
+        if (dp_ > 0.12f && dp_ < 24.0f && n < (int)(sizeof list / sizeof list[0])) list[n++] = (Draw){ X, Y, Z, dp_, S, (GH) > 0.0f ? (GH) : 1.0f, 0.0f, 1.0f, 0, 0, 0.0f, NULL, 0, 0.0f, 0.0f, 0, 0, 0, 0, 0, NULL, 0.0f, 0, 0, 0, 0, NULL }; } while (0)
     for (int i = 0; i < G.ndecos; i++) {
         const Deco *dc = &G.decos[i];
         static const float FPS[4] = { 0.0f, 0.0f, 3.0f, 9.0f };    /* by frame count: candles flicker, fire roars */
         if (dc->spr < 0) continue;                                 /* gone: risen, or never a statue */
         int look = deco_look(dc);
-        int spr = look + (dc->nfr > 1 ? (int)((float)G.t * FPS[dc->nfr & 3] + dc->phase) % dc->nfr : 0), n0 = n;
+        int spr = look + (dc->nfr > 1 ? (int)((float)G.t * ((dc->flags & DF_SLOW) ? 4.0f : FPS[dc->nfr & 3]) + dc->phase) % dc->nfr : 0), n0 = n;
         float zx = 0.0f, ox = 0.0f, oy = 0.0f;
         if (dc->flags & (DF_FLIP | DF_FLOAT | DF_SINK | DF_LOOP)) {   /* out of place */
             if (dc->flags & DF_FLOAT) zx = 0.40f + 0.05f * sinf((float)G.t * 1.3f + dc->phase);
@@ -651,6 +651,7 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
         if (torn > 3.0f) continue;                                 /* a torn web: gone, till it grows back (docs/PLAN-ambience.md, A10) */
         ADD(dc->x + ox, dc->y + oy, zx, spr, 0);
         if (n > n0 && torn > 0.0f) list[n - 1].alpha = fmaxf(0.05f, 1.0f - torn / 3.0f);   /* growing back */
+        if (n > n0 && tl_on && tl_light_spr(dc->spr)) list[n - 1].cold = tl_lut;   /* three left: its flame cold */
         if (n > n0 && (dc->flags & (DF_FLIP | DF_FLOAT | DF_SINK | DF_LOOP))) {
             list[n - 1].flags = ((dc->flags & DF_FLIP) ? DR_FLIPV : 0) | ((dc->flags & DF_SINK) ? DR_CLIP : 0) | ((dc->flags & DF_LOOP) ? DR_GLITCH | DR_LOOPED : 0);
         }
@@ -941,7 +942,9 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
     for (int i = 0; i < G.nthing && !PK.depth && !G.shop; i++) {  /* a puzzle's things (1.0.0b13) */
         const Thing *t = &G.thing[i];
         if (t->spr < 0 || G.carry == i + 1) continue;
+        if (t->in >= 0 && t->role == TR_ITEM && G.thing[t->in].spr == SP_EV_SOCKET0) continue;   /* set in an event's socket: its holding look shows it */
         int n0 = n, spr = t->spr + (t->frames > 1 ? t->state % t->frames : 0), back = 0;
+        if (t->spr == SP_EV_SOCKET0 && t->in >= 0) spr = SP_EV_SOCKET1;   /* the relic across its hands, the shape cut in it alight */
         if (t->facing) spr = t->spr + ((t->state - dir_to(G.px, G.py, t->x, t->y) + 4) & 3);   /* away, to your right, to you, to your left */
         if (t->spr >= SP_PBELL0 && t->spr <= SP_PBELL3 && t->t < 0.8f) { spr = SP_PBELL0R + t->spr - SP_PBELL0; back = t->t >= 0.42f; }   /* rung: it leans, and swings back */
         ADD(t->x, t->y, t->z, spr, 0);
@@ -1327,7 +1330,7 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
                     int tyi = clampi((int)ty, 0, TS - 1), tx = (int)(tx0 - d->sway * tyi / (float)TS);
                     if (tx < 0 || tx >= TS) continue;
                     uint8_t c = img[tx * TS + tyi];
-                    if (c != C_CLEAR) f->pix[y * W + x] = fogged(shade(c, light, x, y), fog, light, x, y);
+                    if (c != C_CLEAR) f->pix[y * W + x] = fogged(tl_px(d->cold, shade(c, light, x, y)), fog, light, x, y);
                 }
             }
             continue;
@@ -1422,7 +1425,7 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
                     f->pix[y * W + x] = fogged((uint8_t)(R_GLOW + clampi((int)(((c - 1) & 15) * 0.4f + light * 3.0f), 1, 9)), fog, light, x, y);
                     continue;
                 }
-                f->pix[y * W + x] = (d->flags & DR_BRIGHT) ? c : fogged(shade(c, light, x, y), fog, light, x, y);
+                f->pix[y * W + x] = (d->flags & DR_BRIGHT) ? c : fogged(tl_px(d->cold, shade(c, light, x, y)), fog, light, x, y);
             }
         }
         if (((d->flags & DR_SHINE) && G.bmirror_t > 0.0f) || (d->flags & DR_RIPPLE)) {   /* the Mirror Rune's silver ring; Time Slip's grey */

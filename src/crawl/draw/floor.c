@@ -6,6 +6,147 @@
 /* Rendering                                                           */
 /* ================================================================== */
 
+/* Three left (docs/PLAN-lights.md, section 2), as drawn: the torches' and light props' flame in a cold ramp, a step brighter and dimmer
+ * with the breath (tl_lut, laid over a pixel already shaded, so the cold flame is as bright as the fire was), and every torch's light
+ * breathing too, added to the light map for this frame alone and taken off after (tl_begin, tl_end: the map is put back byte for byte,
+ * so the dead, the dream and everything else that plays never see it). TL_RAMPS are the candidates on the owner's sheet
+ * (media/sheets/lights/three_left.png); CRAWL_THREECOL=k shows the k-th in the debug build. */
+static const struct { uint8_t ramp, lo; } TL_RAMPS[] = { { R_GHOST, 6 }, { R_GLOW, 5 }, { R_BONE, 8 }, { R_PURPLE, 6 } };
+#define TL_DEFAULT 0                                               /* the ghost ramp: a pale grave-light green-white */
+#define TL_PERIOD 2.0f                                             /* a breath, in seconds */
+#define TL_DEPTH 0.18f                                             /* how much brighter and dimmer the light, at most */
+static int tl_on;                                                  /* this frame */
+static float tl_b;                                                 /* its breath this frame, -1 to 1 */
+static uint8_t tl_lut[256];                                        /* the cold flame */
+static inline uint8_t tl_px(const uint8_t *cl, uint8_t p) { return cl ? cl[p] : p; }   /* a pixel shaded, in the cold flame or as it is */
+static float tl_keep[LMN * LMN];
+static int tl_ramp(void) {
+    int k = TL_DEFAULT;
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_THREECOL")) k = clampi(atoi(getenv("CRAWL_THREECOL")), 0, (int)(sizeof TL_RAMPS / sizeof TL_RAMPS[0]) - 1);
+#endif
+    return k;
+}
+static int tl_torch_tex(int t) { return (t >= T_TORCH0 && t <= T_TORCH2) || (t >= T_FEAT + F1_TORCH && t < T_FEAT + F1_TORCH + 3) || (t >= T_UNLIT && t <= T_UNLIT_LAST); }
+static int tl_light_spr(int s) {                                   /* a light prop's picture (gen_level.c) */
+    return s == SP_CHANDELIER_A || s == SP_LANTERN_A || s == SP_CANDLESTAND_A || s == SP_BRAZIER_A || s == SP_MINELAMP_A || s == SP_CRYSTAL_A
+        || s == SP_FIREPIT_A || s == SP_MAGMA_A || s == SP_TOTEM_A || s == SP_CORONA0 || s == SP_SANCT0 || s == SP_BONELAB0 || s == SP_CAGE0;
+}
+static void tl_begin(void) {
+    tl_on = three_left();
+    if (!tl_on) return;
+    float b = sinf((float)G.t * (TAU_F / TL_PERIOD));             /* -1 to 1 */
+    tl_b = b;
+    int r = tl_ramp(), lo = TL_RAMPS[r].lo, step = b > 0.5f ? 1 : b < -0.5f ? -1 : 0;
+    for (int c = 0; c < 256; c++) tl_lut[c] = (uint8_t)c;
+    for (int i = 0; i < 16; i++) tl_lut[R_FLAME + i] = (uint8_t)(TL_RAMPS[r].ramp + clampi(lo + i * (15 - lo) / 15 + step, 0, 15));
+    tl_lut[C_WHITE] = (uint8_t)(TL_RAMPS[r].ramp + 15);
+    memcpy(tl_keep, G.lm, sizeof tl_keep);
+    for (int l = 0; l < G.nlights; l++) {
+        const Light *L = &G.lights[l];
+        if (!L->torch) continue;
+        float k = lm_f[l] * TL_DEPTH * b;
+        for (int j = L->first; j < L->first + L->count; j++) G.lm[G.lc_idx[j]] += G.lc_w[j] * k;
+    }
+}
+static void tl_end(void) {
+    if (tl_on) memcpy(G.lm, tl_keep, sizeof tl_keep);
+    tl_on = 0;
+}
+
+/* The lights' looks (docs/PLAN-lights.md, section 4): the pierced cage lantern's light thrown through its holes in spots on the floor and
+ * the walls about it, and the sanctuary lamp's tinged by its red glass. Drawing only, as three left is: each look's share of the light is
+ * gathered for the frame alone (lk_begin) into maps of its own, from what build_lightmap gave each light (lm_f) and the breath if three
+ * left, and a pixel of the floor or a wall that it reaches takes the look as it is drawn. The light map that plays is never touched, so
+ * nothing the dead sense changes. lk_end clears what lk_begin wrote. CRAWL_LIGHTLOOK=0 shows them plain in the debug build. */
+#define LK_Z 0.44f                                                 /* the cage's heart above the floor (its body: rows 25 to 47 of 64) */
+#define LK_TINT 0.8f                                               /* how much of what the red glass lights is tinged, at most */
+static float lk_map[2][LMN * LMN];                                 /* each look's share: [0] thrown through the cage, [1] through the glass */
+static uint8_t lk_cell[MAPN][MAPN];                                /* 1 the cage's reaches the cell, 2 the glass's */
+static int16_t lk_src[MAPN][MAPN];                                 /* 1 + the cage light nearest the cell */
+static int lk_any;                                                 /* this frame: 1 a cage's, 2 a glass's */
+static uint8_t lk_red[256], lk_pal[256][3];                        /* each colour tinged red; the palette it was made for */
+static void lk_red_make(void) {
+    if (!memcmp(lk_pal, crawl_pal, sizeof lk_pal)) return;
+    memcpy(lk_pal, crawl_pal, sizeof lk_pal);
+    for (int c = 0; c < 256; c++) {
+        lk_red[c] = (uint8_t)c;
+        if (c == 0 || IS_FULLBRIGHT(c) || c >= R_GOLD) continue;
+        float r = crawl_pal[c][0] * 1.05f + 1.5f, g = crawl_pal[c][1] * 0.55f, b = crawl_pal[c][2] * 0.5f, best = 1e9f;
+        for (int k = 1; k < R_FLAME; k++) {
+            float dr = crawl_pal[k][0] - r, dg = crawl_pal[k][1] - g, db = crawl_pal[k][2] - b, d = dr * dr * 0.6f + dg * dg + db * db * 0.5f;
+            if (d < best) { best = d; lk_red[c] = (uint8_t)k; }
+        }
+    }
+}
+static void lk_begin(void) {
+    lk_any = 0;
+    if (!g_drawn || G.shop || PK.depth) return;
+#ifdef CRAWL_DEBUG
+    static int off = -1;
+    if (off < 0) off = getenv("CRAWL_LIGHTLOOK") && !atoi(getenv("CRAWL_LIGHTLOOK"));
+    if (off) return;
+#endif
+    for (int l = 0; l < G.nlights; l++) {
+        const Light *L = &G.lights[l];
+        if (L->look != LK_DAPPLE && L->look != LK_RED) continue;
+        int m = L->look == LK_RED;
+        float f = lm_f[l] * (tl_on && L->torch ? 1.0f + TL_DEPTH * tl_b : 1.0f);
+        for (int j = L->first; j < L->first + L->count; j++) {
+            int i = G.lc_idx[j], cx = (i % LMN) / LMR, cy = (i / LMN) / LMR;
+            lk_map[m][i] += G.lc_w[j] * f;
+            lk_cell[cy][cx] |= (uint8_t)(1 << m);
+            if (!m) {                                              /* the nearer cage throws its spots on the cell */
+                int o = lk_src[cy][cx] - 1;
+                if (o < 0 || hypotf(cx + 0.5f - L->x, cy + 0.5f - L->y) < hypotf(cx + 0.5f - G.lights[o].x, cy + 0.5f - G.lights[o].y)) lk_src[cy][cx] = (int16_t)(l + 1);
+            }
+        }
+        lk_any |= 1 << m;
+    }
+    if (lk_any & 2) lk_red_make();
+}
+static void lk_end(void) {
+    if (!lk_any) return;
+    for (int l = 0; l < G.nlights; l++) {
+        const Light *L = &G.lights[l];
+        if (L->look != LK_DAPPLE && L->look != LK_RED) continue;
+        for (int j = L->first; j < L->first + L->count; j++) {
+            int i = G.lc_idx[j], cx = (i % LMN) / LMR, cy = (i / LMN) / LMR;
+            lk_map[L->look == LK_RED][i] = 0.0f; lk_cell[cy][cx] = 0; lk_src[cy][cx] = 0;
+        }
+    }
+    lk_any = 0;
+}
+static float lk_at(int m, float x, float y) {                      /* as lm_at */
+    float fx = x * LMR - 0.5f, fy = y * LMR - 0.5f;
+    int ix = (int)floorf(fx), iy = (int)floorf(fy);
+    float ax = fx - ix, ay = fy - iy;
+    if (ix < 0 || iy < 0 || ix >= LMN - 1 || iy >= LMN - 1) return 0.0f;
+    const float *p = &lk_map[m][iy * LMN + ix];
+    return (p[0] * (1 - ax) + p[1] * ax) * (1 - ay) + (p[LMN] * (1 - ax) + p[LMN + 1] * ax) * ay;
+}
+/* how much of the cage's light reaches (x, y, z) through its holes: spots where a hole looks, the iron's shadow between; the cone under
+ * it and the eave over it shade what is straight below and above */
+static float lk_spots(const Light *L, float x, float y, float z) {
+    float dx = x - L->x, dy = y - L->y, dz = z - LK_Z, a = atan2f(dy, dx), e = atan2f(dz, sqrtf(dx * dx + dy * dy));
+    if (e < -1.15f) return 0.3f;
+    if (e > 0.8f) return 0.4f;
+    float s = 0.5f + 0.5f * sinf(a * 14.0f) * sinf(e * 12.0f + 1.0f);
+    return 0.22f + 1.5f * (s * 0.4f + (1.0f - s * 0.4f) * smoothstepf(0.56f, 0.68f, s));
+}
+/* a pixel's light, the cage's share thrown in spots: lmv the light map's light at (x, y), z the pixel's height */
+static inline float lk_dapple(float lmv, int cx, int cy, float x, float y, float z) {
+    if ((unsigned)cx >= MAPN || (unsigned)cy >= MAPN || !(lk_cell[cy][cx] & 1) || !lk_src[cy][cx]) return lmv;
+    float s = lk_at(0, x, y);
+    return lmv + s * (lk_spots(&G.lights[lk_src[cy][cx] - 1], x, y, z) - 1.0f);
+}
+/* a pixel drawn, tinged by the red glass as much as the glass's share of its light */
+static inline uint8_t lk_tinge(uint8_t c, float lmv, int cx, int cy, float x, float y, int px, int py) {
+    if ((unsigned)cx >= MAPN || (unsigned)cy >= MAPN || !(lk_cell[cy][cx] & 2) || lmv <= 0.01f) return c;
+    float k = lk_at(1, x, y) / lmv * LK_TINT;
+    return BAYER[py & 3][px & 3] < (int)(k * 16.0f) ? lk_red[c] : c;
+}
+
 static inline uint8_t shade(uint8_t c, float light, int x, int y) {
     if (IS_FULLBRIGHT(c)) return c;
     int lv = (int)(light * LIGHT_UNIT + BAYER[y & 3][x & 3] * (1.0f / 16.0f));
@@ -105,8 +246,12 @@ static void render_floor(Frame *f, float dx, float dy, float plx, float ply, flo
                     base = crawl_tex[lc->cei][tx * TS + ty];
                 } else base = R_CEIL + 8;
             } else base = R_CEIL + 8;
-            float L = lm_at(wx, wy) * a * lmul;
-            row[x] = fogged(shade(base, L, x, y), fog_amount(wx, wy, dk * (floor_row ? 1.15f : 0.8f)), L, x, y);
+            float lv = lm_at(wx, wy);
+            if ((lk_any & 1) && floor_row) lv = lk_dapple(lv, cx, cy, wx, wy, 0.0f);   /* the cage's spots (lk_*) */
+            float L = lv * a * lmul;
+            uint8_t c = shade(base, L, x, y);
+            if (lk_any & 2) c = lk_tinge(c, lv, cx, cy, wx, wy, x, y); /* the red glass's tinge */
+            row[x] = fogged(c, fog_amount(wx, wy, dk * (floor_row ? 1.15f : 0.8f)), L, x, y);
         }
     }
 }
@@ -320,7 +465,10 @@ static int hz_marks(void) {
     if (G.nsite && !PK.depth) { site_marks(); any = 1; }
     for (int i = 0; i < G.nthing && !PK.depth; i++) {             /* a puzzle's flagstones, stepping stones, glass and channels */
         const Thing *t = &G.thing[i];
-        if (t->role == TR_PLATE) { fm_set(t->cx, t->cy, FM_PLATE, 1, t->on ? 1.0f : 0.0f, (float)t->look, (float)t->mark, (float)t->state, 0.0f); any = 1; }
+        if (t->role == TR_PLATE) {                                 /* look 3: an event's (T_PLATE), down while what it set off holds too */
+            int down = t->on || (t->ev && ev_plate_held(t->ev - 1));
+            fm_set(t->cx, t->cy, FM_PLATE, 1, down ? 1.0f : 0.0f, t->ev ? 3.0f : (float)t->look, (float)t->mark, (float)t->state, 0.0f); any = 1;
+        }
         else if (t->role == TR_TURN && t->spr < 0) { fm_set(t->cx, t->cy, FM_PIPE, 1, (float)t->look, (float)pipe_mask(t->val, t->state), (float)i, 0.0f, 0.0f); any = 1; }
     }
     if (WD.mask && !PK.depth) any |= ward_marks();                 /* the soul-lamps' ward, under all the rest (1.0.0b18.1) */
@@ -477,6 +625,12 @@ static int fm_pixel(const FMark *m, float wx, float wy, float fx, float fy, int 
     }
     case FM_PLATE: {                                               /* a flagstone set in the floor, its edge cut deep; sunk, darker */
         float ex = fminf(fx, 1.0f - fx), ey = fminf(fy, 1.0f - fy), e = fminf(ex, ey);
+        if ((int)m->ax == 3) {                                     /* an event's (docs/PLAN-events.md): the owner's, over the cell's own floor; pressed
+                                                                      while stood on */
+            uint8_t c = crawl_tex[k > 0.5f ? T_PLATE_DOWN : T_PLATE][clampi((int)(fx * TS), 0, TS - 1) * TS + clampi((int)(fy * TS), 0, TS - 1)];
+            if (c != C_CLEAR) *base = c;
+            return -1;
+        }
         if ((int)m->ax == 1) {                                     /* a stepping stone in dark water */
             float r = hypotf(fx - 0.5f, fy - 0.5f);
             if (r > 0.36f) { *base = (uint8_t)(R_GHOST + 2 + ((b + (int)(G.t * 3.0)) & 1)); *lmul *= 0.7f; return -1; }

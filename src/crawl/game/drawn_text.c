@@ -7,6 +7,7 @@
 #define DXT_ACTS 256
 #define DXT_RELICS 32
 #define DXT_POOL 16384
+#define DXT_LIGHTS 96                                               /* a drawing's lights (docs/PLAN-lights.md) */
 static struct {
     char rows[MAPN][MAPN + 1]; const char *row[MAPN]; int nrow;
     DrawnThing thing[EV_THINGS]; int nthing;
@@ -20,6 +21,7 @@ static struct {
     DrawnField field[EV_FIELDS]; int nfield;
     DrawnHaz haz[MAXSITE]; int nhaz;
     DrawnCell hzcell[DH_CELLS]; int nhzcell;
+    DrawnLight light[DXT_LIGHTS]; int nlight;
     char pool[DXT_POOL]; int npool;                                 /* the strings: relics' names, lines */
 } DXT;
 
@@ -37,6 +39,8 @@ static const struct { const char *n; int v; } DXT_NAMES[] = {
     DXN(HZ_SLUICE), DXN(HZ_SNARE), DXN(HZ_BILE), DXN(HZ_GALV), DXN(HZ_SILT), DXN(HZ_SAINT),
     DXN(HZ_TIMBER), DXN(HZ_DAMP), DXN(HZ_CART), DXN(HZ_LODE), DXN(HZ_FIRE), DXN(HZ_TITHE),
     DXN(HZ_FISSURE), DXN(HZ_CRYSTAL), DXN(HZ_DCOLD), DXN(HZ_VOID), DXN(HZ_ASH), DXN(HZ_GLASS), DXN(HZ_MIRROR),
+    DXN(DL_CHANDELIER), DXN(DL_LANTERN), DXN(DL_CANDLESTAND), DXN(DL_BRAZIER), DXN(DL_MINELAMP), DXN(DL_CRYSTALS),   /* the lights */
+    DXN(DL_FIREPIT), DXN(DL_MAGMA), DXN(DL_TOTEM), DXN(DL_CORONA), DXN(DL_SANCTUARY), DXN(DL_BONES), DXN(DL_CAGE),
     DXN(RT_HALL), DXN(RT_OSSUARY), DXN(RT_BURIAL), DXN(RT_CHAPTER), DXN(RT_KNIGHTS), DXN(RT_UNDER), DXN(RT_MERCHANT),
     DXN(RT_PLOT), DXN(RT_SAINTS), DXN(RT_CISTERN), DXN(RT_NAVE), DXN(RT_CANAL), DXN(RT_SPINNERS), DXN(RT_GALLERY),
     DXN(RT_STOPE), DXN(RT_CHARNEL), DXN(RT_FOSSIL), DXN(RT_CHAPEL), DXN(RT_GEODE), DXN(RT_GLASS), DXN(RT_CINDER),
@@ -245,6 +249,9 @@ static void dxt_item(Xp *P, const char *part, Xv *v, int n) {     /* one { ... }
     } else if (!strcmp(part, "HZCELL")) {
         NEED(2, 2) ROOM(DXT.nhzcell, DH_CELLS)
         DXT.hzcell[DXT.nhzcell++] = (DrawnCell){ XI(0), XI(1) };
+    } else if (!strcmp(part, "LIGHT")) {
+        NEED(3, 3) ROOM(DXT.nlight, DXT_LIGHTS)
+        DXT.light[DXT.nlight++] = (DrawnLight){ XI(0), XI(1), XI(2) };
     } else dxt_fail(P, "a part this game does not read", part);
     #undef NEED
     #undef ROOM
@@ -334,12 +341,18 @@ int crawl_drawn_text(const char *text, char *err, int nerr) {
     if (DXT.nhaz) { g_dtext.haz = DXT.haz; g_dtext.nhaz = DXT.nhaz; }
     if (DXT.nhzcell) { g_dtext.hzcell = DXT.hzcell; g_dtext.nhzcell = DXT.nhzcell; }
     if (nrow > 27) {                                               /* the row's hazards, as many as were read */
-        if (nrow != 31) BAD("the row's hazards are not four values (the hazards, how many, their cells, how many)");
+        if (nrow != 31 && nrow != 33) BAD(nrow > 31 ? "the row's lights are not two values (the lights, how many)" : "the row's hazards are not four values (the hazards, how many, their cells, how many)");
         if ((v[27].k != XV_PART && v[27].k != XV_NULL) || (v[29].k != XV_PART && v[29].k != XV_NULL)) BAD("the row's hazards are not named parts");
         if (XI(28) != DXT.nhaz || XI(30) != DXT.nhzcell) BAD("the row's count of hazards or of their cells is not what was read");
         if (P->bad) return 1;
     }
     if (DXT.nhaz && !DXT.nhzcell) BAD("hazards with no cells (DRAWNn_HZCELL)");
+    if (nrow > 31) {                                               /* the row's lights, after the hazards (docs/PLAN-lights.md) */
+        if (v[31].k != XV_PART && v[31].k != XV_NULL) BAD("the row's lights are not a named part");
+        if (XI(32) != DXT.nlight) BAD("the row's count of lights is not what was read");
+        if (P->bad) return 1;
+    } else if (DXT.nlight) BAD("lights (DRAWNn_LIGHT) the row does not name: it ends with them, after the hazards");
+    if (DXT.nlight) { g_dtext.light = DXT.light; g_dtext.nlight = DXT.nlight; }
     /* what the compiled drawings are trusted with, checked: every index in range */
     for (int i = 0; i < DXT.nroom; i++) { const DrawnRoom *r = &DXT.room[i];
         if (r->x < 0 || r->y < 0 || r->w < 1 || r->h < 1 || r->x + r->w > w || r->y + r->h > h || r->rtype < 0 || r->rtype >= NRT) BAD("a room outside the map, or of no type"); }
@@ -368,6 +381,9 @@ int crawl_drawn_text(const char *text, char *err, int nerr) {
         if ((z->zone != 0 && z->zone != 1) || z->how < 0 || z->how > (HH_CLOCK | HH_ENTER) || (z->on != 0 && z->on != 1) || z->kills < -1 || z->kills > 1
             || z->harm < -1 || z->harm > 100 || z->chance < -1 || z->chance > 100 || !(z->every >= 0.0f) || !(z->give >= 0.0f) || !(z->first >= 0.0f)
             || !(z->warn >= -1.0f) || z->every > 3600.0f || z->give > 3600.0f || z->first > 3600.0f || z->warn > 60.0f) BAD("a hazard's settings out of range"); }
+    for (int i = 0; i < DXT.nlight; i++) { const DrawnLight *L = &DXT.light[i];
+        if (L->style < 0 || L->style >= NDL) BAD("a light of a style this game does not have");
+        if (L->x < 0 || L->y < 0 || L->x >= w || L->y >= h) BAD("a light outside the map"); }
     for (int i = 0; i < DXT.nhzcell; i++) if (DXT.hzcell[i].x < 0 || DXT.hzcell[i].y < 0 || DXT.hzcell[i].x >= w || DXT.hzcell[i].y >= h) BAD("a hazard's cell outside the map");
     #undef BAD
     g_dtext_on = 1;
@@ -376,6 +392,55 @@ int crawl_drawn_text(const char *text, char *err, int nerr) {
 #undef XI
 #undef XF
 #undef XU
+
+/* The generator's lights on the drawing read (docs/PLAN-lights.md, section 1): the drawing laid as the game lays it for its level, on
+ * its own seed with its own dressing (but none of its own lights, so that what the generator would hang and stand is what comes back),
+ * and the light props it hung or stood that keep their picture, as DL_* and the drawing's cells, in the order laid. Nothing of a game
+ * in play is disturbed: everything the laying writes (the level, its plan, lanes, fire, ice, events, hazards, the faces' and the
+ * dressing's own counts) is put back as it was, byte for byte, so it may be asked at any time, and of a game never begun (the editor
+ * loads the game in its own page only to ask this). Things a pick lays by the run's dice are taken where drawn. How many, or -1: no
+ * drawing read. */
+int crawl_drawn_lights(DrawnLight *out, int max);
+int crawl_drawn_lights(DrawnLight *out, int max) {
+    if (!g_dtext_on) return -1;
+    #define KEEP_ALL(X) X(G) X(MM) X(nr_type) X(mroom) X(g_lane) X(g_ldist) X(DF) X(IC) X(EV) X(DH) X(GLP) X(room_shrine) X(wall_lights) \
+                        X(g_gate) X(g_drawn) X(g_events) X(uf) X(g_foot) X(g_foot_n) X(glp_on)
+    #define KEEP_SIZE(v) + sizeof v
+    size_t need = 0 KEEP_ALL(KEEP_SIZE);
+    unsigned char *keep = (unsigned char *)malloc(need), *k = keep;
+    if (!keep) return -1;
+    #define KEEP_OUT(v) memcpy(k, &v, sizeof v); k += sizeof v;
+    #define KEEP_IN(v) memcpy(&v, k, sizeof v); k += sizeof v;
+    KEEP_ALL(KEEP_OUT)
+    memset(&G, 0, sizeof G);                                       /* a fresh level, as start_level begins one */
+    memset(&EV, 0, sizeof EV); memset(&DH, 0, sizeof DH);
+    int nlight = g_dtext.nlight;
+    g_dtext.nlight = 0;                                            /* the generator's, not the drawing's own */
+    g_drawn = NDRAWN + 1;
+    const Drawn *D = &g_dtext;
+    G.level = D->level; G.boss = boss_of_level(G.level);
+    for (int i = 0; i < D->nthing && i < EV_THINGS; i++) { EV.tx[i] = D->thing[i].x; EV.ty[i] = D->thing[i].y; }
+    for (int i = 0; i < D->nspawn && i < EV_SPAWNS; i++) { EV.sx[i] = D->spawn[i].x; EV.sy[i] = D->spawn[i].y; }
+    g_events = D->ntrig || D->ntorch || D->nfield;
+    G.rs = D->seed;
+    gen_drawn();
+    int n = 0;
+    for (int i = 0; i < GLP.n; i++) {
+        int d = GLP.p[i].deco;
+        if (d < 0 || d >= G.ndecos || G.decos[d].spr < 0) continue;  /* cleared off a lane or a thing's cell: its picture is gone */
+        if (n < max && out) out[n] = (DrawnLight){ GLP.p[i].style, GLP.p[i].x - D->ox, GLP.p[i].y - D->oy };
+        n++;
+    }
+    g_dtext.nlight = nlight;
+    k = keep;
+    KEEP_ALL(KEEP_IN)
+    free(keep);
+    #undef KEEP_ALL
+    #undef KEEP_SIZE
+    #undef KEEP_OUT
+    #undef KEEP_IN
+    return n < max ? n : max;
+}
 
 #ifdef CRAWL_DEBUG
 /* the drawing read against DRAWN[n - 1], field for field (build/host_debug drawncheck): 0 the same, else the first difference */
@@ -405,6 +470,7 @@ int crawl_drawn_same(int n, char *why, int nwhy) {
     if (a->nfield != b->nfield || (a->nfield && memcmp(a->field, b->field, sizeof *a->field * (size_t)a->nfield))) DIFF("the fields");
     if (a->nhaz != b->nhaz || (a->nhaz && memcmp(a->haz, b->haz, sizeof *a->haz * (size_t)a->nhaz))) DIFF("the hazards");
     if (a->nhzcell != b->nhzcell || (a->nhzcell && memcmp(a->hzcell, b->hzcell, sizeof *a->hzcell * (size_t)a->nhzcell))) DIFF("the hazards' cells");
+    if (a->nlight != b->nlight || (a->nlight && memcmp(a->light, b->light, sizeof *a->light * (size_t)a->nlight))) DIFF("the lights");
     #undef DIFF
     why[0] = 0;
     return 0;

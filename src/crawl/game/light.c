@@ -44,6 +44,20 @@ static float torch_flicker(const Light *L) {
     return 0.80f + 0.12f * sinf(t * 9.1f) * sinf(t * 5.3f + 1.0f) + 0.08f * sinf(t * 23.0f + L->phase * 3.0f);
 }
 
+/* Three left (docs/PLAN-lights.md, section 2): with three creatures or fewer still to kill on a level, every torch and light prop
+ * burns a cold, pale colour and its light breathes. Drawing only: the light map the dead see by, and everything else that plays, is
+ * built as ever; the breath is added for the frame drawn and taken off again (crawl_render), so nothing that plays can read it. */
+static float lm_f[MAXLIGHTS];                                      /* each light's share as the light map last took it: for the frame */
+static int three_left(void) {
+#ifdef CRAWL_DEBUG
+    static int force = -9;
+    if (force == -9) force = getenv("CRAWL_THREELEFT") ? atoi(getenv("CRAWL_THREELEFT")) : 0;   /* 1: always, to see it by; -1 never */
+    if (force < 0) return 0;
+    if (force) return !G.shop && !PK.depth;
+#endif
+    int left = G.kills_total - G.kills;
+    return left >= 1 && left <= 3 && !G.shop && !PK.depth && !G.tally;
+}
 static void tri_dark(void);
 static float lm_at(float x, float y);
 static int gift_due(void);
@@ -59,6 +73,7 @@ static void build_lightmap(void) {
         if (wr && fabsf(L->x - wr->x) + fabsf(L->y - wr->y) < 5.0f) f *= 0.35f + 0.15f * sinf((float)G.t * 13.0f + l);
         if (g_events && g_drawn) f *= ev_light(l);                 /* a drawn level's torch out, or every light stuttering (docs/PLAN-events.md) */
         for (int k = 0; k < G.namb; k++) if (G.amb[k].snuff == l + 1) f *= 0.1f;   /* snuffed by a kill room's door */
+        lm_f[l] = f;
         for (int k = L->first; k < L->first + L->count; k++) G.lm[G.lc_idx[k]] += G.lc_w[k] * f;
     }
     tri_dark();                                                    /* a trial's room gone dark (1.0.0b13) */

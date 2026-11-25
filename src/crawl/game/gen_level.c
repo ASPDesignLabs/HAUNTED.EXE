@@ -31,10 +31,37 @@ static void hall_torches(void) {                                  /* the generat
             for (int e = 0; e < 4; e++) if (cell(wx + DX[e], wy + DY[e])->kind == K_DOOR) bydoor = 1;
             if (bydoor) continue;
             w->tex = T_TORCH0; w->ftorch = (uint8_t)(((d + 2) & 3) + 1);   /* on the face toward the hall */
+            int nl = G.nlights;
             light_static(x + 0.5f + DX[d] * 0.42f, y + 0.5f + DY[d] * 0.42f, 1.55f, 4.6f);
+            if (G.nlights > nl) G.lights[nl].torch = 1;                /* (a torch's: three left, docs/PLAN-lights.md) */
             break;
         }
     }
+}
+static void light_drop(int l) {                                    /* a light taken out of the list, and its texels with it */
+    if (l < 0 || l >= G.nlights) return;
+    int first = G.lights[l].first, count = G.lights[l].count;
+    memmove(&G.lc_idx[first], &G.lc_idx[first + count], sizeof G.lc_idx[0] * (size_t)(G.nlc - first - count));
+    memmove(&G.lc_w[first], &G.lc_w[first + count], sizeof G.lc_w[0] * (size_t)(G.nlc - first - count));
+    G.nlc -= count;
+    for (int k = l + 1; k < G.nlights; k++) if (G.lights[k].first >= first + count) G.lights[k].first -= count;
+    memmove(&G.lights[l], &G.lights[l + 1], sizeof G.lights[0] * (size_t)(G.nlights - l - 1));
+    G.nlights--;
+}
+/* a drawing with lights of its own (docs/PLAN-lights.md): the generator's light props, laid on its dice, taken off again once the
+ * dressing is done, so that the rest of the dressing lies as it would have with them: each one's picture gone, its cell as it was,
+ * its light out of the list. The last first, so the indices noted before it still hold. */
+static void glp_strip(void) {
+    for (int i = GLP.n - 1; i >= 0; i--) {
+        int x = GLP.p[i].x, y = GLP.p[i].y;
+        if (GLP.p[i].deco >= 0 && GLP.p[i].deco < G.ndecos) G.decos[GLP.p[i].deco].spr = -1;
+        Cell *c = &G.map[y][x];
+        if ((c->kind == K_PROP || c->kind == K_PILLAR) && GLP.p[i].kind0 == K_FLOOR) { c->kind = K_FLOOR; G.foot[y][x] = 0; }
+        light_drop(GLP.p[i].light);
+    }
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "DRAWN level %d: the generator's %d light props taken off\n", G.level, GLP.n);
+#endif
 }
 /* what follows the plan on every level: the walls' stone by the room beside them, colonnades, torches, the dressing, what
  * the autopilot can walk, fog, a boss's arena and the faces; a drawn level (docs/PLAN-tutorial.md) shares it */
@@ -77,7 +104,10 @@ static void gen_dress(void) {
     /* torches along the halls; on a drawn level that hangs its own, those alone (docs/PLAN-events.md) */
     if (!g_drawn || !drawn_torches()) hall_torches();
 
+    GLP.n = 0; glp_on = 1;                                         /* its light props noted as they are laid (docs/PLAN-lights.md) */
     dress_level();
+    glp_on = 0;
+    if (g_drawn && drawn_lights()) glp_strip();                     /* a drawing with lights of its own: the generator's taken off again */
 
     G.ncells = 0;                                                  /* what the autopilot can walk */
     for (int y = 0; y < MAPN; y++) for (int x = 0; x < MAPN; x++) if (G.map[y][x].kind == K_FLOOR && lane(x, y) && !G.map[y][x].secret) G.ncells++;
@@ -397,19 +427,47 @@ static void solid_prop(int x, int y, int spr, int nfr, int kind) {
 #endif
     add_deco_ex(prop_lx, prop_ly, spr, nfr, 0);
 }
-static void fire_pit(int x, int y) { solid_prop(x, y, SP_FIREPIT_A, 3, K_PROP); light_static(prop_lx, prop_ly, 1.7f, 5.6f); }
-static void totem(int x, int y) { solid_prop(x, y, SP_TOTEM_A, 2, K_PILLAR); light_static(x + 0.5f, y + 0.5f, 1.0f, 3.8f); }
-static void chandelier(int x, int y) { add_deco_ex(x + 0.5f, y + 0.5f, SP_CHANDELIER_A, 2, DF_SWAY); light_static(x + 0.5f, y + 0.5f, 1.35f, 6.0f); }
-static void candlestand(int x, int y) { solid_prop(x, y, SP_CANDLESTAND_A, 2, K_PROP); light_static(prop_lx, prop_ly, 0.95f, 3.6f); }
-static void lantern(int x, int y) { add_deco_ex(x + 0.5f, y + 0.5f, SP_LANTERN_A, 2, DF_SWAY); light_static(x + 0.5f, y + 0.5f, 1.1f, 5.0f); }
-static void brazier(int x, int y) { solid_prop(x, y, SP_BRAZIER_A, 3, K_PROP); light_static(prop_lx, prop_ly, 1.5f, 5.2f); }
-static void minelamp(int x, int y) { solid_prop(x, y, SP_MINELAMP_A, 2, K_PILLAR); light_static(x + 0.5f, y + 0.5f, 0.95f, 4.2f); }
+/* The light props, each noted as it is laid (GLP: what the editor is shown, and what a drawing with lights of its own has taken off
+ * again, docs/PLAN-lights.md) and its light marked a torch's (three left). Neither touches the dice or anything that plays. */
+static void glp_note(int style, int x, int y, int d0, int l0, int k0) {
+    if (G.nlights > l0) G.lights[l0].torch = 1;
+    if (glp_on && GLP.n < GLP_MAX) { GLP.p[GLP.n].style = style; GLP.p[GLP.n].x = x; GLP.p[GLP.n].y = y; GLP.p[GLP.n].deco = G.ndecos > d0 ? d0 : -1;
+                                     GLP.p[GLP.n].light = G.nlights > l0 ? l0 : -1; GLP.p[GLP.n].kind0 = k0; GLP.n++; }
+}
+#define GLP_IN int d0_ = G.ndecos, l0_ = G.nlights, k0_ = G.map[y][x].kind
+#define GLP_OUT(style) glp_note(style, x, y, d0_, l0_, k0_)
+static void fire_pit(int x, int y) { GLP_IN; solid_prop(x, y, SP_FIREPIT_A, 3, K_PROP); light_static(prop_lx, prop_ly, 1.7f, 5.6f); GLP_OUT(DL_FIREPIT); }
+static void totem(int x, int y) { GLP_IN; solid_prop(x, y, SP_TOTEM_A, 2, K_PILLAR); light_static(x + 0.5f, y + 0.5f, 1.0f, 3.8f); GLP_OUT(DL_TOTEM); }
+static void chandelier(int x, int y) { GLP_IN; add_deco_ex(x + 0.5f, y + 0.5f, SP_CHANDELIER_A, 2, DF_SWAY); light_static(x + 0.5f, y + 0.5f, 1.35f, 6.0f); GLP_OUT(DL_CHANDELIER); }
+static void candlestand(int x, int y) { GLP_IN; solid_prop(x, y, SP_CANDLESTAND_A, 2, K_PROP); light_static(prop_lx, prop_ly, 0.95f, 3.6f); GLP_OUT(DL_CANDLESTAND); }
+static void lantern(int x, int y) { GLP_IN; add_deco_ex(x + 0.5f, y + 0.5f, SP_LANTERN_A, 2, DF_SWAY); light_static(x + 0.5f, y + 0.5f, 1.1f, 5.0f); GLP_OUT(DL_LANTERN); }
+static void brazier(int x, int y) { GLP_IN; solid_prop(x, y, SP_BRAZIER_A, 3, K_PROP); light_static(prop_lx, prop_ly, 1.5f, 5.2f); GLP_OUT(DL_BRAZIER); }
+static void minelamp(int x, int y) { GLP_IN; solid_prop(x, y, SP_MINELAMP_A, 2, K_PILLAR); light_static(x + 0.5f, y + 0.5f, 0.95f, 4.2f); GLP_OUT(DL_MINELAMP); }
 static void crystals(int x, int y) {                               /* a steady glow, not a flame */
+    GLP_IN;
     int n = G.nlights;
     solid_prop(x, y, SP_CRYSTAL_A, 2, K_PROP); light_static(prop_lx, prop_ly, 1.15f, 4.6f);
     if (G.nlights > n) G.lights[n].phase = -1000.0f;
+    GLP_OUT(DL_CRYSTALS);
 }
-static void magma(int x, int y) { solid_prop(x, y, SP_MAGMA_A, 3, K_PROP); light_static(prop_lx, prop_ly, 1.6f, 5.4f); }
+static void magma(int x, int y) { GLP_IN; solid_prop(x, y, SP_MAGMA_A, 3, K_PROP); light_static(prop_lx, prop_ly, 1.6f, 5.4f); GLP_OUT(DL_MAGMA); }
+/* the four new hanging lights (docs/PLAN-lights.md), laid only where a drawing hangs them: the corona a little wider than the chandelier,
+ * the sanctuary lamp a small glow tinged by its glass, the candelabrum's candles in its skulls, the cage lantern's light thrown through
+ * its holes (the last two as the frame is drawn: draw/floor.c, lk_*); the three with candles at a candle's pace (DF_SLOW) */
+static void corona(int x, int y) { GLP_IN; add_deco_ex(x + 0.5f, y + 0.5f, SP_CORONA0, 3, DF_SWAY | DF_SLOW); light_static(x + 0.5f, y + 0.5f, 1.45f, 6.5f); GLP_OUT(DL_CORONA); }
+static void sanctuary(int x, int y) {
+    GLP_IN;
+    add_deco_ex(x + 0.5f, y + 0.5f, SP_SANCT0, 2, DF_SWAY); light_static(x + 0.5f, y + 0.5f, 0.65f, 3.4f);
+    if (G.nlights > l0_) G.lights[l0_].look = LK_RED;
+    GLP_OUT(DL_SANCTUARY);
+}
+static void bonelabrum(int x, int y) { GLP_IN; add_deco_ex(x + 0.5f, y + 0.5f, SP_BONELAB0, 3, DF_SWAY | DF_SLOW); light_static(x + 0.5f, y + 0.5f, 1.25f, 5.6f); GLP_OUT(DL_BONES); }
+static void cage_lantern(int x, int y) {
+    GLP_IN;
+    add_deco_ex(x + 0.5f, y + 0.5f, SP_CAGE0, 3, DF_SWAY | DF_SLOW); light_static(x + 0.5f, y + 0.5f, 1.5f, 5.4f);
+    if (G.nlights > l0_) G.lights[l0_].look = LK_DAPPLE;
+    GLP_OUT(DL_CAGE);
+}
 
 /* The dressing comes in as you go down (PLAN-bestiary, section 8): each set lights and furnishes
  * itself in its own way, and some things show a level or two before what they warn of. In the second
@@ -506,7 +564,9 @@ static void st_dress_marks(void) {
                     for (int e = 0; e < 4; e++) if (cell(wx + DX[e], wy + DY[e])->kind == K_DOOR) bydoor = 1;
                     if (bydoor) continue;
                     w->tex = T_TORCH0; w->ftorch = (uint8_t)(((d + 2) & 3) + 1);
+                    int nl = G.nlights;
                     light_static(x + 0.5f + DX[d] * 0.42f, y + 0.5f + DY[d] * 0.42f, 1.55f, 4.6f);
+                    if (G.nlights > nl) G.lights[nl].torch = 1;
                     nt++;
                     break;
                 }

@@ -379,3 +379,10 @@ they face the light, the rose raised round a boss, the studs domed with rust rou
 
 **The events' things' sheet approved (25 November 2026)**, after its detail pass: `media/sheets/events/event_things.png`. Next: the barred
 and unbarred door, relic, socket, lever and plate into the game's art, in place of the puzzles' borrowed looks (docs/PLAN-lights.md).
+
+**The things' art in the game (25 November 2026; docs/PLAN-lights.md section 4, step 4, has the whole).** The relic, the socket (empty, and
+holding: the relic then drawn as part of it), the lever up and pulled and the plate up and pressed are the owner's now
+(`SP_EV_RELIC`, `SP_EV_SOCKET0`, `SP_EV_LEVER0`, `T_PLATE`), in place of the puzzles' borrowed looks; the plate stays down while a switch or
+timed trigger it set off holds. `B`, and a door an event shuts, is the run's own door barred (`T_BARRED`), and from an unlock or an open
+unbarred (`T_UNBARRED`), the bar gone and a chain hung loose, before it slides. The puzzles' things on generated levels keep their looks.
+Harness only.
