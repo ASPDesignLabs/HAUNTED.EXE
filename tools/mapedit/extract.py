@@ -67,5 +67,7 @@ hz_el = re.findall(r"EL_\w+|-1", re.search(r"HZ_ELEM\[NHZ\] = \{(.*?)\};", haz_s
 if len(hz_el) != len(hz_names): sys.exit("HZ_ELEM has %d, the enum %d" % (len(hz_el), len(hz_names)))
 hazards = {"names": hz_names, "fixed": hz_rows(r"HZ_FIXED\[4\]\[4\]"), "arise": hz_rows(r"HZ_ARISE\[4\]\[3\]"), "sapper": hz_sap,
            "elem": {k: (None if e == "-1" else e) for k, e in zip(hz_names, hz_el)}}
-json.dump({"drawn": drawn, "elems": elems, "hazards": hazards, "stamps": stamps, "kinds": kinds, "budget": runb, "items": dict(zip(items, vals)), "rooms": rts,
+# the light styles in the game's order (docs/PLAN-lights.md): how web_drawn_lights numbers them
+dl = [t.strip() for t in re.search(r"enum \{ (DL_CHANDELIER.*?)NDL \}", read(src + "game/generate.c"), re.S).group(1).split(",") if t.strip()]
+json.dump({"drawn": drawn, "elems": elems, "hazards": hazards, "lights": dl, "stamps": stamps, "kinds": kinds, "budget": runb, "items": dict(zip(items, vals)), "rooms": rts,
            "mapn": int(re.search(r"#define MAPN (\d+)", defs).group(1))}, sys.stdout, indent=None, separators=(",", ":"))

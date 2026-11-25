@@ -170,6 +170,11 @@ DATA.hazards.fixed.flat().concat(DATA.hazards.arise.flat(), DATA.hazards.sapper)
     fs.writeFileSync(path.join(__dirname, 'fixtures', 'lights.c'), x);
     console.log(`lights: ${m.lights.length} in the export, ${errs.length} errors`);
 }
+/* the editor's light styles are the game's, every one */
+{
+    const ed = C.LIGHT_STYLES.map(s => s[0]);
+    if (ed.length !== DATA.lights.length || DATA.lights.some(k => !ed.includes(k))) fail(`the light styles differ: the game's ${DATA.lights.join(' ')}`);
+}
 /* every room type the game has is in one group of the editor's list, by run or any run's */
 {
     const grouped = C.ROOM_RUNS.flat().concat(C.ROOM_ANY);
