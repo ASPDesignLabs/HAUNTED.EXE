@@ -501,6 +501,7 @@ static void mk_finish(int k) {
     default: mk_deco(m, MKK[m->kind].s1, 1); break;
     }
     mk_fight(k);                                                   /* what a thing for fights does */
+    ev_struck(k);                                                  /* and a drawn level's trigger that watches it (docs/PLAN-events.md) */
     if (first) {
         mk_reward(m);
         xp_gain((4.0f + 2.0f * (float)m->pips) * xp_level(), mk_name(m));

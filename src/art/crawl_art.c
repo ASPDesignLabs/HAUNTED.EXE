@@ -90,6 +90,12 @@ int8_t crawl_glint[NSPR][2];
 /* Props: hanging roots, webs and cocoons, ice, the gothic pillar, flowstone, the altar stone, urns, broken arms, the spiked collar; the roost asleep */
 #include "parts/props_growth.c"
 
+/* The unlit torch (docs/PLAN-events.md): the run's own light guttering, just snuffed and cold, for a drawn level's events */
+#include "parts/unlit.c"
+
+/* The four new hanging lights and the events' things (docs/PLAN-lights.md, docs/PLAN-events.md): the owner's sheets, made each level */
+#include "parts/lights_events.c"
+
 /* The ambushes' signs; the pool; treasure (coins, the chalice, gems, the crown, the chest), the phial, the soul urn, the ring; props_level; footprints measured; crawl_art_level */
 #include "parts/treasure.c"
 

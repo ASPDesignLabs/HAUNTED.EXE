@@ -1,0 +1,1488 @@
+<title>HAUNTED.EXE World Editor</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=VT323&display=swap">
+<style>
+/* Layout: the game's carved stone round a 45 x 45 map: tools at the left, the map in the middle, the tablet of what is chosen,
+ * the budgets, the checks and the dream at the right. One look, dark, as mode 13h was. */
+:root {
+  --ground: #0c0a10;      /* the dark between the slabs */
+  --slab: #2e2a33;        /* carved stone */
+  --slab-hi: #4a4452;     /* its lit edge */
+  --slab-lo: #17141b;     /* its shadow */
+  --well: #1b1820;        /* a cut-in well */
+  --bone: #d8d0bd;        /* text */
+  --dim: #8f8698;         /* quieter text */
+  --gold: #e9c24c;        /* the game's gold capitals */
+  --ice: #8fc6dc;
+  --crimson: #d2473b;
+  --amber: #e89a3a;
+  --green: #79c15a;
+  --hood: #7d4fa8;        /* the caster's hood */
+  --display: "Silkscreen", "Courier New", monospace;
+  --body: "VT323", "Courier New", monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--ground); color: var(--bone); font-family: var(--body); font-size: 20px; line-height: 1.15; }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.app { display: grid; grid-template-rows: auto 1fr auto; height: 100%; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 10px; gap: 10px; }
+
+/* a slab: the bevel the game's tablets have */
+.slab { background: var(--slab); border: 2px solid; border-color: var(--slab-hi) var(--slab-lo) var(--slab-lo) var(--slab-hi); box-shadow: 0 0 0 2px var(--ground); }
+.well { background: var(--well); border: 2px solid; border-color: var(--slab-lo) var(--slab-hi) var(--slab-hi) var(--slab-lo); }
+h1, h2, h3 { font-family: var(--display); font-weight: 400; color: var(--gold); letter-spacing: 0.04em; margin: 0; text-wrap: balance; }
+h1 { font-size: 20px; }
+h2 { font-size: 14px; }
+h3 { font-size: 12px; color: var(--dim); }
+
+/* the header */
+.top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 8px 12px; }
+.top .name { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; flex: 1 1 260px; min-width: 0; }
+.top input[type=text] { min-width: 0; flex: 1 1 160px; }
+.saved { font-family: var(--display); font-size: 11px; padding: 3px 7px; border: 2px solid var(--slab-hi); color: var(--dim); white-space: nowrap; }
+.saved.dirty { color: var(--amber); border-color: var(--amber); }
+.saved.ok { color: var(--green); border-color: var(--green); }
+.bar { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* PLAY: the game over the editor (docs/PLAN-mapedit.md, part 3) */
+#playLayer { position: fixed; inset: 0; z-index: 50; background: #000; display: flex; flex-direction: column; }
+#playLayer[hidden] { display: none; }
+#playLayer .playbar { display: flex; gap: 10px; align-items: center; padding: 6px 10px; background: var(--slab); border-bottom: 2px solid var(--slab-lo); flex-wrap: wrap; }
+#playLayer .playbar span { font-family: var(--display); font-size: 12px; color: var(--gold); flex: 1; min-width: 12em; }
+#playFrame { flex: 1; width: 100%; border: 0; background: #000; }
+.btn { font-family: var(--display); font-size: 12px; letter-spacing: 0.04em; padding: 6px 10px; cursor: pointer; background: var(--slab); color: var(--bone);
+  border: 2px solid; border-color: var(--slab-hi) var(--slab-lo) var(--slab-lo) var(--slab-hi); }
+.btn:hover { color: var(--gold); }
+.btn:active, .btn[aria-pressed=true] { border-color: var(--slab-lo) var(--slab-hi) var(--slab-hi) var(--slab-lo); background: var(--well); color: var(--gold); }
+.btn.warn { color: var(--crimson); }
+.btn.play { color: var(--gold); }
+details.layers { position: relative; display: inline-block; }
+details.layers > summary { list-style: none; }
+details.layers > summary::-webkit-details-marker { display: none; }
+.layerpop { position: absolute; z-index: 20; top: calc(100% + 4px); left: 0; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; min-width: 13em; }
+.layerpop label { display: flex; gap: 8px; align-items: center; white-space: nowrap; }
+.btn:disabled { opacity: 0.45; cursor: default; }
+input[type=text], input[type=number], select, textarea { background: var(--well); border: 2px solid; border-color: var(--slab-lo) var(--slab-hi) var(--slab-hi) var(--slab-lo); padding: 3px 6px; }
+input[type=number] { width: 5.5em; }
+label { color: var(--dim); }
+
+/* the three columns */
+.main { display: grid; grid-template-columns: 230px minmax(0, 1fr) 330px; gap: 10px; min-height: 0; }
+.col { min-height: 0; overflow: auto; padding: 10px; display: flex; flex-direction: column; gap: 12px; }
+.mapwrap { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.maptools { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px 8px; }
+.maptools .sep { flex: 1; }
+.scroller { flex: 1; overflow: auto; min-height: 280px; position: relative; }
+#map { display: block; image-rendering: pixelated; image-rendering: crisp-edges; cursor: crosshair; touch-action: none; }
+
+/* the tool palette */
+.tools { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 4px; }
+.tool { display: flex; align-items: center; gap: 6px; padding: 3px 5px; cursor: pointer; background: var(--slab); border: 2px solid transparent; text-align: left; font-size: 18px; line-height: 1; min-height: 30px; }
+.tool:hover { border-color: var(--slab-hi); }
+.tool[aria-pressed=true] { border-color: var(--gold); background: var(--well); color: var(--gold); }
+.tool canvas { width: 20px; height: 20px; image-rendering: pixelated; flex: none; }
+.stamps { display: flex; flex-direction: column; gap: 4px; }
+.stamp { display: flex; gap: 8px; align-items: center; padding: 4px; cursor: pointer; background: var(--slab); border: 2px solid transparent; text-align: left; font-size: 17px; }
+.stamp:hover { border-color: var(--slab-hi); }
+.stamp[aria-pressed=true] { border-color: var(--gold); background: var(--well); }
+.stamp canvas { image-rendering: pixelated; flex: none; background: var(--ground); }
+.stamp small { color: var(--dim); display: block; }
+details > summary { cursor: pointer; font-family: var(--display); font-size: 12px; color: var(--gold); letter-spacing: 0.04em; list-style: none; }
+details > summary::before { content: "+ "; color: var(--dim); }
+details[open] > summary::before { content: "- "; }
+
+/* the tablet at the right */
+.tabs { display: flex; flex-wrap: wrap; gap: 4px; }
+.tab { font-family: var(--display); font-size: 11px; padding: 5px 7px; cursor: pointer; background: var(--slab); border: 2px solid; border-color: var(--slab-hi) var(--slab-lo) var(--slab-lo) var(--slab-hi); color: var(--dim); }
+.tab[aria-selected=true] { color: var(--gold); background: var(--well); border-color: var(--slab-lo) var(--slab-hi) var(--slab-hi) var(--slab-lo); }
+.tab .n { color: var(--crimson); }
+.pane { display: flex; flex-direction: column; gap: 10px; }
+.row { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
+.row > label { min-width: 6.2em; }
+.field { display: grid; grid-template-columns: 6.4em minmax(0, 1fr); gap: 6px; align-items: center; }
+.field select, .field input[type=text] { width: 100%; min-width: 0; }
+.note { color: var(--dim); font-size: 18px; }
+.meter { height: 12px; background: var(--well); border: 2px solid var(--slab-lo); position: relative; }
+.meter i { position: absolute; inset: 0 auto 0 0; background: var(--gold); }
+.meter i.over { background: var(--crimson); }
+.meter b { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--bone); }
+.num { font-variant-numeric: tabular-nums; }
+.kv { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; }
+.kv span:nth-child(even) { color: var(--gold); text-align: right; font-variant-numeric: tabular-nums; }
+.checks { display: flex; flex-direction: column; gap: 4px; }
+.check { text-align: left; background: var(--well); border: 2px solid transparent; padding: 5px 7px; cursor: pointer; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; font-size: 18px; }
+.check:hover, .check[aria-pressed=true] { border-color: var(--slab-hi); }
+.pip { font-family: var(--display); font-size: 10px; padding: 1px 4px; align-self: start; margin-top: 2px; }
+.pip.error { background: var(--crimson); color: var(--ground); }
+.pip.warn { background: var(--amber); color: var(--ground); }
+.pip.info { background: var(--slab-hi); color: var(--bone); }
+.pip.ok { background: var(--green); color: var(--ground); }
+.log { display: flex; flex-direction: column; gap: 2px; max-height: 240px; overflow: auto; }
+.log button { text-align: left; background: none; border: 0; padding: 2px 4px; cursor: pointer; font-size: 18px; color: var(--bone); }
+.log button.past { color: var(--dim); }
+.log button:hover { color: var(--gold); }
+input[type=range] { width: 100%; accent-color: var(--gold); }
+
+.status { display: flex; flex-wrap: wrap; gap: 4px 18px; padding: 5px 12px; font-size: 18px; color: var(--dim); }
+.status b { color: var(--bone); font-weight: 400; }
+
+/* the modal: every question the page asks, in the page */
+.veil { position: fixed; inset: 0; background: rgba(5, 4, 8, 0.78); display: grid; place-items: center; padding: 16px; z-index: 20; }
+.dialog { width: min(720px, 100%); max-height: calc(100% - 32px); overflow: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.dialog textarea { width: 100%; min-height: 300px; font-size: 16px; line-height: 1.2; white-space: pre; overflow: auto; }
+.list { display: flex; flex-direction: column; gap: 4px; }
+.list .item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 6px 8px; background: var(--well); }
+.list .item small { color: var(--dim); display: block; }
+.toast { position: fixed; left: 50%; bottom: calc(64px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); padding: 8px 14px; z-index: 30; font-family: var(--display); font-size: 12px; color: var(--gold); }
+
+@media (max-width: 1100px) {
+  .main { grid-template-columns: 200px minmax(0, 1fr); }
+  .right { grid-column: 1 / -1; }
+}
+@media (max-width: 720px) {
+  .app { height: auto; }
+  .main { grid-template-columns: minmax(0, 1fr); }
+  .scroller { max-height: 70vh; }
+  .left { max-height: 340px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<div class="app" id="app">
+  <header class="top slab">
+    <h1>HAUNTED.EXE WORLD EDITOR</h1>
+    <div class="name">
+      <input type="text" id="mapName" aria-label="Map name" value="">
+      <label for="mapLevel">Level</label><input type="number" id="mapLevel" min="1" max="160" value="3">
+      <span class="saved" id="saved">NOT SAVED</span>
+    </div>
+    <div class="bar">
+      <button class="btn" id="bNew">NEW</button>
+      <button class="btn" id="bOpen">OPEN</button>
+      <button class="btn" id="bSave">SAVE</button>
+      <button class="btn" id="bBackup">BACKUP FILE</button>
+      <button class="btn" id="bLoadFile">LOAD FILE</button>
+      <button class="btn" id="bExport">EXPORT C</button>
+      <button class="btn play" id="bPlay" title="Play this level in the game, here">PLAY</button>
+      <input type="file" id="fileIn" accept=".json,application/json" hidden>
+    </div>
+  </header>
+
+  <div class="main">
+    <aside class="col left slab" aria-label="Tools">
+      <div class="tools" id="modeTools"></div>
+      <details open><summary>TILES</summary><div class="tools" id="tileTools" style="margin-top:6px"></div></details>
+      <details open><summary>LANE BRUSH</summary><div class="tools" id="laneTools" style="margin-top:6px"></div></details>
+      <details open><summary>THINGS</summary><div class="tools" id="thingTools" style="margin-top:6px"></div></details>
+      <details open><summary id="hzSum">HAZARDS</summary><div class="tools" id="hzTools" style="margin-top:6px"></div></details>
+      <details open><summary>LIGHTS</summary><div class="row" style="margin-top:6px"><button class="btn" id="bGenLights" title="Ask the game where its generator would hang and stand lights on this drawing">THE GENERATOR'S LIGHTS</button></div><div class="tools" id="lightTools" style="margin-top:6px"></div></details>
+      <details><summary>SECRET ROOMS</summary><div class="stamps" id="stampSecret" style="margin-top:6px"></div></details>
+      <details><summary>JOINERS</summary><div class="stamps" id="stampJoiner" style="margin-top:6px"></div></details>
+      <details><summary>PLACES</summary><div class="stamps" id="stampPlace" style="margin-top:6px"></div></details>
+    </aside>
+
+    <section class="mapwrap slab" aria-label="Map">
+      <div class="maptools">
+        <button class="btn" id="bUndo" title="Undo (Ctrl+Z)">UNDO</button>
+        <button class="btn" id="bRedo" title="Redo (Ctrl+Y)">REDO</button>
+        <button class="btn" id="bLattice" aria-pressed="true" title="Snap to the block lattice (G)">LATTICE</button>
+        <button class="btn" id="bLanes" aria-pressed="true" title="Show the dream's lanes (L)">LANES</button>
+        <button class="btn" id="bGrid" aria-pressed="true" title="Show the cell grid">GRID</button>
+        <details class="layers" id="layersBox"><summary class="btn">LAYERS</summary><div class="layerpop slab" id="layerPop"></div></details>
+        <span class="sep"></span>
+        <button class="btn" id="bZoomOut" title="Zoom out (-)">-</button>
+        <span class="num" id="zoomLabel">16 PX</span>
+        <button class="btn" id="bZoomIn" title="Zoom in (+)">+</button>
+      </div>
+      <div class="scroller well" id="scroller"><canvas id="map"></canvas></div>
+    </section>
+
+    <aside class="col right slab" aria-label="Details">
+      <div class="tabs" role="tablist">
+        <button class="tab" role="tab" data-tab="inspect" aria-selected="true">CHOSEN</button>
+        <button class="tab" role="tab" data-tab="budget" aria-selected="false">BUDGET</button>
+        <button class="tab" role="tab" data-tab="checks" aria-selected="false">CHECKS <span class="n" id="checkN"></span></button>
+        <button class="tab" role="tab" data-tab="events" aria-selected="false">EVENTS</button>
+        <button class="tab" role="tab" data-tab="dream" aria-selected="false">DREAM</button>
+      </div>
+      <div class="pane" id="pane"></div>
+    </aside>
+  </div>
+
+  <footer class="status slab" id="status"><span>Cell <b id="sCell">-</b></span><span>Block <b id="sBlock">-</b></span><span>Lane <b id="sLane">-</b></span><span id="sHint">Choose a tool at the left.</span></footer>
+</div>
+<div id="modal"></div>
+<div id="playLayer" hidden>
+  <div class="playbar"><span id="playTitle"></span><button class="btn" id="bPlayClose">BACK TO THE EDITOR</button></div>
+  <iframe id="playFrame" title="The game, playing this level" allow="autoplay; fullscreen; gamepad"></iframe>
+</div>
+
+<script>
+/*@CORE@*/
+</script>
+<script>
+const DATA = /*@DATA@*/;
+(function () {
+'use strict';
+const C = window.MapCore, N = C.N, $ = s => document.getElementById(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+
+/* ---------- the palette and the tiles, cut as the game cuts its own: 16 x 16, a few shades each ---------- */
+const PAL = { stone: ['#2a2630', '#36313d', '#1d1a22', '#433d4b'], floor: ['#6b5642', '#5d4a39', '#7a6450', '#4d3d2f'],
+  fire: ['#e2541f', '#f39a2a', '#ffd34d', '#9e2b14'], ice: ['#3e7d98', '#5fa6c2', '#a9dcee', '#2b5a70'],
+  door: ['#6d3f22', '#8a5530', '#3d2213'], gdoor: ['#b58a1e', '#e9c24c', '#6d5210'], cdoor: ['#7e1d1a', '#b8352b', '#45100e'],
+  gate: ['#8a8f99', '#c9ccd4', '#3a3d44'], secret: ['#4a3260', '#5e4078', '#3a254d', '#6f4d8c'],
+  exit: '#4fa8ff', mend: '#5fd36a', crack: '#c86ee0', lane: '#a7a0ff', start: '#e9c24c' };
+function rng(seed) { let s = seed >>> 0 || 1; return () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296; }
+function tileCanvas(draw) { const c = document.createElement('canvas'); c.width = c.height = 16; draw(c.getContext('2d'), rng(draw.length * 977 + 7)); return c; }
+function noise(g, r, cols, wts) { for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) { const v = r(); let k = 0, a = wts[0]; while (v > a && k < wts.length - 1) a += wts[++k]; g.fillStyle = cols[k]; g.fillRect(x, y, 1, 1); } }
+const TILES = {
+  '#': tileCanvas((g, r) => { noise(g, r, PAL.stone, [0.6, 0.25, 0.1, 0.05]); g.fillStyle = PAL.stone[2]; g.fillRect(0, 7, 16, 1); g.fillRect(0, 15, 16, 1); g.fillRect(7, 0, 1, 7); g.fillRect(3, 8, 1, 7); g.fillRect(12, 8, 1, 7); g.fillStyle = PAL.stone[3]; g.fillRect(0, 0, 16, 1); g.fillRect(0, 8, 16, 1); }),
+  '.': tileCanvas((g, r) => { noise(g, r, PAL.floor, [0.55, 0.25, 0.12, 0.08]); g.fillStyle = PAL.floor[3]; g.fillRect(0, 0, 16, 1); g.fillRect(0, 0, 1, 16); g.fillRect(8, 0, 1, 8); g.fillRect(0, 8, 16, 1); }),
+  'F': tileCanvas((g, r) => { noise(g, r, PAL.floor, [0.5, 0.3, 0.1, 0.1]); for (let x = 0; x < 16; x += 2) { const h = 6 + ((r() * 8) | 0); g.fillStyle = PAL.fire[3]; g.fillRect(x, 16 - h, 2, h); g.fillStyle = PAL.fire[0]; g.fillRect(x, 16 - h + 2, 2, h - 2); g.fillStyle = PAL.fire[1]; g.fillRect(x, 16 - h + 4, 1, Math.max(0, h - 6)); g.fillStyle = PAL.fire[2]; g.fillRect(x, 13, 1, 2); } }),
+  'I': tileCanvas((g, r) => { noise(g, r, PAL.ice, [0.45, 0.3, 0.1, 0.15]); g.fillStyle = PAL.ice[2]; for (let k = 0; k < 4; k++) g.fillRect((r() * 15) | 0, (r() * 15) | 0, 1, 1); g.fillStyle = PAL.ice[3]; g.fillRect(2, 11, 6, 1); g.fillRect(9, 4, 5, 1); }),
+  'q': tileCanvas((g, r) => { noise(g, r, PAL.secret, [0.5, 0.25, 0.15, 0.1]); g.fillStyle = PAL.secret[2]; g.fillRect(0, 0, 16, 1); g.fillRect(0, 0, 1, 16); g.fillRect(8, 0, 1, 8); g.fillRect(0, 8, 16, 1); }),
+};
+function doorTile(p) { return tileCanvas((g, r) => { noise(g, r, PAL.floor, [0.6, 0.2, 0.1, 0.1]); g.fillStyle = p[2]; g.fillRect(1, 1, 14, 14); g.fillStyle = p[0]; g.fillRect(2, 2, 12, 12); g.fillStyle = p[1]; for (let x = 3; x < 14; x += 3) g.fillRect(x, 2, 1, 12); g.fillStyle = p[2]; g.fillRect(10, 7, 2, 2); }); }
+TILES.D = doorTile(PAL.door); TILES.G = doorTile(PAL.gdoor); TILES.C = doorTile(PAL.cdoor);
+TILES.B = tileCanvas((g, r) => { g.drawImage(doorTile(PAL.door), 0, 0); g.fillStyle = '#3a3d44'; g.fillRect(1, 5, 14, 3); g.fillStyle = '#9aa0aa'; g.fillRect(1, 5, 14, 1); g.fillStyle = '#3a3d44'; g.fillRect(1, 10, 14, 2); });
+TILES['='] = tileCanvas((g, r) => { noise(g, r, PAL.floor, [0.6, 0.2, 0.1, 0.1]); g.fillStyle = PAL.gate[2]; g.fillRect(0, 2, 16, 2); g.fillRect(0, 12, 16, 2); g.fillStyle = PAL.gate[0]; for (let x = 1; x < 16; x += 3) g.fillRect(x, 0, 2, 16); g.fillStyle = PAL.gate[1]; for (let x = 1; x < 16; x += 3) g.fillRect(x, 0, 1, 16); });
+TILES.S = TILES['.'];
+function wallMark(col) { return tileCanvas((g, r) => { g.drawImage(TILES['#'], 0, 0); g.fillStyle = col; g.fillRect(3, 3, 10, 10); g.fillStyle = PAL.stone[2]; g.fillRect(5, 5, 6, 6); g.fillStyle = col; g.fillRect(7, 5, 2, 6); g.fillRect(5, 7, 6, 2); }); }
+TILES.X = wallMark(PAL.exit); TILES.h = wallMark(PAL.mend);
+TILES.c = tileCanvas((g, r) => { g.drawImage(TILES['#'], 0, 0); g.fillStyle = PAL.crack; [[3, 2], [4, 3], [5, 4], [5, 5], [6, 6], [7, 7], [8, 7], [9, 8], [9, 9], [10, 10], [11, 11], [11, 12], [7, 8], [6, 9], [5, 10]].forEach(([x, y]) => g.fillRect(x, y, 1, 1)); });
+
+/* the things, as 8 x 8 sprites in a few letters */
+const SPR = {
+  IT_COINS: ['........', '..yyyy..', '.yYyyYy.', '.yyyyyy.', '..yyyy..', '.yyyyyy.', '..yyyy..', '........'],
+  IT_CHALICE: ['.yyyyyy.', '.yYyyyy.', '..yyyy..', '...yy...', '...yy...', '..yyyy..', '.yyyyyy.', '........'],
+  IT_GEMS: ['...cc...', '..cCcc..', '.ccccrr.', '..ccrRr.', '...rrr..', '..gg....', '.gGgg...', '..gg....'],
+  IT_CROWN: ['........', 'y..y..y.', 'yy.yy.yy', 'yyyyyyyy', 'yrryyccy', 'yyyyyyyy', '........', '........'],
+  IT_CHEST: ['.bbbbbb.', 'bBBBBBBb', 'byyyyyyb', 'bbbyybbb', 'bBByyBBb', 'bBBBBBBb', 'bbbbbbbb', '........'],
+  key0: ['........', '.yyy....', 'y...y...', '.yyyyyyy', '.....y.y', '.....y.y', '........', '........'],
+  dead: ['..wwww..', '.wwwwww.', '.wkwwkw.', '.wwwwww.', '..wkkw..', '..wwww..', '.w.ww.w.', '........'],
+  spawn: ['..rrrr..', '.r....r.', 'r..rr..r', 'r.rRRr.r', 'r.rRRr.r', 'r..rr..r', '.r....r.', '..rrrr..'],
+  mark0: ['........', '.bbbbbb.', 'bmmmmmmb', 'bmbbbbmb', 'bmbBBbmb', 'bmmmmmmb', '.bbbbbb.', '........'],
+  mark1: ['.gggggg.', '.g.g.g.g', '.g.g.g.g', '.g.g.g.g', '.g.g.g.g', '.g.g.g.g', '.gggggg.', '........'],
+  mark2: ['...mm...', '..mMMm..', '.mMmmMm.', 'mMmmmmMm', '.mMmmMm.', '..mMMm..', '...mm...', '........'],
+  switch: ['...rr...', '..rRRr..', '.rRrrRr.', 'rRr..rRr', 'rRr..rRr', '.rRrrRr.', '..rRRr..', '...rr...'],
+  gseal: ['...yy...', '..yYYy..', '.yYyyYy.', 'yYy..yYy', 'yYy..yYy', '.yYyyYy.', '..yYYy..', '...yy...'],
+  compass: ['..wwww..', '.wbbbbw.', 'wbbrbbbw', 'wbbrbbbw', 'wbbybbbw', 'wbbybbbw', '.wbbbbw.', '..wwww..'],
+  relic: ['......ww', '.....wWw', '....wWw.', '...wWw..', '.wwWw...', 'wWww....', 'wWw.....', '.w......'],
+  socket: ['........', '........', '.mmmmmm.', 'mkkkkkkm', 'mMmmmmMm', '.mmmmmm.', '..mmmm..', '.mmmmmm.'],
+  spot: ['...mm...', '..m..m..', '.m....m.', 'm..MM..m', 'm..MM..m', '.m....m.', '..m..m..', '...mm...'],
+  lever: ['......b.', '.....b..', '....b...', '...b....', '..b.....', '.gggggg.', 'gGGGGGGg', 'gggggggg'],
+  plate: ['........', '........', '........', '........', '.gggggg.', 'gGGGGGGg', 'gkgkgkgg', '.gggggg.'],
+  map: ['.wwwwww.', 'wWWWWWWw', 'wWbWWbWw', 'wWWbbWWw', 'wWbWWWWw', 'wWWWWbWw', '.wwwwww.', '........'],
+};
+const SPC = { y: '#e9c24c', Y: '#fff1a6', c: '#4fd0e0', C: '#c8f6ff', r: '#d2473b', R: '#ff9a8a', g: '#79c15a', G: '#c6f2a8', b: '#6d3f22', B: '#9a6236',
+  w: '#d8d0bd', W: '#fff7e6', k: '#17141b', m: '#7d4fa8', M: '#c79bf0' };
+const KEYCOL = ['#e9c24c', '#c9ccd4', '#d2473b'];
+function sprite(rows, tint) { const c = document.createElement('canvas'); c.width = c.height = 8; const g = c.getContext('2d');
+  rows.forEach((r, y) => [...r].forEach((ch, x) => { if (ch === '.') return; g.fillStyle = tint && ch === 'y' ? tint : SPC[ch]; g.fillRect(x, y, 1, 1); })); return c; }
+const SPRITES = {}; Object.keys(SPR).forEach(k => { SPRITES[k] = sprite(SPR[k]); });
+SPRITES.key1 = sprite(SPR.key0, KEYCOL[1]); SPRITES.key2 = sprite(SPR.key0, KEYCOL[2]);
+function spriteOf(t) {
+  if (t.t === 'gold') return SPRITES[t.k] || SPRITES.IT_COINS;
+  if (t.t === 'key') return SPRITES['key' + t.k];
+  if (t.t === 'mark') return SPRITES['mark' + t.k];
+  return SPRITES[t.t] || SPRITES.dead;
+}
+
+/* ---------- state ---------- */
+const S = { map: null, id: null, hist: [], fut: [], dirty: false, savedAt: null, zoom: 16, lattice: true, showLanes: true, showGrid: true,
+  tool: { kind: 'select' }, sel: null, tab: 'inspect', checks: [], hl: null, dream: null, dstep: 0, playing: null, stampT: 0,
+  db: null, dl: null, example: false, hover: null };
+/* the layers: what the map shows, and what a click can choose; remembered in this browser */
+const LAYERS = [['lights', 'Lights'], ['triggers', 'Triggers'], ['traps', 'Traps: hazards, fire, ice'], ['path', 'The dream\'s path'], ['things', 'Things'], ['rooms', 'Rooms']];
+S.layers = Object.fromEntries(LAYERS.map(([k]) => [k, true]));
+try { Object.assign(S.layers, JSON.parse(localStorage.getItem('cme.layers') || '{}')); } catch (e) {}
+const TILE_TOOLS = [['#', 'Stone'], ['.', 'Floor'], ['F', 'Burning floor'], ['I', 'Ice'], ['D', 'Door'], ['G', 'Gold door'], ['C', 'Crimson door'],
+  ['=', 'One-way gate'], ['B', 'Barred door'], ['S', 'Start'], ['X', 'Exit'], ['h', 'Place to mend'], ['c', 'Secret wall'], ['q', 'Secret room']];
+const THING_TOOLS = [
+  [{ t: 'gold', k: 'IT_COINS' }, 'Coins 10'], [{ t: 'gold', k: 'IT_CHALICE' }, 'Chalice 25'], [{ t: 'gold', k: 'IT_GEMS' }, 'Gems 50'],
+  [{ t: 'gold', k: 'IT_CROWN' }, 'Crown 100'], [{ t: 'gold', k: 'IT_CHEST' }, 'Chest 250'],
+  [{ t: 'key', k: 0 }, 'Gold key'], [{ t: 'key', k: 2 }, 'Crimson key'], [{ t: 'key', k: 1 }, 'Silver key'],
+  [{ t: 'spawn', k: '', chance: 100 }, 'Spawn point'], [{ t: 'dead', k: 'MOB_SKEL' }, 'Fixed dead'],
+  [{ t: 'map' }, 'The map'], [{ t: 'compass' }, 'The compass'], [{ t: 'relic', name: 'A relic' }, 'Relic'], [{ t: 'socket', name: 'A socket', accepts: 0 }, 'Socket'],
+  [{ t: 'spot', tag: 'spot A' }, 'Spot'], [{ t: 'lever', name: '' }, 'Lever'], [{ t: 'plate', name: '' }, 'Pressure plate'], [{ t: 'mark', k: 0 }, 'Coffer'], [{ t: 'mark', k: 1 }, 'Cage'], [{ t: 'mark', k: 2 }, "Class's own"],
+  [{ t: 'switch' }, 'Switch'], [{ t: 'gseal' }, "Gate's seal"]];
+const RT_NAMES = DATA.rooms.map(r => r.slice(3).toLowerCase());
+const KINDS = DATA.kinds.filter(k => k.cost != null && !k.unique && k.id !== 'MOB_SAC');
+
+/* ---------- history: every change is undoable; a change marks the map unsaved ---------- */
+function snapshot() { return JSON.stringify(S.map); }
+function change(fn, quiet) {
+  const before = snapshot();
+  fn();
+  if (snapshot() === before) return;
+  S.hist.push(before); if (S.hist.length > 200) S.hist.shift(); S.fut = [];
+  S.dirty = true; S.dream = null; stopPlay();
+  refresh(quiet);
+  draftSave();
+}
+function undo() { if (!S.hist.length) return; S.fut.push(snapshot()); S.map = JSON.parse(S.hist.pop()); S.sel = null; S.dirty = true; S.dream = null; refresh(); toast('UNDONE'); }
+function redo() { if (!S.fut.length) return; S.hist.push(snapshot()); S.map = JSON.parse(S.fut.pop()); S.sel = null; S.dirty = true; S.dream = null; refresh(); toast('REDONE'); }
+
+/* ---------- the map's canvas ---------- */
+const cv = $('map'), g = cv.getContext('2d');
+let composed = null, laneMask = null;
+function recompose() { composed = C.compose(DATA, S.map); laneMask = C.lanes(S.map, composed.cells); }
+const GROUP_COLS = ['#4fd0e0', '#79c15a', '#e9c24c', '#d2473b', '#c79bf0', '#e89a3a', '#8fc6dc', '#ff9a8a'];
+function groupColour(name) { const g = C.torchGroups(S.map); const i = g.indexOf(name); return i < 0 ? '#6a6470' : GROUP_COLS[i % GROUP_COLS.length]; }
+function draw() {
+  const z = S.zoom, W = N * z;
+  if (cv.width !== W) { cv.width = cv.height = W; cv.style.width = cv.style.height = W + 'px'; }
+  g.imageSmoothingEnabled = false;
+  const cells = composed.cells;
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const ch = cells[y * N + x];
+    g.drawImage(TILES[ch] || TILES['#'], x * z, y * z, z, z);
+  }
+  /* the start's arrow, by its facing */
+  for (let i = 0; i < N * N; i++) if (cells[i] === 'S') {
+    const x = (i % N) * z, y = ((i / N) | 0) * z, d = C.DIRS[S.map.face];
+    g.fillStyle = PAL.start; const cx = x + z / 2, cy = y + z / 2;
+    g.beginPath(); g.moveTo(cx + d[0] * z * 0.38, cy + d[1] * z * 0.38);
+    g.lineTo(cx - d[0] * z * 0.3 + d[1] * z * 0.3, cy - d[1] * z * 0.3 + d[0] * z * 0.3);
+    g.lineTo(cx - d[0] * z * 0.3 - d[1] * z * 0.3, cy - d[1] * z * 0.3 - d[0] * z * 0.3); g.closePath(); g.fill();
+  }
+  if (S.layers.traps) C.fields(S.map, cells).forEach(f => {                           /* a field down, at the start or at the dream's step: dimmed */
+    const live = S.dream ? C.fieldLive(S.dream, f, S.dstep) : f.on;
+    if (!live) { g.fillStyle = 'rgba(10,8,14,0.62)'; f.cells.forEach(([x, y]) => g.fillRect(x * z, y * z, z, z)); }
+    if (S.sel && S.sel.kind === 'field' && S.sel.key === f.key) { g.strokeStyle = PAL.start; g.lineWidth = 2; f.cells.forEach(([x, y]) => g.strokeRect(x * z + 1, y * z + 1, z - 2, z - 2)); }
+  });
+  if (S.layers.traps) (S.map.hazards || []).forEach((h, i) => {                     /* hazards: their cells in their element's colour, the anchor, the box */
+    const col = C.EL_COL[DATA.hazards.elem[h.kind]] || '#b07ae0', sel = S.sel && S.sel.kind === 'hazard' && S.sel.i === i, v = k => (h[k] == null ? C.HZ_DEF[k] : h[k]);
+    g.globalAlpha = sel ? 0.5 : 0.3; g.fillStyle = col;
+    h.cells.forEach(([x, y]) => g.fillRect(x * z, y * z, z, z));
+    g.globalAlpha = 1; g.strokeStyle = col; g.lineWidth = sel ? 2 : 1;
+    if (v('zone')) g.setLineDash([3, 3]);
+    h.cells.forEach(([x, y]) => g.strokeRect(x * z + 0.5, y * z + 0.5, z - 1, z - 1));
+    g.setLineDash([]);
+    if (sel && (C.HAZ_INFO[h.kind] || {}).line && z >= 12) { g.fillStyle = '#17141b'; g.font = `${Math.max(8, z * 0.4) | 0}px monospace`; g.textAlign = 'center'; g.textBaseline = 'middle';
+      h.cells.forEach(([x, y], k) => g.fillText(String(k + 1), x * z + z / 2, y * z + z / 2)); }
+    const cx = h.ax * z + z / 2, cy = h.ay * z + z / 2, r = z * 0.42;   /* the anchor: a warning sign */
+    g.fillStyle = col; g.beginPath(); g.moveTo(cx, cy - r); g.lineTo(cx + r, cy + r * 0.8); g.lineTo(cx - r, cy + r * 0.8); g.closePath(); g.fill();
+    g.strokeStyle = sel ? PAL.start : '#17141b'; g.lineWidth = sel ? 2 : 1; g.stroke();
+    g.fillStyle = '#17141b'; g.fillRect(cx - z * 0.05, cy - r * 0.45, Math.max(1, z * 0.1), r * 0.7); g.fillRect(cx - z * 0.05, cy + r * 0.4, Math.max(1, z * 0.1), Math.max(1, z * 0.1));
+    if (!v('on')) { g.fillStyle = 'rgba(10,8,14,0.55)'; g.fillRect(h.ax * z, h.ay * z, z, z); }
+    if (v('enter') && h.box) { g.strokeStyle = PAL.start; g.setLineDash([4, 3]); g.lineWidth = 1; g.strokeRect(h.box.x0 * z + 1, h.box.y0 * z + 1, (h.box.x1 - h.box.x0 + 1) * z - 2, (h.box.y1 - h.box.y0 + 1) * z - 2); g.setLineDash([]); }
+  });
+  if (S.showGrid) {
+    g.fillStyle = 'rgba(0,0,0,0.28)';
+    for (let k = 0; k <= N; k++) { g.fillRect(k * z, 0, 1, W); g.fillRect(0, k * z, W, 1); }
+    if (z >= 32) {                                                 /* quarters of a cell, faint, for laying things */
+      g.fillStyle = 'rgba(0,0,0,0.16)';
+      for (let k = 0; k < N * 4; k++) if (k % 4) { g.fillRect(Math.round(k * z / 4), 0, 1, W); g.fillRect(0, Math.round(k * z / 4), W, 1); }
+    }
+    if (S.map.lattice) { g.fillStyle = 'rgba(233,194,76,0.07)'; for (let k = 0; k <= N; k += 4) { g.fillRect(k * z, 0, z, W); g.fillRect(0, k * z, W, z); } }
+  }
+  if (S.showLanes) {
+    g.fillStyle = PAL.lane; const s = Math.max(2, Math.round(z / 6));
+    for (let i = 0; i < N * N; i++) if (laneMask[i] && cells[i] !== '#') g.fillRect((i % N) * z + (z - s) / 2, ((i / N) | 0) * z + (z - s) / 2, s, s);
+  }
+  /* rooms */
+  g.lineWidth = 1; g.font = `${Math.max(10, Math.round(z * 0.75))}px VT323, monospace`; g.textBaseline = 'top';
+  if (S.layers.rooms) S.map.rooms.forEach((r, i) => {
+    const sel = S.sel && S.sel.kind === 'room' && S.sel.i === i;
+    g.strokeStyle = sel ? PAL.start : r.vault >= 0 ? KEYCOL[r.vault] : '#d8d0bd';
+    g.setLineDash(sel ? [] : [4, 3]); g.lineWidth = sel ? 2 : 1;
+    g.strokeRect(r.x * z + 1.5, r.y * z + 1.5, r.w * z - 3, r.h * z - 3);
+    g.setLineDash([]);
+    g.fillStyle = 'rgba(12,10,16,0.72)'; const lbl = (i + 1) + ' ' + RT_NAMES[DATA.rooms.indexOf(r.rt)];
+    const tw = g.measureText(lbl).width; g.fillRect(r.x * z + 3, r.y * z + 3, tw + 4, Math.round(z * 0.75) + 2);
+    g.fillStyle = sel ? PAL.start : '#d8d0bd'; g.fillText(lbl, r.x * z + 5, r.y * z + 3);
+  });
+  /* stamps */
+  S.map.stamps.forEach((st, i) => {
+    const rows = C.stampRows(DATA, st), sel = S.sel && S.sel.kind === 'stamp' && S.sel.i === i;
+    g.strokeStyle = sel ? PAL.start : 'rgba(233,194,76,0.55)'; g.lineWidth = sel ? 2 : 1; g.setLineDash(sel ? [] : [2, 2]);
+    g.strokeRect(st.x * z + 0.5, st.y * z + 0.5, rows[0].length * z - 1, rows.length * z - 1); g.setLineDash([]);
+  });
+  composed.marks.forEach(mk => {
+    if (mk.g === 'P' || mk.g === 'p') { g.strokeStyle = mk.g === 'P' ? PAL.start : 'rgba(233,194,76,0.6)'; g.lineWidth = 1; g.strokeRect(mk.x * z + 3.5, mk.y * z + 3.5, z - 7, z - 7); return; }
+    g.fillStyle = 'rgba(12,10,16,0.7)'; g.fillRect(mk.x * z + z * 0.2, mk.y * z + z * 0.15, z * 0.6, z * 0.7);
+    g.fillStyle = mk.g === 's' ? '#d2473b' : '#c79bf0'; g.fillText(mk.g, mk.x * z + z * 0.33, mk.y * z + z * 0.1);
+  });
+  /* torches: on a wall's face, lit or not (at the dream's step, when it is shown), a ring of the group's colour */
+  if (S.layers.lights) (S.map.lights || []).forEach((l, i) => {      /* the lights: their icons, a soft glow round them */
+    const st = C.LIGHT_STYLES.find(x => x[0] === l.style) || ['', '', 1], sel = S.sel && S.sel.kind === 'light' && S.sel.i === i, cx = l.x * z + z / 2, cy = l.y * z + z / 2;
+    const gr = g.createRadialGradient(cx, cy, 1, cx, cy, z * 1.6); gr.addColorStop(0, 'rgba(255,211,77,0.28)'); gr.addColorStop(1, 'rgba(255,211,77,0)');
+    g.fillStyle = gr; g.fillRect(cx - z * 1.6, cy - z * 1.6, z * 3.2, z * 3.2);
+    const ic = lightIcon(l.style, st[2]), ts = Math.max(10, Math.round(z * 0.9)); g.drawImage(ic, Math.round(cx - ts / 2), Math.round(cy - ts / 2), ts, ts);
+    if (sel) { g.strokeStyle = PAL.start; g.lineWidth = 2; g.strokeRect(l.x * z + 1, l.y * z + 1, z - 2, z - 2); }
+  });
+  if (S.layers.lights) (S.map.torches || []).forEach((t, i) => {
+    const d = C.DIRS[t.d], cx = t.x * z + z / 2 + d[0] * z * 0.36, cy = t.y * z + z / 2 + d[1] * z * 0.36, sel = S.sel && S.sel.kind === 'torch' && S.sel.i === i;
+    const lit = S.dream ? C.torchLit(S.dream, t, S.dstep) : t.lit, r = Math.max(3, z * 0.2);
+    if (lit) { g.fillStyle = 'rgba(255,170,60,0.28)'; g.beginPath(); g.arc(cx, cy, z * 0.7, 0, 7); g.fill(); }
+    g.fillStyle = groupColour(t.group); g.beginPath(); g.arc(cx, cy, r + 2, 0, 7); g.fill();
+    g.fillStyle = lit ? '#ffb02e' : '#2a2630'; g.beginPath(); g.arc(cx, cy, r, 0, 7); g.fill();
+    if (lit) { g.fillStyle = '#fff1a6'; g.fillRect(Math.round(cx - 1), Math.round(cy - 1), 2, 2); }
+    if (sel) { g.strokeStyle = PAL.start; g.lineWidth = 2; g.beginPath(); g.arc(cx, cy, r + 5, 0, 7); g.stroke(); }
+  });
+  /* the trigger being edited: what it watches, its box, the doors its actions name */
+  const fe = S.tab === 'events' && S.evSel != null ? (S.map.events || [])[S.evSel] : null;
+  if (S.layers.triggers) (S.map.events || []).forEach(e => {      /* every trigger, faint: its box, and a ring on what it watches */
+    if (e === fe) return;
+    g.globalAlpha = 0.45; g.lineWidth = 1; g.strokeStyle = '#c79bf0'; g.setLineDash([3, 3]);
+    if (e.area) g.strokeRect(e.area.x0 * z + 1, e.area.y0 * z + 1, (e.area.x1 - e.area.x0 + 1) * z - 2, (e.area.y1 - e.area.y0 + 1) * z - 2);
+    g.setLineDash([]);
+    const tt = S.map.things.find(t => t.id === e.target);
+    if (tt) { g.beginPath(); g.arc(tt.x * z, tt.y * z, z * 0.6, 0, 7); g.stroke(); }
+    g.globalAlpha = 1;
+  });
+  if (fe && S.layers.triggers) {
+    g.lineWidth = 2; g.strokeStyle = '#c79bf0'; g.setLineDash([5, 3]);
+    if (fe.area) g.strokeRect(fe.area.x0 * z + 1, fe.area.y0 * z + 1, (fe.area.x1 - fe.area.x0 + 1) * z - 2, (fe.area.y1 - fe.area.y0 + 1) * z - 2);
+    g.setLineDash([]);
+    const tt = S.map.things.find(t => t.id === fe.target);
+    if (tt && fe.kind !== 'enter' && fe.kind !== 'all') { g.beginPath(); g.arc(tt.x * z, tt.y * z, z * 0.75, 0, 7); g.stroke(); }
+    (fe.actions || []).forEach(a => { if (a.door) { g.strokeStyle = '#c79bf0'; g.strokeRect(a.door[0] * z + 2, a.door[1] * z + 2, z - 4, z - 4); } });
+  }
+  if (S.pick && S.drag && S.drag.pickArea) { const r = S.drag.pickArea; g.strokeStyle = '#c79bf0'; g.lineWidth = 2; g.strokeRect(r.x0 * z, r.y0 * z, (r.x1 - r.x0 + 1) * z, (r.y1 - r.y0 + 1) * z); }
+  /* things */
+  const ts = Math.max(8, Math.round(z * 0.5));
+  const st0 = S.sel && S.sel.kind === 'thing' ? S.map.things.find(t => t.id === S.sel.id) : null;
+  if (S.layers.things && st0 && ((st0.inRooms || []).length || st0.spotTag)) {        /* where the dice may lay it: a ghost at each place */
+    g.globalAlpha = 0.45;
+    C.pickOptions(S.map, composed.cells, laneMask, st0).forEach(o => { const p = o.pos; if (p) { g.drawImage(spriteOf(st0), Math.round(p[0] * z - ts / 2), Math.round(p[1] * z - ts / 2), ts, ts); g.strokeStyle = '#c79bf0'; g.strokeRect(Math.round(p[0] * z - ts / 2) - 2, Math.round(p[1] * z - ts / 2) - 2, ts + 4, ts + 4); } });
+    g.globalAlpha = 1;
+  }
+  if (S.layers.things) S.map.things.forEach((t, i) => {
+    const dp = S.dream && S.dream.pos && S.dream.pos.get(t.id), tx = dp ? dp[0] : t.x, ty = dp ? dp[1] : t.y;
+    const px = tx * z - ts / 2, py = ty * z - ts / 2, sel = S.sel && S.sel.kind === 'thing' && S.sel.id === t.id;
+    g.globalAlpha = t.t === 'spot' ? 0.7 : 1;
+    if ((t.inRooms || []).length || t.spotTag) { g.fillStyle = '#c79bf0'; g.fillRect(Math.round(px - 2), Math.round(py + ts - 1), 3, 3); }
+    g.drawImage(spriteOf(t), Math.round(px), Math.round(py), ts, ts); g.globalAlpha = 1;
+    if (t.t === 'spawn' && t.k) { g.fillStyle = '#ff9a8a'; g.fillRect(Math.round(px + ts - 3), Math.round(py), 3, 3); }
+    if (sel) { g.strokeStyle = PAL.start; g.lineWidth = 2; g.strokeRect(Math.round(px) - 2, Math.round(py) - 2, ts + 4, ts + 4); }
+  });
+  /* a roll being looked at: its things, faint, ringed in gold */
+  if (S.roll && S.roll.cur != null) {
+    const L = S.roll.layouts[S.roll.cur], ts = Math.max(8, Math.round(z * 0.9));
+    L.items.forEach(t => { g.globalAlpha = 0.85; g.drawImage(spriteOf(t), Math.round(t.x * z - ts / 2), Math.round(t.y * z - ts / 2), ts, ts); g.globalAlpha = 1;
+      g.strokeStyle = PAL.start; g.lineWidth = 1; g.strokeRect(Math.round(t.x * z - ts / 2) - 1.5, Math.round(t.y * z - ts / 2) - 1.5, ts + 3, ts + 3); });
+  }
+  /* the check being looked at */
+  if (S.hl) {
+    g.lineWidth = 2;
+    g.strokeStyle = S.hl.sev === 'error' ? '#ff5b4d' : S.hl.sev === 'warn' ? '#ffb347' : '#c9ccd4';
+    S.hl.cells.forEach(([x, y]) => g.strokeRect(x * z + 1, y * z + 1, z - 2, z - 2));
+  }
+  /* the dream's walk, as far as the step shown */
+  if (S.layers.path && S.dream && S.dream.route.length) {
+    const R = S.dream.route, n = Math.min(S.dstep, R.length - 1);
+    g.strokeStyle = 'rgba(199,155,240,0.95)'; g.lineWidth = Math.max(2, z / 6); g.lineJoin = 'round';
+    g.beginPath(); R.slice(0, n + 1).forEach(([x, y], k) => { const px = x * z + z / 2, py = y * z + z / 2; k ? g.lineTo(px, py) : g.moveTo(px, py); }); g.stroke();
+    const [wx, wy] = R[n];
+    g.fillStyle = 'rgba(255,241,166,0.35)'; g.beginPath(); g.arc(wx * z + z / 2, wy * z + z / 2, z * 0.62, 0, 7); g.fill();
+    g.fillStyle = '#fff1a6'; g.beginPath(); g.arc(wx * z + z / 2, wy * z + z / 2, z * 0.25, 0, 7); g.fill();
+    if (S.dream.exit) { g.strokeStyle = PAL.exit; g.lineWidth = 2; g.strokeRect(S.dream.exit[0] * z + 2, S.dream.exit[1] * z + 2, z - 4, z - 4); }
+    g.strokeStyle = '#ff5b4d'; g.lineWidth = 2;
+    S.dream.missed.forEach(t => { const px = t.x * z, py = t.y * z; g.beginPath(); g.moveTo(px - 5, py - 5); g.lineTo(px + 5, py + 5); g.moveTo(px + 5, py - 5); g.lineTo(px - 5, py + 5); g.stroke(); });
+  }
+  /* what the armed tool would lay, under the pointer */
+  if (S.hover && S.tool.kind === 'stamp') {
+    const rows = C.xformRows(C.stampDef(DATA, S.tool.name).rows, S.stampT), p = stampSnap(S.hover.cx, S.hover.cy, S.tool.name);
+    g.globalAlpha = 0.55;
+    rows.forEach((r, y) => [...r].forEach((ch, x) => { const L = ch === '#' ? '#' : C.stampDef(DATA, S.tool.name).kind === 'secret' ? (ch === 'E' ? 'c' : ch === 'D' ? '#' : 'q') : '.'; g.drawImage(TILES[L], (p.x + x) * z, (p.y + y) * z, z, z); }));
+    g.globalAlpha = 1; g.strokeStyle = PAL.start; g.lineWidth = 2; g.strokeRect(p.x * z, p.y * z, rows[0].length * z, rows.length * z);
+  } else if (S.hover && S.tool.kind === 'room' && S.drag && S.drag.room) {
+    const r = S.drag.room; g.strokeStyle = PAL.start; g.lineWidth = 2; g.strokeRect(r.x * z, r.y * z, r.w * z, r.h * z);
+  } else if (S.hover && (S.tool.kind === 'tile' || S.tool.kind === 'lane')) {
+    g.strokeStyle = PAL.start; g.lineWidth = 1;
+    if (S.drag && S.drag.rect) { const r = S.drag.rect; g.strokeRect(r.x0 * z + 0.5, r.y0 * z + 0.5, (r.x1 - r.x0 + 1) * z - 1, (r.y1 - r.y0 + 1) * z - 1); }
+    else g.strokeRect(S.hover.cx * z + 0.5, S.hover.cy * z + 0.5, z - 1, z - 1);
+  }
+}
+
+/* ---------- the pointer on the map ---------- */
+function at(e) { const r = cv.getBoundingClientRect(), x = (e.clientX - r.left) / S.zoom, y = (e.clientY - r.top) / S.zoom; return { x, y, cx: Math.floor(x), cy: Math.floor(y) }; }
+const quarter = v => Math.min(N - 0.125, Math.max(0.125, Math.floor(v * 4) / 4 + 0.125));   /* the middle of the quarter cell it is in */
+function stampSnap(cx, cy, name) {
+  const d = C.stampDef(DATA, name), rows = C.xformRows(d.rows, S.stampT);
+  let x = cx - (rows[0].length >> 1), y = cy - (rows.length >> 1);
+  if (S.map.lattice && d.kind !== 'secret') { x = Math.round((x - 1) / 4) * 4 + 1; y = Math.round((y - 1) / 4) * 4 + 1; }
+  return { x, y };
+}
+function hit(p) {
+  const r = Math.max(0.3, 6 / S.zoom);
+  if (S.layers.traps) for (let i = (S.map.hazards || []).length - 1; i >= 0; i--) { const h = S.map.hazards[i]; if (h.ax === p.cx && h.ay === p.cy) return { kind: 'hazard', i }; }
+  if (S.layers.lights) for (let i = (S.map.lights || []).length - 1; i >= 0; i--) { const l = S.map.lights[i]; if (l.x === p.cx && l.y === p.cy) return { kind: 'light', i }; }
+  if (S.layers.lights) for (let i = (S.map.torches || []).length - 1; i >= 0; i--) { const t = S.map.torches[i]; if (t.x === p.cx && t.y === p.cy) return { kind: 'torch', i }; }
+  if (S.layers.things) for (let i = S.map.things.length - 1; i >= 0; i--) { const t = S.map.things[i]; if (Math.abs(t.x - p.x) <= r && Math.abs(t.y - p.y) <= r) return { kind: 'thing', id: t.id }; }
+  for (let i = S.map.stamps.length - 1; i >= 0; i--) { const st = S.map.stamps[i], rows = C.stampRows(DATA, st); if (p.cx >= st.x && p.cy >= st.y && p.cx < st.x + rows[0].length && p.cy < st.y + rows.length) return { kind: 'stamp', i }; }
+  const fc = composed.cells[C.idx(p.cx, p.cy)];
+  if (S.layers.traps && (fc === 'F' || fc === 'I')) { const f = C.fields(S.map, composed.cells).find(f => f.cells.some(([x, y]) => x === p.cx && y === p.cy)); if (f) return { kind: 'field', key: f.key }; }
+  if (S.layers.rooms) for (let i = S.map.rooms.length - 1; i >= 0; i--) { const rm = S.map.rooms[i]; if (p.cx >= rm.x && p.cy >= rm.y && p.cx < rm.x + rm.w && p.cy < rm.y + rm.h) return { kind: 'room', i }; }
+  return null;
+}
+function paintCell(cx, cy) {
+  if (!C.inMap(cx, cy)) return;
+  const i = C.idx(cx, cy);
+  if (composed.owner[i] >= 0 && S.tool.kind === 'tile') { if (!S.warnedStamp) { S.warnedStamp = true; toast('UNDER A STAMP: BAKE IT TO PAINT THERE'); setTimeout(() => { S.warnedStamp = false; }, 3000); } return; }   /* a stamp's cells are the stamp's: bake it first */
+  if (S.tool.kind === 'tile') {
+    if (S.tool.ch === 'S') for (let k = 0; k < N * N; k++) if (S.map.grid[k] === 'S') S.map.grid[k] = '.';   /* one start */
+    S.map.grid[i] = S.tool.ch;
+  } else if (S.tool.kind === 'lane') S.map.lane[i] = S.tool.v;
+  else if (S.tool.kind === 'hzcells') {                         /* a hazard's cells: added in the order painted, or taken off */
+    const h = (S.map.hazards || [])[S.tool.i]; if (!h) return;
+    const k = h.cells.findIndex(([x, y]) => x === cx && y === cy);
+    if (S.tool.add && k < 0) h.cells.push([cx, cy]); else if (!S.tool.add && k >= 0) h.cells.splice(k, 1);
+  }
+}
+cv.addEventListener('pointerdown', e => {
+  if (e.button !== 0) return;
+  cv.setPointerCapture(e.pointerId);
+  const p = at(e);
+  if (!C.inMap(p.cx, p.cy)) return;
+  if (S.pick) { pickAt(p); return; }
+  const T = S.tool;
+  if (T.kind === 'torch') {
+    const ch = composed.cells[C.idx(p.cx, p.cy)];
+    if (ch !== '#') { toast('A TORCH HANGS ON STONE: CLICK A WALL'); return; }
+    const fx = p.x - p.cx - 0.5, fy = p.y - p.cy - 0.5;   /* the face nearest the pointer that has floor before it */
+    const order = [0, 1, 2, 3].sort((a, b) => (C.DIRS[b][0] * fx + C.DIRS[b][1] * fy) - (C.DIRS[a][0] * fx + C.DIRS[a][1] * fy));
+    const d = order.find(k => { const x = p.cx + C.DIRS[k][0], y = p.cy + C.DIRS[k][1]; return C.inMap(x, y) && C.isOpen(composed.cells[C.idx(x, y)]); });
+    if (d == null) { toast('NO FLOOR BESIDE THAT WALL'); return; }
+    const last = (S.map.torches || []).slice(-1)[0];
+    change(() => { S.map.torches = S.map.torches || []; S.map.torches.push({ x: p.cx, y: p.cy, d, group: last ? last.group : 'path A', lit: last ? last.lit : false }); S.sel = { kind: 'torch', i: S.map.torches.length - 1 }; });
+    setTab('inspect'); return;
+  }
+  if (T.kind === 'light') {
+    const ch = composed.cells[C.idx(p.cx, p.cy)];
+    if (!C.isOpen(ch) || C.DOORS.has(ch)) { toast('A LIGHT GOES OVER OPEN FLOOR'); return; }
+    change(() => { S.map.lights = S.map.lights || []; S.map.lights.push({ style: T.style, x: p.cx, y: p.cy }); S.sel = { kind: 'light', i: S.map.lights.length - 1 }; });
+    setTab('inspect'); return;
+  }
+  if (T.kind === 'hazard') {
+    const I = C.HAZ_INFO[T.hz] || {}, ch = composed.cells[C.idx(p.cx, p.cy)];
+    let front = null;
+    if (I.wall) {
+      if (ch !== '#') { toast('THIS ONE IS SET IN A WALL: CLICK STONE BESIDE THE FLOOR'); return; }
+      const d = [0, 1, 2, 3].find(k => C.isOpen(composed.cells[C.idx(p.cx + C.DIRS[k][0], p.cy + C.DIRS[k][1])]));
+      if (d == null) { toast('NO FLOOR BESIDE THAT WALL'); return; }
+      front = [p.cx + C.DIRS[d][0], p.cy + C.DIRS[d][1]];
+    } else if (!C.isOpen(ch)) { toast('THIS ONE STANDS ON THE FLOOR: CLICK FLOOR'); return; }
+    const taken = new Set((S.map.hazards || []).map(h => C.hzName(S.map, h)));
+    let n = 1; while (taken.has(`${I.name || T.hz} ${n}`)) n++;
+    change(() => { S.map.hazards = S.map.hazards || []; S.map.hazards.push(Object.assign({ kind: T.hz, name: `${I.name || T.hz} ${n}`, ax: p.cx, ay: p.cy, cells: [front || [p.cx, p.cy]] }, JSON.parse(JSON.stringify(C.HZ_DEF))));
+      S.sel = { kind: 'hazard', i: S.map.hazards.length - 1 }; });
+    setTab('inspect'); return;
+  }
+  if (T.kind === 'hzcells') {
+    const h = (S.map.hazards || [])[T.i]; if (!h) return;
+    T.add = !h.cells.some(([x, y]) => x === p.cx && y === p.cy);
+    S.drag = { paint: true, before: snapshot() }; paintCell(p.cx, p.cy); draw(); return;
+  }
+  if (T.kind === 'tile' || T.kind === 'lane') {
+    if (e.shiftKey) { S.drag = { rect: { x0: p.cx, y0: p.cy, x1: p.cx, y1: p.cy, sx: p.cx, sy: p.cy } }; draw(); return; }
+    S.drag = { paint: true, before: snapshot() }; paintCell(p.cx, p.cy); recompose(); draw(); return;
+  }
+  if (T.kind === 'thing') {
+    change(() => { const o = Object.assign({ id: S.map.next++ }, JSON.parse(JSON.stringify(T.proto)), { x: quarter(p.x), y: quarter(p.y) }); S.map.things.push(o); S.sel = { kind: 'thing', id: o.id }; });
+    return;
+  }
+  if (T.kind === 'stamp') {
+    const q = stampSnap(p.cx, p.cy, T.name);
+    change(() => { S.map.stamps.push({ name: T.name, t: S.stampT, x: q.x, y: q.y, entry: 0 }); S.sel = { kind: 'stamp', i: S.map.stamps.length - 1 }; });
+    return;
+  }
+  if (T.kind === 'room') { S.drag = { room: { x: p.cx, y: p.cy, w: 1, h: 1 }, sx: p.cx, sy: p.cy }; draw(); return; }
+  /* select, and drag what was chosen */
+  const h = hit(p); S.sel = h; S.hl = null;
+  if (h && (h.kind === 'thing' || h.kind === 'stamp' || h.kind === 'room' || h.kind === 'light')) S.drag = { move: h, from: p, before: snapshot(), orig: JSON.parse(JSON.stringify(h.kind === 'light' ? S.map.lights[h.i] : h.kind === 'thing' ? S.map.things.find(t => t.id === h.id) : h.kind === 'stamp' ? S.map.stamps[h.i] : S.map.rooms[h.i])) };
+  setTab('inspect'); refresh(true);
+});
+cv.addEventListener('pointermove', e => {
+  const p = at(e); S.hover = C.inMap(p.cx, p.cy) ? p : null; status(p);
+  const D = S.drag;
+  if (D && D.paint) { paintCell(p.cx, p.cy); recompose(); }
+  else if (D && D.rect) { const r = D.rect; r.x0 = Math.min(r.sx, p.cx); r.x1 = Math.max(r.sx, p.cx); r.y0 = Math.min(r.sy, p.cy); r.y1 = Math.max(r.sy, p.cy); }
+  else if (D && D.pickArea) { const r = D.pickArea; r.x0 = Math.min(D.sx, p.cx); r.x1 = Math.max(D.sx, p.cx); r.y0 = Math.min(D.sy, p.cy); r.y1 = Math.max(D.sy, p.cy); }
+  else if (D && D.room) { D.room = { x: Math.min(D.sx, p.cx), y: Math.min(D.sy, p.cy), w: Math.abs(p.cx - D.sx) + 1, h: Math.abs(p.cy - D.sy) + 1 }; }
+  else if (D && D.move) {
+    const dx = p.x - D.from.x, dy = p.y - D.from.y, o = D.orig;
+    if (D.move.kind === 'thing') { const t = S.map.things.find(t => t.id === D.move.id); t.x = quarter(o.x + dx); t.y = quarter(o.y + dy); }
+    else if (D.move.kind === 'light') { const l = S.map.lights[D.move.i]; l.x = Math.max(1, Math.min(N - 2, o.x + Math.round(dx))); l.y = Math.max(1, Math.min(N - 2, o.y + Math.round(dy))); }
+    else if (D.move.kind === 'stamp') { const st = S.map.stamps[D.move.i]; let nx = o.x + Math.round(dx), ny = o.y + Math.round(dy);
+      if (S.map.lattice && C.stampDef(DATA, st.name).kind !== 'secret') { nx = Math.round((nx - 1) / 4) * 4 + 1; ny = Math.round((ny - 1) / 4) * 4 + 1; } st.x = nx; st.y = ny; recompose(); }
+    else { const rm = S.map.rooms[D.move.i]; rm.x = o.x + Math.round(dx); rm.y = o.y + Math.round(dy); }
+  }
+  draw();
+});
+function endDrag() {
+  const D = S.drag; S.drag = null;
+  if (!D) return;
+  if (D.paint || D.move) {
+    if (snapshot() !== D.before) { S.hist.push(D.before); S.fut = []; S.dirty = true; S.dream = null; stopPlay(); draftSave(); }
+    refresh(); return;
+  }
+  if (D.pickArea) { const r = D.pickArea, cb = S.pick.cb, tab = S.pick.tab || 'events'; S.pick = null; pickNote(); change(() => cb({ x0: r.x0, y0: r.y0, x1: r.x1, y1: r.y1 })); setTab(tab); return; }
+  if (D.rect) { change(() => { for (let y = D.rect.y0; y <= D.rect.y1; y++) for (let x = D.rect.x0; x <= D.rect.x1; x++) paintCell(x, y); }); return; }
+  if (D.room) { change(() => { S.map.rooms.push(Object.assign({ rt: 'RT_OSSUARY', vault: -1 }, D.room)); S.sel = { kind: 'room', i: S.map.rooms.length - 1 }; }); setTab('inspect'); }
+}
+cv.addEventListener('pointerup', endDrag);
+cv.addEventListener('pointercancel', endDrag);
+cv.addEventListener('pointerleave', () => { S.hover = null; draw(); });
+
+function status(p) {
+  const ok = p && C.inMap(p.cx, p.cy);
+  $('sCell').textContent = ok ? `${p.cx}, ${p.cy}` + (S.tool.kind === 'thing' ? `  (${quarter(p.x).toFixed(3)}, ${quarter(p.y).toFixed(3)})` : '') : '-';
+  $('sBlock').textContent = ok ? (p.cx % 4 === 0 || p.cy % 4 === 0 ? 'wall line' : `${p.cx >> 2}, ${p.cy >> 2}`) : '-';
+  $('sLane').textContent = ok ? (laneMask[C.idx(p.cx, p.cy)] ? 'yes' : 'no') : '-';
+}
+
+/* choosing on the map for an event: a thing, a door, or a box dragged */
+function pickAt(p) {
+  const P = S.pick;
+  if (P.what === 'area') { S.drag = { pickArea: { x0: p.cx, y0: p.cy, x1: p.cx, y1: p.cy }, sx: p.cx, sy: p.cy }; draw(); return; }
+  if (P.what === 'door') {
+    if (!C.DOORS.has(composed.cells[C.idx(p.cx, p.cy)])) { toast('THAT IS NOT A DOOR'); return; }
+    S.pick = null; pickNote(); change(() => P.cb([p.cx, p.cy])); setTab('events'); return;
+  }
+  const h = hit(p);
+  const t = h && h.kind === 'thing' ? S.map.things.find(x => x.id === h.id) : null;
+  if (!t || (P.ok && !P.ok(t))) { toast(P.refuse || 'CHOOSE A THING'); return; }
+  S.pick = null; pickNote(); change(() => P.cb(t.id)); setTab('events');
+}
+function startPick(what, cb, hint, ok, refuse, tab) { S.pick = { what, cb, ok, refuse, tab }; pickNote(hint); }
+function pickNote(hint) { $('sHint').textContent = hint ? hint + ' (Esc to stop)' : ''; cv.style.cursor = hint ? 'cell' : (S.tool.kind === 'select' ? 'default' : 'crosshair'); }
+
+/* ---------- the tools ---------- */
+function iconCanvas(drawer) { const c = document.createElement('canvas'); c.width = c.height = 16; const x = c.getContext('2d'); x.imageSmoothingEnabled = false; drawer(x); return c; }
+function toolButton(host, label, icon, tool, hint) {
+  const b = document.createElement('button'); b.className = 'tool'; b.type = 'button'; b.setAttribute('aria-pressed', 'false'); b.title = hint || label;
+  if (icon) b.appendChild(icon);
+  b.appendChild(document.createTextNode(label));
+  b.addEventListener('click', () => setTool(tool, b, hint));
+  host.appendChild(b); return b;
+}
+let pressed = null;
+function setTool(tool, btn, hint) {
+  S.tool = tool; if (pressed) pressed.setAttribute('aria-pressed', 'false'); pressed = btn; if (btn) btn.setAttribute('aria-pressed', 'true');
+  $('sHint').textContent = hint || '';
+  cv.style.cursor = tool.kind === 'select' ? 'default' : 'crosshair';
+  draw();
+}
+const selectBtn = toolButton($('modeTools'), 'Select', iconCanvas(x => { x.fillStyle = '#e9c24c'; x.fillRect(3, 2, 2, 11); x.fillRect(5, 4, 2, 2); x.fillRect(7, 6, 2, 2); x.fillRect(9, 8, 2, 2); x.fillRect(5, 10, 5, 2); }), { kind: 'select' }, 'Choose a thing, stamp or room; drag it to move it. Delete removes it.');
+toolButton($('modeTools'), 'Torch', iconCanvas(x => { x.fillStyle = '#6d3f22'; x.fillRect(7, 7, 2, 7); x.fillStyle = '#e2541f'; x.fillRect(6, 3, 4, 4); x.fillStyle = '#ffd34d'; x.fillRect(7, 4, 2, 2); }), { kind: 'torch' }, 'Click a wall beside the floor to hang a torch on the face toward the floor. Give it a group so events can light or snuff it.');
+toolButton($('modeTools'), 'Room', iconCanvas(x => { x.strokeStyle = '#d8d0bd'; x.setLineDash([2, 2]); x.strokeRect(2.5, 3.5, 11, 9); }), { kind: 'room' }, 'Drag a box over the cells a room covers. Its type sets the walls\' look.');
+TILE_TOOLS.forEach(([ch, name]) => toolButton($('tileTools'), name, iconCanvas(x => x.drawImage(TILES[ch], 0, 0)), { kind: 'tile', ch }, `${name} (${ch}). Drag to paint; hold Shift and drag to fill a box.`));
+toolButton($('laneTools'), 'Lane on', iconCanvas(x => { x.drawImage(TILES['.'], 0, 0); x.fillStyle = PAL.lane; x.fillRect(6, 6, 4, 4); }), { kind: 'lane', v: 1 }, 'Paint cells the dream may walk. Doors, the start and a secret\'s wall are always lanes.');
+toolButton($('laneTools'), 'Lane off', iconCanvas(x => { x.drawImage(TILES['.'], 0, 0); x.strokeStyle = '#d2473b'; x.beginPath(); x.moveTo(4, 4); x.lineTo(12, 12); x.moveTo(12, 4); x.lineTo(4, 12); x.stroke(); }), { kind: 'lane', v: 2 }, 'Take cells off the lattice\'s lanes.');
+toolButton($('laneTools'), 'Lane auto', iconCanvas(x => { x.drawImage(TILES['.'], 0, 0); x.fillStyle = 'rgba(167,160,255,0.5)'; x.fillRect(6, 6, 4, 4); }), { kind: 'lane', v: 0 }, 'Back to the lattice\'s own lanes (every x or y that is 2 more than a multiple of 4).');
+THING_TOOLS.forEach(([proto, name]) => toolButton($('thingTools'), name, iconCanvas(x => x.drawImage(spriteOf(proto), 0, 0, 16, 16)), { kind: 'thing', proto }, `${name}: click to set it down. It sits in quarters of a cell.`));
+/* the lights (docs/PLAN-lights.md): hanging ones a ring on chains, standing ones a flame on a base */
+function lightIcon(st, hang) {
+  return iconCanvas(x => {
+    const fresh = ['DL_CORONA', 'DL_SANCTUARY', 'DL_BONES', 'DL_CAGE'].includes(st);
+    if (hang) { x.fillStyle = '#8a8f99'; x.fillRect(7, 0, 2, 5); x.fillStyle = fresh ? '#c79bf0' : '#c9a44c'; x.fillRect(3, 6, 10, 2); x.fillRect(3, 6, 2, 4); x.fillRect(11, 6, 2, 4);
+      x.fillStyle = st === 'DL_SANCTUARY' ? '#e03a2e' : '#ffd34d'; x.fillRect(4, 3, 1, 2); x.fillRect(11, 3, 1, 2); x.fillRect(7, 9, 2, 3); }
+    else { x.fillStyle = '#6d3f22'; x.fillRect(5, 11, 6, 3); x.fillStyle = st === 'DL_CRYSTALS' ? '#8fd6f0' : st === 'DL_MAGMA' ? '#e2541f' : '#f39a2a'; x.fillRect(6, 5, 4, 6); x.fillStyle = '#ffd34d'; x.fillRect(7, 3, 2, 3); }
+  });
+}
+const lhead = t => { const p = document.createElement('p'); p.className = 'note'; p.style.cssText = 'grid-column:1/-1;margin:4px 0 0'; p.textContent = t; $('lightTools').appendChild(p); };
+[['Hanging', 1], ['Standing', 0]].forEach(([t, hang]) => {
+  lhead(t);
+  C.LIGHT_STYLES.filter(s => s[2] === hang).forEach(([id, name, h, help]) => toolButton($('lightTools'), name, lightIcon(id, h), { kind: 'light', style: id }, `${name}: click a floor cell. ${help}`));
+});
+/* the hazards: the level's run's own (docs/PLAN-events.md, 2c), made again when the level's run changes */
+function hzIcon(kind) {
+  const col = C.EL_COL[DATA.hazards.elem[kind]] || '#b07ae0';
+  return iconCanvas(x => { x.fillStyle = col; x.beginPath(); x.moveTo(8, 2); x.lineTo(14, 13); x.lineTo(2, 13); x.closePath(); x.fill();
+    x.fillStyle = '#17141b'; x.fillRect(7, 6, 2, 4); x.fillRect(7, 11, 2, 1); });
+}
+let hzRun = -1;
+function buildHzTools() {
+  const H = C.hazardsOf(DATA, S.map.level);
+  if (H.run === hzRun) return;
+  hzRun = H.run; const host = $('hzTools'); host.innerHTML = '';
+  $('hzSum').textContent = 'HAZARDS: ' + H.runName;
+  const head = t => { const p = document.createElement('p'); p.className = 'note'; p.style.cssText = 'grid-column:1/-1;margin:4px 0 0'; p.textContent = t; host.appendChild(p); };
+  [['Set in place', H.fixed], ['Soul-sapping', H.sapper], ['Arising', H.arise]].forEach(([t, list]) => {
+    if (!list.length) return; head(t);
+    list.forEach(k => { const I = C.HAZ_INFO[k] || {}; toolButton(host, I.name || k, hzIcon(k), { kind: 'hazard', hz: k }, `${I.name}: ${I.wall ? 'click the wall it is set in' : 'click the floor where it stands'}; then paint its cells in its pane.`); });
+  });
+}
+function stampPreview(rows, kind, max) {
+  const h = rows.length, w = rows[0].length, s = Math.max(1, Math.floor(max / Math.max(w, h))), c = document.createElement('canvas');
+  c.width = w * s; c.height = h * s; const x = c.getContext('2d');
+  rows.forEach((r, y) => [...r].forEach((ch, i) => {
+    x.fillStyle = ch === '#' ? '#2a2630' : ch === 'E' ? PAL.crack : ch === 'D' ? '#4fd0e0' : ch === 'P' ? '#e9c24c' : ch === 'p' ? '#a8892e' : 'abcst'.includes(ch) ? '#c79bf0' : kind === 'secret' ? '#5e4078' : '#7a6450';
+    x.fillRect(i * s, y * s, s, s);
+  }));
+  c.style.width = c.width + 'px'; c.style.height = c.height + 'px';
+  return c;
+}
+[['secret', 'stampSecret'], ['joiner', 'stampJoiner'], ['place', 'stampPlace']].forEach(([kind, host]) => {
+  DATA.stamps.filter(s => s.kind === kind).forEach(s => {
+    const b = document.createElement('button'); b.className = 'stamp'; b.type = 'button'; b.setAttribute('aria-pressed', 'false');
+    b.appendChild(stampPreview(s.rows, kind, 44));
+    const t = document.createElement('span'); t.innerHTML = `${esc(s.name.replace(/^(secret|joiner|place)_/, '').replace(/_/g, ' '))}<small>${s.w} x ${s.h} · steps ${s.minstep + 1}-${s.maxstep + 1}</small>`;
+    b.appendChild(t);
+    b.addEventListener('click', () => { S.stampT = 0; setTool({ kind: 'stamp', name: s.name }, b, `${s.name}: click the map to lay it. R turns it, M mirrors it.${kind !== 'secret' ? ' It snaps to the lattice.' : ''}`); });
+    $(host).appendChild(b);
+  });
+});
+
+/* ---------- the tablet ---------- */
+function setTab(t) { S.tab = t; document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === t))); pane(); }
+document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => setTab(b.dataset.tab)));
+function opt(v, label, cur) { return `<option value="${esc(v)}"${String(v) === String(cur) ? ' selected' : ''}>${esc(label)}</option>`; }
+function selected() {
+  if (!S.sel) return null;
+  if (S.sel.kind === 'thing') return S.map.things.find(t => t.id === S.sel.id) || null;
+  if (S.sel.kind === 'stamp') return S.map.stamps[S.sel.i] || null;
+  if (S.sel.kind === 'torch') return (S.map.torches || [])[S.sel.i] || null;
+  if (S.sel.kind === 'hazard') return (S.map.hazards || [])[S.sel.i] || null;
+  if (S.sel.kind === 'light') return (S.map.lights || [])[S.sel.i] || null;
+  if (S.sel.kind === 'field') return C.fields(S.map, composed.cells).find(f => f.key === S.sel.key) || null;
+  return S.map.rooms[S.sel.i] || null;
+}
+function pane() {
+  const P = $('pane');
+  if (S.tab === 'inspect') P.innerHTML = paneInspect();
+  else if (S.tab === 'budget') P.innerHTML = paneBudget();
+  else if (S.tab === 'checks') P.innerHTML = paneChecks();
+  else if (S.tab === 'events') P.innerHTML = paneEvents();
+  else P.innerHTML = paneDream();
+  wirePane();
+}
+function paneInspect() {
+  const o = selected(), m = S.map, L = C.levelInfo(DATA, m.level);
+  if (!o) return `<h2>THE LEVEL</h2>
+    <div class="field"><label for="iLevel">Level</label><input type="number" id="iLevel" min="1" max="160" value="${m.level}"></div>
+    <p class="note">${esc(L.runName)}, step ${L.step + 1} of 10${L.boss ? ' (its boss\'s level)' : ''}${L.loop ? `, descent ${L.loop + 1}` : ''}.</p>
+    <div class="field"><label for="iSlot">drawn.c slot</label><input type="number" id="iSlot" min="1" max="40" value="${m.slot || 3}"></div>
+    <div class="field"><label for="iFace">Start faces</label><select id="iFace">${['East', 'South', 'West', 'North'].map((n, i) => opt(i, n, m.face)).join('')}</select></div>
+    <div class="field"><label for="iSeed">Seed</label><input type="text" id="iSeed" placeholder="0x7D1A0003 by the slot" value="${esc(m.seed || '')}"></div>
+    <div class="row"><label><input type="checkbox" id="iCorrupt"${m.corrupt ? ' checked' : ''}> Corrupted (budget x1.4)</label></div>
+    <p class="note">The seed lays the level's look, dressing and torches; the same seed gives the same look every time.</p>
+    <h2>KEYS</h2>
+    <div class="kv note"><span>Undo, redo</span><span>Ctrl+Z, Ctrl+Y</span><span>Select</span><span>V</span><span>Turn, mirror a stamp</span><span>R, M</span>
+    <span>Delete what is chosen</span><span>Delete</span><span>Lattice, lanes</span><span>G, L</span><span>Zoom</span><span>+ -</span><span>Fill a box</span><span>Shift+drag</span><span>Put down a tool</span><span>Esc</span></div>`;
+  if (S.sel.kind === 'thing') return paneThing(o);
+  if (S.sel.kind === 'field') return paneField(o);
+  if (S.sel.kind === 'hazard') return paneHazard(o);
+  if (S.sel.kind === 'light') { const st = C.LIGHT_STYLES.find(x => x[0] === o.style) || []; return `<h2>LIGHT</h2><p class="note">${st[2] ? 'Hanging over' : 'Standing in'} (${o.x}, ${o.y}). ${esc(st[3] || '')}</p>
+    <div class="field"><label for="lS">Style</label><select id="lS"><optgroup label="Hanging">${C.LIGHT_STYLES.filter(x => x[2]).map(x => opt(x[0], x[1], o.style)).join('')}</optgroup><optgroup label="Standing">${C.LIGHT_STYLES.filter(x => !x[2]).map(x => opt(x[0], x[1], o.style)).join('')}</optgroup></select></div>
+    <p class="note">With any light of yours on the level, the game hangs and stands only yours: none of the generator's.${o.gen ? ' This one is where the generator put it.' : ''}</p>
+    <div class="row"><button class="btn warn" id="lDel">REMOVE</button></div>`; }
+  if (S.sel.kind === 'torch') return `<h2>TORCH</h2><p class="note">On the wall at (${o.x}, ${o.y}).</p>
+    <div class="field"><label for="toG">Group</label><input type="text" id="toG" list="toGroups" value="${esc(o.group || '')}"></div>
+    <datalist id="toGroups">${C.torchGroups(S.map).map(g => `<option value="${esc(g)}">`).join('')}</datalist>
+    <div class="field"><label for="toD">Faces</label><select id="toD">${['east', 'south', 'west', 'north'].map((n, i) => opt(i, n, o.d)).join('')}</select></div>
+    <div class="row"><label><input type="checkbox" id="toL"${o.lit ? ' checked' : ''}> Lit at the start</label></div>
+    <p class="note">Events light and snuff a group's torches together. Give torches down one path the same group ("path A").</p>
+    <div class="row"><button class="btn warn" id="toDel">REMOVE</button></div>`;
+  if (S.sel.kind === 'stamp') {
+    const d = C.stampDef(DATA, o.name), ne = d.rows.join('').split('E').length - 1;
+    return `<h2>STAMP</h2><p>${esc(o.name)}</p><p class="note">${esc(d.kind)}, ${d.w} x ${d.h}; at (${o.x}, ${o.y}); steps ${d.minstep + 1} to ${d.maxstep + 1}, weight ${d.weight}.</p>
+      <div class="row"><button class="btn" id="sRot">TURN</button><button class="btn" id="sMir">MIRROR</button><span class="note">turn ${o.t & 3}, ${o.t & 4 ? 'mirrored' : 'as drawn'}</span></div>
+      ${ne > 1 ? `<div class="field"><label for="sEntry">Entrance</label><select id="sEntry">${Array.from({ length: ne }, (_, k) => opt(k, 'Entrance ' + (k + 1), o.entry || 0)).join('')}</select></div>
+      <p class="note">A secret room's drawing offers ${ne} ways in; the game picks one a level. A drawn level keeps the one chosen here.</p>` : ''}
+      <div class="row"><button class="btn" id="sBake">BAKE INTO MAP</button><button class="btn warn" id="sDel">REMOVE</button></div>
+      <p class="note">Bake writes the stamp's cells into the map so you can change them by hand; it stops being a stamp.</p>`;
+  }
+  return `<h2>ROOM ${S.sel.i + 1}</h2>
+    <div class="row"><label>x</label><input type="number" id="rX" value="${o.x}"><label>y</label><input type="number" id="rY" value="${o.y}"></div>
+    <div class="row"><label>width</label><input type="number" id="rW" min="1" value="${o.w}"><label>height</label><input type="number" id="rH" min="1" value="${o.h}"></div>
+    <div class="field"><label for="rT">Type</label><select id="rT">${C.RUNS.map((run, k) => `<optgroup label="${esc(['I', 'II', 'III', 'IV'][k] + '. ' + run)}">${C.ROOM_RUNS[k].map(r => opt(r, RT_NAMES[DATA.rooms.indexOf(r)], o.rt)).join('')}</optgroup>`).join('')}<optgroup label="Any run">${C.ROOM_ANY.map(r => opt(r, RT_NAMES[DATA.rooms.indexOf(r)], o.rt)).join('')}</optgroup></select></div>
+    <div class="field"><label for="rV">Vault of</label><select id="rV">${opt(-1, 'no key', o.vault)}${opt(0, 'the gold key', o.vault)}${opt(2, 'the crimson key', o.vault)}${opt(1, 'the silver key', o.vault)}</select></div>
+    <div class="row"><button class="btn warn" id="rDel">REMOVE</button></div>`;
+}
+function paneField(f) {
+  const fire = f.kind === 'fire';
+  return `<h2>${fire ? 'BURNING FLOOR' : 'ICE'}</h2><p class="note">${f.cells.length} cells, joined. These settings are kept for this patch; paint more ${fire ? 'burning floor' : 'ice'} beside it and it grows.</p>
+    <div class="field"><label for="fN">Name</label><input type="text" id="fN" value="${esc(f.name)}"></div>
+    <div class="row"><label><input type="checkbox" id="fOn"${f.on ? ' checked' : ''}> ${fire ? 'Alight' : 'Frozen'} at the start</label></div>
+    ${fire ? `<div class="field"><label for="fD">Harm</label><div class="row"><input type="range" id="fD" min="0" max="60" step="1" value="${f.dmg}" style="flex:1"><span class="num" id="fDV">${f.dmg}%</span></div></div>
+    <p class="note">Of health each half second while stood in. The tutorial's is 17%.</p>` : ''}
+    <div class="field"><label for="fC">${fire ? 'On Fire' : 'Chilled'}</label><div class="row"><input type="range" id="fC" min="0" max="100" step="5" value="${f.chance}" style="flex:1"><span class="num" id="fCV">${f.chance}%</span></div></div>
+    <p class="note">${fire ? 'The chance it sets the caster On Fire at the first touch: burning on after they step off.' : 'The chance of a Chilled stack each 0.4 s while stood on it, held at three as the tutorial\'s ice is: it slows, it never freezes a person. What else stands on it is held fast.'}</p>
+    <div class="row"><label><input type="checkbox" id="fK"${f.kills ? ' checked' : ''}> May kill</label></div>
+    <p class="note">Left clear, it never takes the caster below a quarter of health, as the tutorial's never does.</p>
+    <p class="note">A trigger's "A field comes alive" and "A field dies down" turn it on and off by its name.</p>
+    <div class="row"><button class="btn warn" id="fDel">BACK TO THE DEFAULTS</button></div>`;
+}
+function paneHazard(h) {
+  const I = C.HAZ_INFO[h.kind] || {}, v = k => (h[k] == null ? C.HZ_DEF[k] : h[k]), el = DATA.hazards.elem[h.kind], H = C.hazardsOf(DATA, S.map.level);
+  const list = H.fixed.concat(H.sapper, H.arise), painting = S.tool.kind === 'hzcells' && S.tool.i === S.sel.i, box = h.box;
+  const dflt = (id, k, min, max, step, unit, what) => `<div class="field"><label for="${id}">${what}</label><div class="row">
+      <label class="note"><input type="checkbox" id="${id}G"${+v(k) < 0 ? ' checked' : ''}> the game's own</label>
+      <input type="number" id="${id}" min="${min}" max="${max}" step="${step}" value="${+v(k) < 0 ? '' : v(k)}"${+v(k) < 0 ? ' disabled' : ''} style="width:5em"><span class="note">${unit}</span></div></div>`;
+  return `<h2>HAZARD</h2><p class="note">${esc(I.help || '')}</p>
+    <p class="note">${el ? ({ EL_FIRE: 'fire', EL_FROST: 'frost', EL_LIGHT: 'lightning', EL_POISON: 'poison', EL_SPIRIT: 'spirit', EL_PHYS: 'physical' })[el] || el : 'no element'}; ${I.wall ? 'set in the wall' : 'standing'} at (${h.ax}, ${h.ay}); ${h.cells.length} cell${h.cells.length === 1 ? '' : 's'}.</p>
+    <div class="field"><label for="hN">Name</label><input type="text" id="hN" value="${esc(h.name || '')}"></div>
+    <div class="field"><label for="hK">Kind</label><select id="hK">${list.map(k => opt(k, (C.HAZ_INFO[k] || {}).name || k, h.kind)).join('')}${list.includes(h.kind) ? '' : opt(h.kind, (I.name || h.kind) + ' (another run\'s)', h.kind)}</select></div>
+    <div class="row"><button class="btn${painting ? ' play' : ''}" id="hPaint">${painting ? 'DONE PAINTING' : 'PAINT ITS CELLS'}</button><button class="btn" id="hClear">CLEAR THE CELLS</button></div>
+    <p class="note">${painting ? 'Click or drag over cells to add them, in order; start on a painted cell to take cells off.' : I.line ? 'Its cells are a line: paint them in the order it runs.' : 'Paint the cells it covers.'}</p>
+    ${I.site ? '<p class="note">It stands where it is: always placed.</p>' : `<div class="row"><label><input type="radio" name="hZ" id="hZ0"${v('zone') ? '' : ' checked'}> Placed: all its cells</label><label><input type="radio" name="hZ" id="hZ1"${v('zone') ? ' checked' : ''}> Zone: one place in them at a time</label></div>`}
+    <h2>WHAT SETS IT OFF</h2>
+    <div class="row"><label><input type="checkbox" id="hC"${v('clock') ? ' checked' : ''}> A clock</label></div>
+    <div class="row"><label>Every</label><input type="number" id="hE" min="1" max="600" step="0.5" value="${v('every')}" style="width:5em"><label>give</label><input type="number" id="hGv" min="0" max="120" step="0.5" value="${v('give')}" style="width:4.5em"><label>first after</label><input type="number" id="hF" min="0" max="600" step="0.5" value="${v('first')}" style="width:4.5em"><span class="note">s</span></div>
+    <div class="row"><label><input type="checkbox" id="hW"${v('enter') ? ' checked' : ''}> Walking into a box</label><button class="btn" id="hBox">${box ? 'DRAW THE BOX AGAIN' : 'DRAW THE BOX'}</button></div>
+    <p class="note">${box ? `The box: (${box.x0},${box.y0}) to (${box.x1},${box.y1}). ` : ''}With a clock too, the box sets it off at most once each "every". A trigger's "A hazard wakes" and "A hazard stops" turn it on and off by its name.</p>
+    <h2>SETTINGS</h2>
+    <div class="row"><label><input type="checkbox" id="hOn"${v('on') ? ' checked' : ''}> Live at the start</label><label><input type="checkbox" id="hKl"${v('kills') ? ' checked' : ''}> May kill</label></div>
+    ${dflt('hH', 'harm', 0, 100, 1, '% of health a strike', 'Harm')}
+    ${dflt('hS', 'chance', 0, 100, 5, '% chance', 'Its status')}
+    ${dflt('hWn', 'warn', 0.9, 10, 0.1, 's, never under 0.9', 'Warning')}
+    <p class="note">Left clear, "May kill" keeps it from taking the caster below a quarter of health, as the omens never do.</p>
+    <div class="row"><button class="btn warn" id="hDel">REMOVE</button></div>`;
+}
+function paneThing(t) {
+  const L = C.levelInfo(DATA, S.map.level);
+  let h = `<h2>${esc(C.label(DATA, t).toUpperCase())}</h2>
+    <div class="row"><label>x</label><input type="number" id="tX" step="0.25" value="${t.x}"><label>y</label><input type="number" id="tY" step="0.25" value="${t.y}"></div>`;
+  if (t.t === 'gold') h += `<div class="field"><label for="tK">Kind</label><select id="tK">${C.GOLD_KINDS.map(k => opt(k, `${C.label(DATA, { t: 'gold', k })} (${DATA.items[k]})`, t.k)).join('')}</select></div>`;
+  if (t.t === 'key') h += `<div class="field"><label for="tK">Colour</label><select id="tK">${[0, 2, 1].map(k => opt(k, C.KEY_NAMES[k].toLowerCase(), t.k)).join('')}</select></div>`;
+  if (t.t === 'mark') h += `<div class="field"><label for="tK">Kind</label><select id="tK">${[0, 1, 2].map(k => opt(k, ['a bound coffer (any spell)', 'a cage (any spell)', "the class's own"][k], t.k)).join('')}</select></div>`;
+  const kindOpts = cur => KINDS.map(k => opt(k.id, `${k.name.toLowerCase()} · ${k.cost} · from ${k.debut}${k.debut > S.map.level ? ' (early)' : ''}`, cur)).join('');
+  if (t.t === 'dead') h += `<div class="field"><label for="tK">Kind</label><select id="tK">${kindOpts(t.k)}</select></div>
+    <p class="note">One of the dead, set where drawn at rank I, as the tutorial's are. It is not drawn from the budget.</p>
+    <div class="row"><button class="btn" id="tToSpawn">MAKE IT A SPAWN POINT</button></div><p class="note">A spawn point keeps this kind and may be given a chance, a rank, an element and a wake group.</p>`;
+  if (t.t === 'spawn') {
+    const ri = t.rank ? C.RANKS.indexOf(t.rank) : -1, def = ri >= 0 ? C.elemDefault(S.map.level, ri) : null, fav = C.ELEM_FAV[L.set].map(e => e.slice(3).toLowerCase()).join(' and ');
+    h += `<div class="field"><label for="tK">Creature</label><select id="tK">${opt('', "budget's choice", t.k)}${kindOpts(t.k)}</select></div>
+      <div class="field"><label for="tCh">Chance</label><div class="row"><input type="range" id="tCh" min="0" max="100" step="5" value="${t.chance == null ? 100 : t.chance}" style="flex:1"><span class="num" id="tChV">${t.chance == null ? 100 : t.chance}%</span></div></div>
+      <div class="field"><label for="tR">Rank</label><select id="tR">${opt('', "level's usual", t.rank || '')}${C.RANKS.map(r => opt(r, r === 'GILDED' ? 'gilded' : 'rank ' + r, t.rank || '')).join('')}</select></div>
+      <h3>RESISTANCE</h3>
+      <div class="field"><label for="tEm">Element</label><select id="tEm">${opt('rank', 'by rank', t.echance == null ? 'rank' : 'set')}${opt('set', 'my chance', t.echance == null ? 'rank' : 'set')}</select></div>
+      ${t.echance == null ? `<p class="note">${ri >= 0 ? `At rank ${esc(t.rank)} the game gives ${Math.round(def * 100)}%.` : 'Rank I none; II 15%, III 25%, IV 35%, V 45%; gilded none.'} On ${esc(L.runName.toLowerCase())} it favours ${esc(fav)}.</p>`
+        : `<div class="field"><label for="tEc">Chance</label><div class="row"><input type="range" id="tEc" min="0" max="100" step="5" value="${t.echance}" style="flex:1"><span class="num" id="tEcV">${t.echance}%</span></div></div>`}
+      <div class="field"><label for="tEl">Which</label><select id="tEl">${opt('', "run's favourite", t.el || '')}${DATA.elems.filter(e => e !== 'EL_PHYS').map(e => opt(e, e.slice(3).toLowerCase(), t.el || '')).join('')}</select></div>
+      ${t.k ? '<div class="row"><button class="btn" id="tToDead">MAKE IT ONE OF THE DEAD</button></div>' : ''}
+      <p class="note">A creature chosen here comes whenever its chance falls, budget or not. The budget's choice comes only while the level's budget can pay for it (at rank I).</p>`;
+  }
+  if (t.t === 'relic') h += `<div class="field"><label for="tN">Name</label><input type="text" id="tN" value="${esc(t.name || '')}"></div>
+    <p class="note">Something to carry, one at a time. Its name is what the game calls it ("A BONE KEY"). Bind it to a socket to say where it goes.</p>`;
+  if (t.t === 'socket') { const rel = S.map.things.filter(x => x.t === 'relic');
+    h += `<div class="field"><label for="tN">Name</label><input type="text" id="tN" value="${esc(t.name || '')}"></div>
+    <div class="field"><label for="tAc">Takes</label><select id="tAc">${opt(0, 'any relic', t.accepts || 0)}${rel.map(r => opt(r.id, r.name || 'a relic', t.accepts || 0)).join('')}</select></div>
+    <p class="note">A place to set a relic. A trigger "Set in a socket" fires when it is filled.</p>`; }
+  if (t.t === 'lever' || t.t === 'plate') h += `<div class="field"><label for="tN">Name</label><input type="text" id="tN" placeholder="for your own lists" value="${esc(t.name || '')}"></div>
+    <p class="note">${t.t === 'lever' ? 'Worked with the use key, as a door. Bind it to a trigger "Pulled or pressed".' : 'Fires when stepped on. Bind it to a trigger "Stepped on"; a timed trigger holds while it is stood on and for its duration after.'}</p>`;
+  const tags = C.spotTags(S.map);
+  if (t.t === 'spot') h += `<div class="field"><label for="tTg">Tag</label><input type="text" id="tTg" list="spTags" value="${esc(t.tag || '')}"></div>
+    <datalist id="spTags">${tags.map(g => `<option value="${esc(g)}">`).join('')}</datalist>
+    <p class="note">A place a thing may be laid, kept for good. Give spots the same tag and a thing tagged for them turns up at one of them, a different one each play. A spot in a room is also where a thing that may appear in that room goes.</p>`;
+  if (!['dead', 'spot'].includes(t.t) && tags.length) h += `<div class="field"><label for="tSt">Laid at</label><select id="tSt">${opt('', 'where it stands', t.spotTag || '')}${tags.map(g => opt(g, 'one of the spots: ' + g, t.spotTag || '')).join('')}</select></div>`;
+  if (!['spawn', 'dead', 'spot'].includes(t.t) && S.map.rooms.length) {
+    const inR = t.inRooms || [];
+    h += `<h3>APPEARS IN ONE OF THESE ROOMS</h3>
+      <div class="row">${S.map.rooms.map((r, i) => `<label><input type="checkbox" data-inroom="${i}"${inR.includes(i) ? ' checked' : ''}> ${i + 1} ${esc(RT_NAMES[DATA.rooms.indexOf(r.rt)] || '')}</label>`).join('')}</div>
+      <p class="note">${inR.length ? `Each play the dice choose one of ${inR.length}. In a room that holds its own place it stands there; in a room with spots, at one of them; in the others, on the floor nearest the room's middle that the dream can reach. The ghosts on the map show every place.` : 'Tick rooms to let it turn up in any one of them, a different one each play. Leave all clear to keep it where it is.'}</p>`;
+  }
+  if (t.t === 'compass') h += `<p class="note">Picked up, the compass is the player's as if bought; a death takes it, as now. One already held is worth her price in gold here.</p>`;
+  if (t.t === 'spawn') h += `<div class="field"><label for="tW">Wakes with</label><input type="text" id="tW" list="wkGroups" placeholder="at the start" value="${esc(t.wake || '')}"></div>
+    <datalist id="wkGroups">${C.wakeGroups(S.map).map(g => `<option value="${esc(g)}">`).join('')}</datalist>
+    <p class="note">Leave it blank to fill the point when the level is laid. Give it a wake group and it waits for an event's "Spawn points wake".</p>`;
+  return h + `<div class="row"><button class="btn" id="tDup">COPY</button><button class="btn warn" id="tDel">REMOVE</button></div>`;
+}
+function paneBudget() {
+  const b = C.budget(DATA, S.map), pct = v => Math.min(100, (v / Math.max(0.01, b.budget)) * 100);
+  const hp = v => Math.min(100, v / C.MAX.heads * 100);
+  const g = b.gold, kinds = C.GOLD_KINDS.filter(k => g.byKind[k]).map(k => `<span>${esc(C.label(DATA, { t: 'gold', k }))} (${DATA.items[k]})</span><span>${g.byKind[k]}</span>`).join('');
+  return `<h2>LEVEL ${S.map.level}</h2><p class="note">${esc(b.L.runName)}, step ${b.L.step + 1}${b.L.boss ? ', a boss\'s level (budget halved)' : ''}${S.map.corrupt ? ', corrupted' : ''}.</p>
+    <h2>THE DEAD</h2>
+    <div class="kv"><span>The level's budget</span><span>${b.budget.toFixed(1)}</span><span>Expected cost</span><span>${b.expect.toFixed(1)}</span><span>If every point fills</span><span>${b.most.toFixed(1)}</span></div>
+    <div class="meter" title="expected cost against the budget"><i class="${b.expect > b.budget ? 'over' : ''}" style="width:${pct(b.expect)}%"></i></div>
+    <div class="kv"><span>Heads, expected</span><span>${b.heads.toFixed(1)}</span><span>Heads at most</span><span>${b.headsMost} of ${C.MAX.heads}</span></div>
+    <div class="meter"><i class="${b.headsMost > C.MAX.heads ? 'over' : ''}" style="width:${hp(b.headsMost)}%"></i></div>
+    <p class="note">A head costs by its kind (a skeleton 1, a knight 2) and a fifth more a rank. A point with the budget's choice is counted as a skeleton. The budget is the generator's for this level; the tutorial's levels hold more than theirs.</p>
+    ${rollBox('dead')}
+    <h2>GOLD</h2>
+    <div class="kv"><span>In the open</span><span>${g.open} in ${g.n}</span><span>In secrets</span><span>${g.secret} in ${g.ns}</span><span>All told</span><span>${g.open + g.secret}</span>${kinds}</div>
+    <h2>SECRETS</h2>
+    ${b.secrets.length ? `<div class="kv">${b.secrets.map((s, i) => `<span>Secret ${i + 1} at (${s.x},${s.y}), ${s.cells} cells</span><span>${s.gold} in ${s.n}</span>`).join('')}<span>Running total</span><span>${b.secrets.reduce((a, s) => a + s.gold, 0)}</span></div>` : '<p class="note">No secret yet: a cracked wall (c) with its room (q) behind it, or a secret room stamp.</p>'}
+    <p class="note">Gold in a secret is kept out of the level's count, as the game keeps it.</p>
+    ${rollBox('gold')}`;
+}
+/* the rolls: five layouts over the whole level, chosen to see on the map, one kept */
+function rollBox(what) {
+  const R = S.roll && S.roll.what === what ? S.roll : null, noun = what === 'gold' ? 'GOLD' : 'CREATURES';
+  let h = `<div class="row"><button class="btn" data-roll="${what}">${R ? 'ROLL AGAIN' : 'ROLL ' + noun}</button>${R ? `<button class="btn" data-rollx="1">PUT IT AWAY</button>` : ''}</div>`;
+  if (what === 'dead') h += `<div class="row"><label><input type="checkbox" id="rollCount"${S.rollWhole ? '' : ' checked'}> Count what is placed</label></div>`;
+  if (R && what === 'dead' && R.layouts.every(L => !L.items.length)) h += `<p class="note">Nothing fits: the creatures already placed spend all but ${R.layouts[0].left.toFixed(2)} of the budget, less than the cheapest kind. Clear "Count what is placed" to roll the whole budget.</p>`;
+  if (!R) return h + `<p class="note">Five layouts of ${what === 'gold' ? 'gold, laid as the generator lays it: a little in most rooms, coins along the halls, the hoards behind each coloured door' : 'creatures, kinds as the game draws them for this level, to what is left of its budget, eight cells or more from the start'}. Choose one to see it; keep the one you like.</p>`;
+  R.layouts.forEach((L, k) => {
+    const tally = {}; L.items.forEach(t => { const n = C.label(DATA, t); tally[n] = (tally[n] || 0) + 1; });
+    h += `<button class="btn" data-rollpick="${k}" aria-pressed="${R.cur === k}" style="text-align:left;display:block;width:100%;margin-top:4px">${k + 1}. ${L.items.length} ${what === 'gold' ? `worth ${L.value}` : `cost ${L.spent.toFixed(2)} of ${L.left.toFixed(2)}`}<br><span class="note">${esc(Object.entries(tally).map(([n, c]) => c + ' ' + n.toLowerCase()).join(', '))}</span></button>`;
+  });
+  if (R.cur != null) h += `<div class="row" style="margin-top:6px"><button class="btn play" data-rollok="1">KEEP LAYOUT ${R.cur + 1}</button></div><p class="note">Kept, they are yours: move them, take some away, or make any of the dead a spawn point.</p>`;
+  return h;
+}
+function paneChecks() {
+  const c = S.checks, n = s => c.filter(x => x.sev === s).length;
+  if (!c.length) return '<h2>CHECKS</h2><p><span class="pip ok">CLEAR</span> Nothing found that would break the level. Walk the dream to see it played.</p>';
+  return `<h2>CHECKS</h2><p class="note">${n('error')} that break the level, ${n('warn')} to look at, ${n('info')} notes. Choose one to see its cells.</p>
+    <div class="checks">${c.map((x, i) => `<button class="check" data-check="${i}" aria-pressed="${S.hl === x}"><span class="pip ${x.sev}">${x.sev === 'error' ? 'BREAKS' : x.sev === 'warn' ? 'LOOK' : 'NOTE'}</span><span>${esc(x.msg)}</span></button>`).join('')}</div>`;
+}
+/* the events: a trigger and its actions, chosen from lists, each with the editor's guidance and the owner's note */
+function paneEvents() {
+  const ev = S.map.events || [];
+  let h = `<h2>EVENTS</h2><p class="note">A trigger is what the player does; its actions are what the level does back. Choose a trigger to bind it; its thing, box and doors show on the map in violet.</p>
+    <div class="row"><button class="btn" id="evAdd">ADD A TRIGGER</button></div>`;
+  if (!ev.length) return h + `<p class="note">No events yet. OPEN has an example: the compass, three paths of torches, a bone carried back to a socket.</p>`;
+  h += `<div class="checks">${ev.map((e, i) => `<button class="check" data-ev="${i}" aria-pressed="${S.evSel === i}"><span class="pip ${S.evSel === i ? 'ok' : 'info'}">${i + 1}</span><span>${esc(e.name || 'untitled')}<small class="note" style="display:block">${esc((C.TRIGGERS[e.kind] || {}).label || '')}, ${esc(C.TRIG_TYPES[e.type || 'once'].label.toLowerCase())}${+e.hold > 0 ? ' ' + e.hold + ' s' : ''}, ${(e.actions || []).length} action${(e.actions || []).length === 1 ? '' : 's'}</small></span></button>`).join('')}</div>`;
+  const e = ev[S.evSel];
+  if (!e) return h;
+  const T = C.TRIGGERS[e.kind], tt = S.map.things.find(t => t.id === e.target);
+  h += `<h2>TRIGGER ${S.evSel + 1}</h2>
+    <div class="field"><label for="evN">Name</label><input type="text" id="evN" value="${esc(e.name || '')}"></div>
+    <div class="field"><label for="evK">When</label><select id="evK">${Object.keys(C.TRIGGERS).map(k => opt(k, C.TRIGGERS[k].label, e.kind)).join('')}</select></div>
+    <p class="note">${esc(T.guide)}</p>`;
+  if (T.target === 'area') h += `<div class="row"><span>${e.area ? `Box (${e.area.x0},${e.area.y0}) to (${e.area.x1},${e.area.y1})` : 'No box yet'}</span><button class="btn" id="evPick">DRAW THE BOX</button></div>`;
+  else if (T.target !== 'none') {
+    const can = S.map.things.filter(t => C.canWatch(e.kind, t));
+    h += `<div class="field"><label for="evT">Bound to</label><select id="evT">${opt('', can.length ? 'choose' : 'none on the map yet', e.target || '')}${can.map(t => opt(t.id, `${C.label(DATA, t)} (${Math.floor(t.x)},${Math.floor(t.y)})`, e.target || '')).join('')}</select></div>
+      <div class="row"><button class="btn" id="evPick">CHOOSE ON THE MAP</button>${tt ? `<span class="note">${esc(C.label(DATA, tt))}</span>` : ''}</div>`;
+  }
+  const ty = e.type || 'once';
+  h += `<div class="field"><label for="evY">Type</label><select id="evY">${Object.keys(C.TRIG_TYPES).map(k => opt(k, C.TRIG_TYPES[k].label, ty)).join('')}</select></div>
+    <p class="note">${esc(C.TRIG_TYPES[ty].guide)}</p>`;
+  if (ty === 'toggle' || ty === 'timed') h += `<div class="row"><label for="evH">${ty === 'timed' ? 'Holds for' : 'Goes back after'}</label><input type="number" id="evH" min="0" max="600" step="0.5" value="${+e.hold || 0}"><span class="note">s${ty === 'toggle' ? ' (0: till touched again)' : ''}</span></div>
+    <div class="row"><label><input type="checkbox" id="evU"${e.undo === false ? '' : ' checked'}> Its torches and doors go back with it</label></div>`;
+  const others = ev.filter(o => o.id !== e.id);
+  if (others.length) h += `<h3>ONLY AFTER</h3><div class="row">${others.map(o => `<label><input type="checkbox" data-need="${esc(o.id)}"${(e.needs || []).includes(o.id) ? ' checked' : ''}> ${esc(o.name || 'untitled')}</label>`).join('')}</div>`;
+  h += `<h3>YOUR NOTE</h3><textarea id="evNote" rows="3" style="width:100%;min-height:0;white-space:normal" placeholder="What should this feel like? Your words, kept with the trigger.">${esc(e.note || '')}</textarea>
+    <h3>ACTIONS, IN ORDER</h3>`;
+  h += actionList(e.actions || [], '');
+  if (ty === 'toggle' || ty === 'timed') h += `<h3>AS IT GOES BACK, ALSO</h3><p class="note">Over and above its torches and doors going back: a line, a sound, the dead waking.</p>` + actionList(e.back || [], 'b');
+  h += `<div class="row"><button class="btn" id="acAdd">ADD AN ACTION</button>${ty === 'toggle' || ty === 'timed' ? '<button class="btn" id="acAddB">ADD ONE FOR GOING BACK</button>' : ''}<span class="sep"></span><button class="btn warn" id="evDel">REMOVE THE TRIGGER</button></div>`;
+  return h;
+}
+function actionList(list, L) {
+  let h = '';
+  list.forEach((a, k) => {
+    const A = C.ACTIONS[a.kind] || {};
+    h += `<div class="well" style="padding:6px;display:flex;flex-direction:column;gap:6px">
+      <div class="field"><label for="acK${L}${k}">${k + 1}.</label><select id="acK${L}${k}" data-ak="${L}${k}">${Object.keys(C.ACTIONS).map(x => opt(x, C.ACTIONS[x].label, a.kind)).join('')}</select></div>
+      <p class="note">${esc(A.guide || '')}</p>`;
+    if (A.arg === 'group') h += `<div class="field"><label>Group</label><select data-ag="${L}${k}">${opt('', 'choose', a.group || '')}${C.torchGroups(S.map).map(g => opt(g, g, a.group || '')).join('')}</select></div>`;
+    if (A.arg === 'field') h += `<div class="field"><label>Field</label><select data-afield="${L}${k}">${opt('', 'choose', a.field || '')}${C.fields(S.map, composed.cells).map(f => opt(f.name, f.name, a.field || '')).join('')}</select></div>`;
+    if (A.arg === 'haz') h += `<div class="field"><label>Hazard</label><select data-ahaz="${L}${k}">${opt('', 'choose', a.haz || '')}${(S.map.hazards || []).map(z => opt(C.hzName(S.map, z), C.hzName(S.map, z), a.haz || '')).join('')}</select></div>`;
+    if (A.arg === 'spawn') h += `<div class="field"><label>Wake group</label><select data-ag="${L}${k}">${opt('', 'choose', a.group || '')}${C.wakeGroups(S.map).map(g => opt(g, g, a.group || '')).join('')}</select></div>`;
+    if (A.arg === 'door') h += `<div class="row"><span>${a.door ? `The door at (${a.door[0]},${a.door[1]})` : 'No door chosen'}</span><button class="btn" data-adoor="${L}${k}">CHOOSE THE DOOR</button></div>`;
+    if (A.arg === 'text') h += `<div class="field"><label>Line</label><input type="text" data-atext="${L}${k}" maxlength="60" value="${esc(a.text || '')}"></div>`;
+    if (A.arg === 'sound') h += `<div class="field"><label>Sound</label><select data-as="${L}${k}">${C.SOUNDS.map((x, i) => opt(x, C.SOUND_NAMES[i], a.sound || C.SOUNDS[0])).join('')}</select></div>`;
+    h += `<div class="row"><label>After</label><input type="number" min="0" max="30" step="0.1" data-aa="${L}${k}" value="${a.after || 0}"><span class="note">s</span><span class="sep"></span><button class="btn" data-aup="${L}${k}" title="Earlier"${k ? '' : ' disabled'}>UP</button><button class="btn warn" data-adel="${L}${k}">REMOVE</button></div></div>`;
+  });
+  return h;
+}
+function wireEvents(on) {
+  on('evAdd', 'click', () => { change(() => { S.map.events = S.map.events || []; S.map.events.push({ id: 'e' + (S.map.next++), name: 'Trigger ' + (S.map.events.length + 1), kind: 'pickup', needs: [], note: '', actions: [] }); S.evSel = S.map.events.length - 1; }); setTab('events'); });
+  document.querySelectorAll('[data-ev]').forEach(b => b.addEventListener('click', () => { S.evSel = +b.dataset.ev; draw(); pane(); }));
+  const e = (S.map.events || [])[S.evSel];
+  if (!e) return;
+  on('evN', 'change', x => change(() => { e.name = x.target.value.trim(); }));
+  on('evK', 'change', x => change(() => { e.kind = x.target.value; delete e.target; if (e.kind !== 'enter') delete e.area; }));
+  on('evT', 'change', x => change(() => { const v = +x.target.value; if (v) e.target = v; else delete e.target; }));
+  on('evY', 'change', x => change(() => { e.type = x.target.value; if (e.type === 'timed' && !(+e.hold > 0)) e.hold = 5; if (e.type === 'once' || e.type === 'every') { delete e.hold; delete e.back; } }));
+  on('evH', 'change', x => change(() => { e.hold = Math.max(0, Math.min(600, +x.target.value || 0)); }));
+  on('evU', 'change', x => change(() => { if (x.target.checked) delete e.undo; else e.undo = false; }));
+  on('acAddB', 'click', () => change(() => { e.back = e.back || []; e.back.push({ kind: 'line', text: '', after: 0 }); }));
+  on('evNote', 'change', x => change(() => { e.note = x.target.value; }, true));
+  on('evPick', 'click', () => {
+    const T = C.TRIGGERS[e.kind];
+    if (T.target === 'area') startPick('area', a => { e.area = a; }, 'Drag a box over the cells to walk into');
+    else {
+      const what = { socket: 'socket', mark: 'thing to strike', lever: 'lever', plate: 'pressure plate', thing: 'thing to pick up' }[T.target];
+      startPick('thing', id => { e.target = id; }, 'Click the ' + what, t => C.canWatch(e.kind, t), 'CHOOSE A ' + what.toUpperCase());
+    }
+  });
+  document.querySelectorAll('[data-need]').forEach(b => b.addEventListener('change', () => change(() => { const n = b.dataset.need; e.needs = (e.needs || []).filter(x => x !== n); if (b.checked) e.needs.push(n); })));
+  on('acAdd', 'click', () => change(() => { e.actions = e.actions || []; e.actions.push({ kind: 'flicker_on', group: C.torchGroups(S.map)[0] || '', after: 0 }); }));
+  on('evDel', 'click', () => ask(`Remove the trigger "${e.name || 'untitled'}"?`, 'Its actions and note go with it, and other triggers stop waiting on it. Undo brings it back.', 'REMOVE IT', () => change(() => {
+    S.map.events.splice(S.evSel, 1); S.map.events.forEach(o => { o.needs = (o.needs || []).filter(n => n !== e.id); }); S.evSel = null; })));
+  const ref = key => { const back = key[0] === 'b'; const list = back ? e.back : e.actions; return { list, k: +(back ? key.slice(1) : key) }; };   /* 'b2': the third going-back action */
+  const each = (attr, ev, fn) => document.querySelectorAll(`[data-${attr}]`).forEach(b => b.addEventListener(ev, () => fn(b, ref(b.dataset[attr.replace(/-./g, c => c[1].toUpperCase())]))));
+  each('ak', 'change', (b, { list, k }) => change(() => { const a = list[k]; a.kind = b.value; delete a.door; delete a.text; if (C.ACTIONS[a.kind].arg !== 'group' && C.ACTIONS[a.kind].arg !== 'spawn') delete a.group; if (C.ACTIONS[a.kind].arg !== 'field') delete a.field; if (C.ACTIONS[a.kind].arg !== 'haz') delete a.haz; }));
+  each('ag', 'change', (b, { list, k }) => change(() => { list[k].group = b.value; }));
+  each('afield', 'change', (b, { list, k }) => change(() => { list[k].field = b.value; }));
+  each('ahaz', 'change', (b, { list, k }) => change(() => { list[k].haz = b.value; }));
+  each('atext', 'change', (b, { list, k }) => change(() => { list[k].text = b.value.toUpperCase(); }));
+  each('as', 'change', (b, { list, k }) => change(() => { list[k].sound = b.value; }));
+  each('aa', 'change', (b, { list, k }) => change(() => { list[k].after = Math.max(0, Math.min(30, +b.value || 0)); }));
+  each('adel', 'click', (b, { list, k }) => change(() => { list.splice(k, 1); }));
+  each('aup', 'click', (b, { list, k }) => change(() => { [list[k - 1], list[k]] = [list[k], list[k - 1]]; }));
+  each('adoor', 'click', (b, { list, k }) => { const a = list[k]; startPick('door', c => { a.door = c; }, 'Click the door'); });
+}
+function paneDream() {
+  const d = S.dream;
+  let h = `<h2>THE DREAM'S WALK</h2><p class="note">The dream walks only lanes, takes a key to its door, strikes the gate's seal, gathers what it passes within a step and makes for the exit. This copies the game's rules for reaching things; it is not the game's own code, so a run in the harness is still the proof.</p>
+    <div class="row"><label><input type="checkbox" id="dSec"${S.dsec ? ' checked' : ''}> Press the secrets</label><label><input type="checkbox" id="dFol"${S.follow === false ? '' : ' checked'}> Follow the dream</label><button class="btn" id="dRun">WALK IT</button></div>`;
+  if (!d) return h;
+  const now = d.events.filter(e => e.at <= S.dstep).length;
+  const lay = Object.keys(d.layout || {});
+  h += `<p>${d.ok ? '<span class="pip ok">FINISHES</span>' : '<span class="pip error">CANNOT FINISH</span>'} <span class="num">${d.steps} steps, about ${Math.round(d.seconds)} s</span>${d.missed.length ? `, misses ${d.missed.length}` : ', misses nothing'}.</p>
+    ${d.layouts > 1 ? `<p class="note">${d.failed ? `${d.failed} of ${d.layouts} ways the dice can lay the level cannot be finished; this is the first of them.` : `Every one of the ${d.layouts} ways the dice can lay the level finishes; this is the first.`}${lay.length ? ' Here: ' + lay.map(id => { const t = S.map.things.find(x => x.id === +id); const o = t && C.pickOptions(S.map, composed.cells, laneMask, t)[d.layout[id]]; return o ? `${esc(C.label(DATA, t).toLowerCase())} at ${esc(o.label)}` : ''; }).filter(Boolean).join(', ') + '.' : ''}</p>` : ''}
+    ${d.shut ? `<p class="note"><span class="pip warn">LOOK</span> A timed door shut before the dream had been through it. Its pace is about 2 cells a second; a person sprints faster.</p>` : ''}
+    <div class="row"><button class="btn" id="dPlay">${S.playing ? 'PAUSE' : 'PLAY'}</button><button class="btn" id="dBack" title="Step back">&lt;</button><button class="btn" id="dFwd" title="Step on">&gt;</button><span class="num note">step ${S.dstep} of ${d.steps}</span></div>
+    <input type="range" id="dStep" min="0" max="${d.steps}" value="${S.dstep}" aria-label="Step">
+    <div class="log well">${d.events.map((e, i) => `<button data-at="${e.at}" class="${i < now ? 'past' : ''}"${e.warn ? ' style="color:var(--amber)"' : ''}>${String(e.at).padStart(3)} · ${esc(e.msg)}</button>`).join('')}</div>`;
+  if (d.unfired && d.unfired.length) h += `<h3>TRIGGERS NEVER FIRED</h3><p class="note">${d.unfired.map(e => esc(e.name || 'untitled')).join(', ')}</p>`;
+  if (d.missed.length) h += `<h3>MISSED</h3><p class="note">${d.missed.map(t => esc(C.label(DATA, t)) + ` (${Math.floor(t.x)},${Math.floor(t.y)})`).join(', ')}</p>`;
+  return h;
+}
+function wirePane() {
+  const on = (id, ev, fn) => { const el = $(id); if (el) el.addEventListener(ev, fn); };
+  const o = selected();
+  on('iLevel', 'change', e => change(() => { S.map.level = Math.max(1, Math.min(160, +e.target.value || 1)); }));
+  on('iSlot', 'change', e => change(() => { S.map.slot = Math.max(1, Math.min(40, +e.target.value || 3)); }));
+  on('iFace', 'change', e => change(() => { S.map.face = +e.target.value; }));
+  on('iSeed', 'change', e => change(() => { S.map.seed = e.target.value.trim(); }));
+  on('iCorrupt', 'change', e => change(() => { S.map.corrupt = e.target.checked; }));
+  if (o && S.sel.kind === 'thing') {
+    on('tX', 'change', e => change(() => { o.x = Math.max(0.125, Math.min(N - 0.125, +e.target.value)); }));
+    on('tY', 'change', e => change(() => { o.y = Math.max(0.125, Math.min(N - 0.125, +e.target.value)); }));
+    on('tK', 'change', e => change(() => { o.k = o.t === 'key' || o.t === 'mark' ? +e.target.value : e.target.value; }));
+    on('tToSpawn', 'click', () => change(() => { o.t = 'spawn'; o.chance = 100; }));
+    on('tToDead', 'click', () => change(() => { o.t = 'dead'; ['chance', 'rank', 'echance', 'el', 'wake', 'spotTag'].forEach(k => delete o[k]); }));
+    on('tCh', 'input', e => { $('tChV').textContent = e.target.value + '%'; });
+    on('tCh', 'change', e => change(() => { o.chance = +e.target.value; }));
+    on('tR', 'change', e => change(() => { o.rank = e.target.value; }));
+    on('tEm', 'change', e => change(() => { if (e.target.value === 'rank') delete o.echance; else o.echance = 25; }));
+    on('tEc', 'input', e => { $('tEcV').textContent = e.target.value + '%'; });
+    on('tEc', 'change', e => change(() => { o.echance = +e.target.value; }));
+    on('tEl', 'change', e => change(() => { o.el = e.target.value; }));
+    on('tN', 'change', e => change(() => { o.name = e.target.value.trim(); }));
+    document.querySelectorAll('[data-inroom]').forEach(b => b.addEventListener('change', () => change(() => { const ri = +b.dataset.inroom; o.inRooms = (o.inRooms || []).filter(x => x !== ri); if (b.checked) o.inRooms.push(ri); o.inRooms.sort((a, c) => a - c); if (!o.inRooms.length) delete o.inRooms; })));
+    on('tAc', 'change', e => change(() => { o.accepts = +e.target.value; }));
+    on('tW', 'change', e => change(() => { o.wake = e.target.value.trim(); }));
+    on('tTg', 'change', e => change(() => { o.tag = e.target.value.trim(); }));
+    on('tSt', 'change', e => change(() => { if (e.target.value) o.spotTag = e.target.value; else delete o.spotTag; }));
+    on('tDup', 'click', () => change(() => { const c = JSON.parse(JSON.stringify(o)); c.id = S.map.next++; c.x = Math.min(N - 0.125, c.x + 0.5); S.map.things.push(c); S.sel = { kind: 'thing', id: c.id }; }));
+    on('tDel', 'click', () => removeSelected());
+  }
+  if (o && S.sel.kind === 'stamp') {
+    on('sRot', 'click', () => change(() => { o.t = (o.t & 4) | ((o.t + 1) & 3); }));
+    on('sMir', 'click', () => change(() => { o.t ^= 4; }));
+    on('sEntry', 'change', e => change(() => { o.entry = +e.target.value; }));
+    on('sBake', 'click', () => ask('Bake this stamp into the map?', 'Its cells are written into the map and it stops being a stamp you can move. Undo brings it back.', 'BAKE', () => change(() => {
+      const comp = C.compose(DATA, { ...S.map, stamps: [o] });
+      for (let i = 0; i < N * N; i++) if (comp.owner[i] === 0) S.map.grid[i] = comp.cells[i];
+      comp.marks.filter(k => k.g === 's').forEach(k => S.map.things.push({ id: S.map.next++, t: 'spawn', k: '', chance: 65, x: k.x + 0.625, y: k.y + 0.625 }));
+      S.map.stamps.splice(S.sel.i, 1); S.sel = null;
+    })));
+    on('sDel', 'click', () => removeSelected());
+  }
+  if (o && S.sel.kind === 'torch') {
+    on('toG', 'change', e => change(() => { o.group = e.target.value.trim(); }));
+    on('toD', 'change', e => change(() => { o.d = +e.target.value; }));
+    on('toL', 'change', e => change(() => { o.lit = e.target.checked; }));
+    on('toDel', 'click', () => removeSelected());
+  }
+  if (o && S.sel.kind === 'light') { on('lS', 'change', e => change(() => { o.style = e.target.value; })); on('lDel', 'click', () => removeSelected()); }
+  if (o && S.sel.kind === 'hazard') {
+    const h = o, hi = S.sel.i, num = (k, lo, hi2) => e => change(() => { h[k] = Math.max(lo, Math.min(hi2, +e.target.value || 0)); });
+    on('hN', 'change', e => change(() => { const was = C.hzName(S.map, h), now = e.target.value.trim() || was;
+      (S.map.events || []).forEach(ev => [].concat(ev.actions || [], ev.back || []).forEach(a => { if (a.haz === was) a.haz = now; })); h.name = now; }));
+    on('hK', 'change', e => change(() => { h.kind = e.target.value; }));
+    on('hPaint', 'click', () => { if (S.tool.kind === 'hzcells') setTool({ kind: 'select' }, selectBtn, ''); else setTool({ kind: 'hzcells', i: hi }, null, 'Paint the hazard\'s cells: click or drag; start on a painted cell to take cells off.'); pane(); });
+    on('hClear', 'click', () => change(() => { h.cells = []; }));
+    on('hZ0', 'change', () => change(() => { h.zone = false; }));
+    on('hZ1', 'change', () => change(() => { h.zone = true; }));
+    on('hC', 'change', e => change(() => { h.clock = e.target.checked; }));
+    on('hE', 'change', num('every', 1, 600)); on('hGv', 'change', num('give', 0, 120)); on('hF', 'change', num('first', 0, 600));
+    on('hW', 'change', e => change(() => { h.enter = e.target.checked; if (h.enter && !h.box) { const xs = h.cells.map(c => c[0]).concat(h.ax), ys = h.cells.map(c => c[1]).concat(h.ay);
+      h.box = { x0: Math.max(1, Math.min(...xs) - 1), y0: Math.max(1, Math.min(...ys) - 1), x1: Math.min(N - 2, Math.max(...xs) + 1), y1: Math.min(N - 2, Math.max(...ys) + 1) }; } }));
+    on('hBox', 'click', () => startPick('area', a => { h.box = a; h.enter = true; }, 'Drag a box over the cells that set it off', null, null, 'inspect'));
+    on('hOn', 'change', e => change(() => { h.on = e.target.checked; }));
+    on('hKl', 'change', e => change(() => { h.kills = e.target.checked; }));
+    [['hH', 'harm', 0, 100], ['hS', 'chance', 0, 100], ['hWn', 'warn', 0.9, 10]].forEach(([id, k, lo, hi2]) => {
+      on(id + 'G', 'change', e => change(() => { h[k] = e.target.checked ? -1 : (k === 'warn' ? 1.5 : k === 'harm' ? 20 : 50); }));
+      on(id, 'change', num(k, lo, hi2));
+    });
+    on('hDel', 'click', () => removeSelected());
+  }
+  if (o && S.sel.kind === 'field') {
+    const put = (k, v) => change(() => {
+      S.map.fields = S.map.fields || [];
+      let e = S.map.fields.find(x => `${x.x},${x.y}` === o.key);
+      if (!e) { e = { x: o.x, y: o.y, kind: o.kind, name: o.name }; S.map.fields.push(e); }
+      if (k === 'name') { const was = e.name || o.name; (S.map.events || []).forEach(ev => [].concat(ev.actions || [], ev.back || []).forEach(a => { if (a.field === was) a.field = v; })); }
+      e[k] = v;
+    });
+    on('fN', 'change', e => put('name', e.target.value.trim() || o.name));
+    on('fOn', 'change', e => put('on', e.target.checked));
+    on('fD', 'input', e => { $('fDV').textContent = e.target.value + '%'; });
+    on('fD', 'change', e => put('dmg', +e.target.value));
+    on('fC', 'input', e => { $('fCV').textContent = e.target.value + '%'; });
+    on('fC', 'change', e => put('chance', +e.target.value));
+    on('fK', 'change', e => put('kills', e.target.checked));
+    on('fDel', 'click', () => change(() => { S.map.fields = (S.map.fields || []).filter(x => `${x.x},${x.y}` !== o.key); }));
+  }
+  wireEvents(on);
+  document.querySelectorAll('[data-roll]').forEach(b => b.addEventListener('click', () => {
+    S.roll = { what: b.dataset.roll, layouts: C.rolls(DATA, S.map, b.dataset.roll, (Date.now() & 0x7fffffff) >>> 0, !!S.rollWhole), cur: 0 }; draw(); pane(); }));
+  on('rollCount', 'change', e => { S.rollWhole = !e.target.checked; if (S.roll && S.roll.what === 'dead') S.roll = null; draw(); pane(); });
+  document.querySelectorAll('[data-rollx]').forEach(b => b.addEventListener('click', () => { S.roll = null; draw(); pane(); }));
+  document.querySelectorAll('[data-rollpick]').forEach(b => b.addEventListener('click', () => { S.roll.cur = +b.dataset.rollpick; draw(); pane(); }));
+  document.querySelectorAll('[data-rollok]').forEach(b => b.addEventListener('click', () => {
+    const L = S.roll.layouts[S.roll.cur], n = L.items.length;
+    change(() => { L.items.forEach(t => S.map.things.push(Object.assign({ id: S.map.next++ }, t))); });
+    S.roll = null; toast(`KEPT: ${n} SET DOWN. UNDO TAKES THEM BACK`); draw(); pane(); }));
+  if (o && S.sel.kind === 'room') {
+    [['rX', 'x'], ['rY', 'y'], ['rW', 'w'], ['rH', 'h']].forEach(([id, k]) => on(id, 'change', e => change(() => { o[k] = Math.max(k === 'w' || k === 'h' ? 1 : 0, Math.min(N, +e.target.value | 0)); })));
+    on('rT', 'change', e => change(() => { o.rt = e.target.value; }));
+    on('rV', 'change', e => change(() => { const v = +e.target.value; if (v >= 0) S.map.rooms.forEach(r => { if (r.vault === v) r.vault = -1; }); o.vault = v; }));
+    on('rDel', 'click', () => removeSelected());
+  }
+  document.querySelectorAll('[data-check]').forEach(b => b.addEventListener('click', () => {
+    const c = S.checks[+b.dataset.check]; S.hl = S.hl === c ? null : c; draw(); pane();
+    if (S.hl && S.hl.cells.length) scrollToCell(S.hl.cells[0]);
+  }));
+  on('dSec', 'change', e => { S.dsec = e.target.checked; if (S.dream) runDream(); });
+  on('dRun', 'click', runDream);
+  on('dPlay', 'click', () => { if (S.playing) stopPlay(); else play(); pane(); });
+  on('dBack', 'click', () => { stopPlay(); S.dstep = Math.max(0, S.dstep - 1); draw(); follow(); pane(); });
+  on('dFwd', 'click', () => { stopPlay(); S.dstep = Math.min(S.dream.steps, S.dstep + 1); draw(); follow(); pane(); });
+  on('dStep', 'input', e => { stopPlay(); S.dstep = +e.target.value; draw(); follow(); });
+  on('dFol', 'change', e => { S.follow = e.target.checked; try { localStorage.setItem('cme.follow', S.follow ? '1' : '0'); } catch (x) {} if (S.follow) follow(); });
+  on('dStep', 'change', () => pane());
+  document.querySelectorAll('[data-at]').forEach(b => b.addEventListener('click', () => { stopPlay(); S.dstep = +b.dataset.at; draw(); pane(); scrollToCell(S.dream.route[S.dstep]); }));
+}
+function scrollToCell([x, y]) { const s = $('scroller'); s.scrollTo({ left: x * S.zoom - s.clientWidth / 2, top: y * S.zoom - s.clientHeight / 2, behavior: 'smooth' }); }
+function removeSelected() {
+  if (!S.sel) return;
+  change(() => {
+    if (S.sel.kind === 'thing') S.map.things = S.map.things.filter(t => t.id !== S.sel.id);
+    else if (S.sel.kind === 'stamp') S.map.stamps.splice(S.sel.i, 1);
+    else if (S.sel.kind === 'torch') S.map.torches.splice(S.sel.i, 1);
+    else if (S.sel.kind === 'light') S.map.lights.splice(S.sel.i, 1);
+    else if (S.sel.kind === 'hazard') { S.map.hazards.splice(S.sel.i, 1); if (S.tool.kind === 'hzcells') S.tool = { kind: 'select' }; }
+    else if (S.sel.kind === 'field') S.map.fields = (S.map.fields || []).filter(x => `${x.x},${x.y}` !== S.sel.key);
+    else {
+      const gone = S.sel.i;
+      S.map.rooms.splice(gone, 1);
+      S.map.things.forEach(t => { if (t.inRooms) { t.inRooms = t.inRooms.filter(x => x !== gone).map(x => x > gone ? x - 1 : x); if (!t.inRooms.length) delete t.inRooms; } });
+    }
+    S.sel = null;
+  });
+  toast('REMOVED: UNDO BRINGS IT BACK');
+}
+function runDream() { stopPlay(); S.dream = C.dreamAll(DATA, S.map, { secrets: !!S.dsec }); S.dstep = 0; draw(); pane(); }
+function follow() {                                               /* keep the dream in view while it walks */
+  if (!S.dream || S.follow === false) return;
+  const s = $('scroller'), [x, y] = S.dream.route[Math.min(S.dstep, S.dream.route.length - 1)], z = S.zoom;
+  const px = x * z + z / 2, py = y * z + z / 2, mx = s.clientWidth * 0.25, my = s.clientHeight * 0.25;
+  if (px < s.scrollLeft + mx || px > s.scrollLeft + s.clientWidth - mx || py < s.scrollTop + my || py > s.scrollTop + s.clientHeight - my)
+    s.scrollTo({ left: px - s.clientWidth / 2, top: py - s.clientHeight / 2, behavior: S.playing || matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+}
+function play() {
+  if (!S.dream) return;
+  if (S.dstep >= S.dream.steps) S.dstep = 0;
+  S.playing = setInterval(() => {
+    S.dstep++;
+    if (S.dstep >= S.dream.steps) { S.dstep = S.dream.steps; stopPlay(); pane(); }
+    draw(); follow();
+    const sl = $('dStep'); if (sl) sl.value = S.dstep;
+  }, 70);
+}
+function stopPlay() { if (S.playing) { clearInterval(S.playing); S.playing = null; } }
+
+/* ---------- refreshing what depends on the map ---------- */
+let checkTimer = null;
+function refresh(quiet) {
+  recompose(); buildHzTools(); draw();
+  $('mapName').value = S.map.name; $('mapLevel').value = S.map.level;
+  $('bUndo').disabled = !S.hist.length; $('bRedo').disabled = !S.fut.length;
+  $('bLattice').setAttribute('aria-pressed', String(!!S.map.lattice));
+  savedBadge();
+  clearTimeout(checkTimer);
+  checkTimer = setTimeout(() => {
+    S.checks = C.check(DATA, S.map);
+    if (S.hl && !S.checks.some(c => c.msg === S.hl.msg)) S.hl = null;
+    const e = S.checks.filter(c => c.sev === 'error').length; $('checkN').textContent = e ? e : '';
+    if (S.tab !== 'inspect' || !quiet) pane();
+  }, 120);
+  if (S.tab === 'inspect') pane();
+}
+function savedBadge() {
+  const b = $('saved');
+  b.className = 'saved' + (S.example ? '' : S.dirty ? ' dirty' : S.savedAt ? ' ok' : '');
+  b.textContent = S.example && !S.dirty ? 'EXAMPLE: NOT SAVED' : S.dirty ? 'UNSAVED CHANGES' : S.savedAt ? 'SAVED ' + new Date(S.savedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'NOT SAVED';
+}
+
+/* ---------- the header's fields and buttons ---------- */
+$('mapName').addEventListener('change', e => change(() => { S.map.name = e.target.value.trim() || 'Untitled level'; }, true));
+$('mapLevel').addEventListener('change', e => change(() => { S.map.level = Math.max(1, Math.min(160, +e.target.value || 1)); }));
+$('bUndo').addEventListener('click', undo); $('bRedo').addEventListener('click', redo);
+$('bLattice').addEventListener('click', () => change(() => { S.map.lattice = !S.map.lattice; }));
+$('bLanes').addEventListener('click', e => { S.showLanes = !S.showLanes; e.target.setAttribute('aria-pressed', String(S.showLanes)); draw(); });
+$('bGrid').addEventListener('click', e => { S.showGrid = !S.showGrid; e.target.setAttribute('aria-pressed', String(S.showGrid)); draw(); });
+const ZOOMS = [8, 12, 16, 20, 24, 32, 40, 48, 64];   /* the last three for laying things by the quarter */
+function zoom(d) {
+  const sc = $('scroller'), was = S.zoom, cx = (sc.scrollLeft + sc.clientWidth / 2) / was, cy = (sc.scrollTop + sc.clientHeight / 2) / was;   /* the cell in the middle stays there */
+  const i = Math.max(0, Math.min(ZOOMS.length - 1, ZOOMS.indexOf(S.zoom) + d)); S.zoom = ZOOMS[i]; $('zoomLabel').textContent = S.zoom + ' PX'; draw();
+  sc.scrollLeft = cx * S.zoom - sc.clientWidth / 2; sc.scrollTop = cy * S.zoom - sc.clientHeight / 2; try { localStorage.setItem('cme.zoom', S.zoom); } catch (e) {} }
+$('bZoomIn').addEventListener('click', () => zoom(1)); $('bZoomOut').addEventListener('click', () => zoom(-1));
+
+document.addEventListener('keydown', e => {
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || tag === 'select' || $('modal').firstChild) return;
+  const k = e.key.toLowerCase();
+  if ((e.ctrlKey || e.metaKey) && k === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
+  if ((e.ctrlKey || e.metaKey) && k === 'y') { e.preventDefault(); redo(); return; }
+  if ((e.ctrlKey || e.metaKey) && k === 's') { e.preventDefault(); save(); return; }
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  if (k === 'delete' || k === 'backspace') { e.preventDefault(); removeSelected(); }
+  else if (k === 'escape' && S.pick) { S.pick = null; pickNote(); S.drag = null; draw(); }
+  else if (k === 'escape') { setTool({ kind: 'select' }, selectBtn, ''); S.sel = null; S.hl = null; refresh(); }
+  else if (k === 'v') setTool({ kind: 'select' }, selectBtn, 'Choose a thing, stamp or room; drag it to move it.');
+  else if (k === 'r' || k === 'm') {
+    const flip = t => k === 'r' ? (t & 4) | ((t + 1) & 3) : t ^ 4;
+    if (S.tool.kind === 'stamp') { S.stampT = flip(S.stampT); draw(); }
+    else if (S.sel && S.sel.kind === 'stamp') change(() => { const o = selected(); o.t = flip(o.t); });
+  }
+  else if (k === 'g') $('bLattice').click();
+  else if (k === 'l') $('bLanes').click();
+  else if (k === '+' || k === '=') zoom(1);
+  else if (k === '-') zoom(-1);
+});
+
+/* ---------- questions, asked in the page ---------- */
+function ask(title, body, yes, fn, no) {
+  $('modal').innerHTML = `<div class="veil" role="dialog" aria-modal="true" aria-labelledby="askT"><div class="dialog slab"><h2 id="askT">${esc(title)}</h2><p>${esc(body)}</p>
+    <div class="row"><button class="btn" id="askYes">${esc(yes)}</button><button class="btn" id="askNo">${esc(no || 'CANCEL')}</button></div></div></div>`;
+  $('askYes').focus();
+  $('askYes').addEventListener('click', () => { close(); fn(); });
+  $('askNo').addEventListener('click', close);
+}
+function close() { $('modal').innerHTML = ''; }
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('modal').firstChild) close(); });
+let toastT = null;
+function toast(msg) { let t = document.querySelector('.toast'); if (!t) { t = document.createElement('div'); t.className = 'toast slab'; t.setAttribute('role', 'status'); document.body.appendChild(t); } t.textContent = msg; clearTimeout(toastT); toastT = setTimeout(() => t.remove(), 2600); }
+
+/* ---------- keeping the maps: the artifact's store, a draft in this browser, files of your own ---------- */
+const pack = m => ({ ...m, grid: m.grid.join(''), lane: m.lane.join('') });
+const unpack = p => ({ ...C.blank(), ...p, grid: typeof p.grid === 'string' ? p.grid.split('') : p.grid, lane: typeof p.lane === 'string' ? p.lane.split('').map(Number) : p.lane });
+const newId = () => 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+function draftSave() { try { localStorage.setItem('cme.draft', JSON.stringify({ id: S.id, map: pack(S.map), t: Date.now() })); } catch (e) {} }
+function draftClear() { try { localStorage.removeItem('cme.draft'); } catch (e) {} }
+async function save() {
+  if (!S.id) S.id = newId();
+  const body = { name: S.map.name, level: S.map.level, updated: Date.now(), map: pack(S.map) };
+  try {
+    if (S.db) {
+      await S.db.doc('maps/' + S.id).set(body);
+      await S.db.doc('maps/' + S.id).collection('versions').doc(String(body.updated)).set({ saved: body.updated, name: body.name, map: body.map });
+    } else {
+      const all = JSON.parse(localStorage.getItem('cme.maps') || '{}'); all[S.id] = body; localStorage.setItem('cme.maps', JSON.stringify(all));
+      const v = JSON.parse(localStorage.getItem('cme.v.' + S.id) || '[]'); v.push({ saved: body.updated, name: body.name, map: body.map }); while (v.length > 30) v.shift();
+      localStorage.setItem('cme.v.' + S.id, JSON.stringify(v));
+    }
+    S.dirty = false; S.example = false; S.savedAt = body.updated; savedBadge(); draftClear();
+    toast(S.db ? 'SAVED, WITH A SAVE POINT' : 'SAVED IN THIS BROWSER ONLY');
+  } catch (e) { toast('NOT SAVED: ' + (e && e.code === 'quota_exceeded' ? 'THE STORE IS FULL' : 'TRY AGAIN')); }
+}
+$('bSave').addEventListener('click', save);
+async function listMaps() {
+  if (S.db) { const q = await S.db.collection('maps').orderBy('updated', 'desc').limit(200).get(); return q.docs.map(d => ({ id: d.id, ...d.data() })); }
+  try { const all = JSON.parse(localStorage.getItem('cme.maps') || '{}'); return Object.keys(all).map(id => ({ id, ...all[id] })).sort((a, b) => b.updated - a.updated); } catch (e) { return []; }
+}
+async function listVersions(id) {
+  if (S.db) { const q = await S.db.doc('maps/' + id).collection('versions').orderBy('saved', 'desc').limit(50).get(); return q.docs.map(d => ({ vid: d.id, ...d.data() })); }
+  try { return JSON.parse(localStorage.getItem('cme.v.' + id) || '[]').map((v, i) => ({ vid: String(i), ...v })).reverse(); } catch (e) { return []; }
+}
+function load(id, body, example) {
+  S.id = id; S.roll = null; S.map = unpack(body.map || body); S.hist = []; S.fut = []; S.sel = null; S.hl = null; S.dream = null; stopPlay();
+  S.dirty = false; S.example = !!example; S.savedAt = example ? null : body.updated || null;
+  refresh(); close();
+}
+function guard(fn) { if (S.dirty) ask('Leave the unsaved changes?', 'This map has changes that are not saved. Save first, or carry on and lose them.', 'LOSE THEM', fn, 'KEEP EDITING'); else fn(); }
+$('bNew').addEventListener('click', () => guard(() => {
+  const m = C.blank(3); m.name = 'New level'; m.slot = 3;   /* the tutorial has levels 1 and 2: new ones start at 3 */
+  for (let y = 1; y < N - 1; y++) for (let x = 1; x < N - 1; x++) m.grid[C.idx(x, y)] = '#';
+  load(null, { map: pack(m) }, false); S.dirty = true; savedBadge(); toast('A NEW MAP OF STONE');
+}));
+const fmt = t => t ? new Date(t).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : '';
+$('bOpen').addEventListener('click', async () => {
+  $('modal').innerHTML = `<div class="veil" role="dialog" aria-modal="true"><div class="dialog slab"><h2>OPEN A MAP</h2><p class="note">Reading the store...</p></div></div>`;
+  let maps = [];
+  try { maps = await listMaps(); } catch (e) { maps = null; }
+  const ex = `<div class="item"><span>The compass: an example of events<small>your example: three paths of torches, a bone carried back; opens as an unsaved copy</small></span><button class="btn" data-sample="1">OPEN</button></div>` + DATA.drawn.map(D => `<div class="item"><span>Tutorial level ${D.n}<small>from drawn.c, ${D.w} x ${D.h}: opens as an unsaved copy</small></span><button class="btn" data-ex="${D.n}">OPEN</button></div>`).join('');
+  $('modal').innerHTML = `<div class="veil" role="dialog" aria-modal="true" aria-labelledby="openT"><div class="dialog slab"><h2 id="openT">OPEN A MAP</h2>
+    ${S.db ? '' : '<p class="note">The shared store is not reachable here, so these are the maps kept in this browser.</p>'}
+    <h3>YOUR MAPS</h3><div class="list">${maps === null ? '<p class="note">The store did not answer. Try again in a moment.</p>' : maps.length ? maps.map(m => `<div class="item"><span>${esc(m.name)}<small>level ${m.level} · saved ${esc(fmt(m.updated))}</small></span><span class="row"><button class="btn" data-open="${esc(m.id)}">OPEN</button><button class="btn" data-vers="${esc(m.id)}">SAVE POINTS</button><button class="btn warn" data-del="${esc(m.id)}">DELETE</button></span></div>`).join('') : '<p class="note">None saved yet. SAVE keeps the map you are drawing.</p>'}</div>
+    <h3>EXAMPLES</h3><div class="list">${ex}</div>
+    <div class="row"><button class="btn" id="askNo">CLOSE</button></div></div></div>`;
+  $('askNo').addEventListener('click', close);
+  document.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => guard(() => { const m = maps.find(x => x.id === b.dataset.open); load(m.id, m); toast('OPENED'); })));
+  document.querySelectorAll('[data-sample]').forEach(b => b.addEventListener('click', () => guard(() => { load(null, { map: pack(C.sampleEvents()) }, true); S.evSel = 0; setTab('events'); toast('THE EXAMPLE, UNSAVED'); })));
+  document.querySelectorAll('[data-ex]').forEach(b => b.addEventListener('click', () => guard(() => { const D = DATA.drawn.find(d => d.n === +b.dataset.ex); const m = C.importDrawn(D, D.n); m.slot = D.n; load(null, { map: pack(m) }, true); toast('THE EXAMPLE, UNSAVED'); })));
+  document.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => {
+    const m = maps.find(x => x.id === b.dataset.del);
+    ask(`Delete "${m.name}"?`, 'The map is taken out of the list. Its save points stay in the store, but nothing here will show them again. Make a backup file first if you may want it.', 'DELETE IT', async () => {
+      try { if (S.db) await S.db.doc('maps/' + m.id).delete(); else { const all = JSON.parse(localStorage.getItem('cme.maps') || '{}'); delete all[m.id]; localStorage.setItem('cme.maps', JSON.stringify(all)); }
+        if (S.id === m.id) { S.id = null; S.dirty = true; savedBadge(); } toast('DELETED'); } catch (e) { toast('NOT DELETED: TRY AGAIN'); }
+    });
+  }));
+  document.querySelectorAll('[data-vers]').forEach(b => b.addEventListener('click', async () => {
+    const m = maps.find(x => x.id === b.dataset.vers); let v = [];
+    try { v = await listVersions(m.id); } catch (e) {}
+    $('modal').innerHTML = `<div class="veil" role="dialog" aria-modal="true"><div class="dialog slab"><h2>SAVE POINTS: ${esc(m.name.toUpperCase())}</h2>
+      <p class="note">Every SAVE keeps one. Restoring opens that save as the map; the newer ones stay.</p>
+      <div class="list">${v.length ? v.map(x => `<div class="item"><span>${esc(fmt(x.saved))}<small>${esc(x.name)}</small></span><button class="btn" data-vid="${esc(x.vid)}">RESTORE</button></div>`).join('') : '<p class="note">No save points found.</p>'}</div>
+      <div class="row"><button class="btn" id="askNo">CLOSE</button></div></div></div>`;
+    $('askNo').addEventListener('click', close);
+    document.querySelectorAll('[data-vid]').forEach(bb => bb.addEventListener('click', () => {
+      const x = v.find(y => y.vid === bb.dataset.vid);
+      ask('Restore this save point?', `The map as it was saved on ${fmt(x.saved)} opens in its place. It is not saved until you SAVE.`, 'RESTORE', () => guard(() => { load(m.id, { map: x.map, updated: null }); S.dirty = true; savedBadge(); toast('RESTORED: SAVE TO KEEP IT'); }));
+    }));
+  }));
+});
+async function offer(filename, text) {
+  if (S.dl) { try { await S.dl.save({ filename, data: text }); toast('FILE OFFERED'); return; } catch (e) { if (e && e.code === 'declined') return; } }
+  showText(filename.toUpperCase(), 'Saving a file is not offered here. Copy the text and keep it in a file of your own.', text, filename);
+}
+function showText(title, note, text, filename) {
+  $('modal').innerHTML = `<div class="veil" role="dialog" aria-modal="true" aria-labelledby="txtT"><div class="dialog slab"><h2 id="txtT">${esc(title)}</h2><p class="note">${esc(note)}</p>
+    <textarea id="txt" readonly spellcheck="false"></textarea>
+    <div class="row"><button class="btn" id="txCopy">COPY</button>${filename && S.dl ? '<button class="btn" id="txSave">SAVE AS FILE</button>' : ''}<button class="btn" id="askNo">CLOSE</button></div></div></div>`;
+  $('txt').value = text;
+  $('askNo').addEventListener('click', close);
+  $('txCopy').addEventListener('click', () => { navigator.clipboard.writeText(text).then(() => toast('COPIED'), () => { $('txt').select(); toast('SELECTED: COPY IT BY HAND'); }); });
+  const sv = $('txSave'); if (sv) sv.addEventListener('click', () => offer(filename, text));
+}
+$('bBackup').addEventListener('click', () => {
+  const slug = S.map.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'map';
+  offer(`haunted-level-${S.map.level}-${slug}.json`, JSON.stringify({ format: 'haunted-world-editor', v: 1, saved: Date.now(), map: pack(S.map) }, null, 1));
+});
+$('bLoadFile').addEventListener('click', () => guard(() => $('fileIn').click()));
+$('fileIn').addEventListener('change', e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  f.text().then(t => {
+    const j = JSON.parse(t);
+    if (!['haunted-world-editor', 'catacomb-map-editor'].includes(j.format) || !j.map || !j.map.grid) throw new Error('format');
+    load(null, { map: j.map }, false); S.dirty = true; savedBadge(); toast('LOADED: SAVE TO KEEP IT HERE');
+  }).catch(() => toast('THAT FILE IS NOT A MAP FROM THIS EDITOR'));
+});
+$('bExport').addEventListener('click', () => {
+  const errs = S.checks.filter(c => c.sev === 'error').length, n = S.map.slot || 3, x = C.exportDrawn(DATA, S.map, n);
+  showText(`EXPORT FOR DRAWN.C (SLOT ${n})`, ('') + (errs ? `${errs} check${errs > 1 ? 's say' : ' says'} this level would break: see CHECKS before pasting. ` : '') +
+    `Paste the arrays above DRAWN[] in src/crawl/game/drawn.c and the last two lines into DRAWN[], then raise NDRAWN. The row carries the level it is laid on (${S.map.level}), the first time down.`, x.text, `drawn-level-${S.map.level}-slot-${n}.txt`);
+});
+
+/* ---------- the generator's lights, asked of the game itself (docs/PLAN-lights.md): the browser build in play/, loaded once in this page
+   (no web_start), lays the drawing as it would for its level and lists the light props it hung or stood ---------- */
+let gameMod = null;
+function gameModule() {
+  if (gameMod) return gameMod;
+  gameMod = new Promise((ok, no) => {
+    const sc = document.createElement('script'); sc.src = 'play/haunted-core.js';
+    sc.onload = () => window.HauntedCore({ locateFile: p => 'play/' + p, print: () => {}, printErr: () => {} }).then(ok, no);
+    sc.onerror = () => no(new Error('the game is not beside the editor'));
+    document.head.appendChild(sc);
+  });
+  gameMod.catch(() => { gameMod = null; });
+  return gameMod;
+}
+async function generatorLights() {
+  const M = await gameModule(), x = C.exportDrawn(DATA, S.map, S.map.slot || 3), bytes = new TextEncoder().encode(x.text);
+  if (bytes.length >= M._web_drawn_cap()) throw new Error('the level is too long for the game to read');
+  M.HEAPU8.set(bytes, M._web_drawn_buf());
+  const why = M.UTF8ToString(M._web_drawn_load(bytes.length));
+  if (why) throw new Error(why);
+  const p = M._web_drawn_lights(), n = new Int32Array(M.HEAPU8.buffer, p, 1)[0];
+  if (n < 0) throw new Error('the game could not lay the level');
+  const a = new Int32Array(M.HEAPU8.buffer, p, 1 + 3 * n), out = [];
+  for (let k = 0; k < n; k++) out.push({ style: DATA.lights[a[1 + 3 * k]], x: a[2 + 3 * k] + x.b.x0, y: a[3 + 3 * k] + x.b.y0, gen: true });
+  return out;
+}
+$('bGenLights').addEventListener('click', async () => {
+  if (S.checks.some(c => c.sev === 'error')) { toast('MEND THE CHECKS\' ERRORS FIRST: THE GAME WOULD REFUSE THE LEVEL'); return; }
+  toast('ASKING THE GAME...');
+  let got;
+  try { got = await generatorLights(); } catch (e) { toast('THE GAME COULD NOT SAY: ' + String(e.message || e).toUpperCase()); return; }
+  const mine = S.map.lights || [], fresh = got.filter(g => !mine.some(l => l.x === g.x && l.y === g.y));
+  if (!got.length) { toast('THE GENERATOR HANGS NO LIGHTS HERE'); return; }
+  const take = () => { change(() => { S.map.lights = mine.concat(fresh); }); S.layers.lights = true; buildLayers(); markLayers(); draw();
+    toast(`${fresh.length} OF THE GENERATOR'S LIGHTS ARE YOURS NOW: MOVE, CHANGE OR REMOVE THEM`); };
+  if (mine.length) ask('Add the generator\'s lights?', `The game would hang and stand ${got.length} lights on this drawing; ${fresh.length} are not where yours already are. They are added beside your ${mine.length}, as lights of yours to move, change or remove. With any lights of yours, the game lays only yours.`, 'ADD THEM', take, 'NOT NOW');
+  else take();
+});
+
+/* ---------- the layers' menu ---------- */
+function buildLayers() {
+  const P = $('layerPop'), save = () => { try { localStorage.setItem('cme.layers', JSON.stringify(S.layers)); } catch (e) {} };
+  P.innerHTML = LAYERS.map(([k, n]) => `<label><input type="checkbox" data-layer="${k}"${S.layers[k] ? ' checked' : ''}> ${esc(n)}</label>`).join('')
+    + '<div class="row"><button class="btn" id="layAll">ALL ON</button><button class="btn" id="layNone">ALL OFF</button></div>';
+  P.querySelectorAll('[data-layer]').forEach(b => b.addEventListener('change', () => { S.layers[b.dataset.layer] = b.checked; save(); markLayers(); draw(); }));
+  $('layAll').addEventListener('click', () => { LAYERS.forEach(([k]) => { S.layers[k] = true; }); save(); buildLayers(); markLayers(); draw(); });
+  $('layNone').addEventListener('click', () => { LAYERS.forEach(([k]) => { S.layers[k] = false; }); save(); buildLayers(); markLayers(); draw(); });
+}
+function markLayers() {                                          /* the summary says when something is hidden */
+  const off = LAYERS.filter(([k]) => !S.layers[k]).length;
+  $('layersBox').querySelector('summary').textContent = off ? `LAYERS (${off} HIDDEN)` : 'LAYERS';
+}
+buildLayers(); markLayers();
+document.addEventListener('click', e => { const d = $('layersBox'); if (d.open && !d.contains(e.target)) d.open = false; });
+
+/* ---------- PLAY: the game's browser build in play/, over the editor, given this level as its export (docs/PLAN-mapedit.md, part 3).
+   The game reads the same text EXPORT C gives, and a new run there begins on this level. ---------- */
+let playText = null;
+const PLAY_LIGHTS = true;                                /* the game in play/ reads lights (docs/PLAN-lights.md): true once it does */
+const PLAY_HAZARDS = true;                               /* the game in play/ lays hazards (docs/PLAN-events.md, 2c): true once it does */
+const sameOrigin = () => (location.origin && location.origin !== 'null' ? location.origin : '*');
+function playStop() { $('playFrame').src = 'about:blank'; $('playLayer').hidden = true; playText = null; }
+$('bPlay').addEventListener('click', () => {
+  const errs = S.checks.filter(c => c.sev === 'error');
+  if (errs.length) {
+    ask('Mend it first?', `${errs.length} check${errs.length > 1 ? 's are errors' : ' is an error'}, and the game would refuse the level or lay it wrong. The first: ${errs[0].msg}`, 'SHOW THE CHECKS',
+      () => { const t = document.querySelector('[data-tab="checks"]'); if (t) t.click(); }, 'KEEP EDITING');
+    return;
+  }
+  if ((S.map.lights || []).length && !PLAY_LIGHTS) {
+    ask('Play it without your lights?', `The game inside the editor cannot hang lights laid by hand yet: their side is being built (docs/PLAN-lights.md). This play lays the generator's lights in their place; your ${S.map.lights.length} stay in the map.`, 'PLAY WITHOUT THEM',
+      () => { const m = JSON.parse(JSON.stringify(S.map)); m.lights = []; playOpen(C.exportDrawn(DATA, m, m.slot || 3).text); }, 'KEEP EDITING');
+    return;
+  }
+  if ((S.map.hazards || []).length && !PLAY_HAZARDS) {
+    ask('Play it without its hazards?', `The game inside the editor cannot lay hazards yet: their side is being built (docs/PLAN-events.md, 2c). The rest of the level plays as drawn; ${S.map.hazards.length} hazard${S.map.hazards.length > 1 ? 's' : ''} and the triggers' hazard actions are left out of this play only.`, 'PLAY WITHOUT THEM',
+      () => { const m = JSON.parse(JSON.stringify(S.map)); m.hazards = []; (m.events || []).forEach(e => { e.actions = (e.actions || []).filter(a => !/^haz_/.test(a.kind)); e.back = (e.back || []).filter(a => !/^haz_/.test(a.kind)); });
+        playOpen(C.exportDrawn(DATA, m, m.slot || 3).text); }, 'KEEP EDITING');
+    return;
+  }
+  playOpen(C.exportDrawn(DATA, S.map, S.map.slot || 3).text);
+});
+function playOpen(text) {
+  playText = text;
+  $('playTitle').textContent = `PLAYING ${String(S.map.name || 'THIS LEVEL').toUpperCase()}: LEVEL ${S.map.level}. A NEW RUN BEGINS THERE. ITS SAVES ARE KEPT APART FROM THE GAME'S.`;
+  $('playLayer').hidden = false;
+  $('playFrame').src = 'play/index.html?t=' + Date.now();
+  $('playFrame').focus();
+}
+$('bPlayClose').addEventListener('click', playStop);
+addEventListener('message', e => {                       /* the game's page asks for the level when it loads (again, after fleeing) */
+  if (!playText || e.source !== $('playFrame').contentWindow || !e.data || e.data.type !== 'hvs-play-ready') return;
+  e.source.postMessage({ type: 'hvs-level', text: playText, name: S.map.name, level: S.map.level }, sameOrigin());
+});
+
+/* ---------- starting ---------- */
+try { const z = +localStorage.getItem('cme.zoom'); if (ZOOMS.includes(z)) S.zoom = z; } catch (e) {}
+try { if (localStorage.getItem('cme.follow') === '0') S.follow = false; } catch (e) {}
+$('zoomLabel').textContent = S.zoom + ' PX';
+function startWith(m, example) { S.map = m; S.example = example; refresh(); }
+const D1 = DATA.drawn[0], first = C.importDrawn(D1, D1.n); first.slot = D1.n;
+startWith(first, true);
+setTool({ kind: 'select' }, selectBtn, 'This is the tutorial\'s first level, as an example. NEW starts a blank map; OPEN lists your maps.');
+setTimeout(() => scrollToCell([22, 20]), 50);
+let draft = null;
+try { draft = JSON.parse(localStorage.getItem('cme.draft') || 'null'); } catch (e) {}
+if (draft && draft.map) ask('Pick up where you left off?', `There is unsaved work from ${fmt(draft.t)} in this browser ("${draft.map.name}").`, 'PICK IT UP', () => { load(draft.id, { map: draft.map }, false); S.dirty = true; savedBadge(); }, 'NOT NOW');
+(async () => {
+  if (!window.claude || !window.claude.use) return;
+  try { S.db = await window.claude.use('db'); } catch (e) { S.db = null; }
+  try { S.dl = await window.claude.use('downloads'); } catch (e) { S.dl = null; }
+})();
+})();
+</script>

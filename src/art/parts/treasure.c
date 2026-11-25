@@ -631,7 +631,9 @@ void crawl_art_level(int level) {
     spr_sides();
     props_level(level);                                             /* the props, at its age, washed in run II */
     treasure_plain();
-    if (crawl_drawn(level)) { crawl_art_run(level); crawl_art_mice(level); }   /* the run's own look (docs/PLAN-b10.md); the mice's holes in it */
+    if (crawl_drawn(level)) { crawl_art_run(level); crawl_art_mice(level); crawl_art_unlit(level); crawl_art_lights(level); }   /* the run's own look (docs/PLAN-b10.md); the mice's
+                                                                      holes in it; its light unlit (docs/PLAN-events.md); the new hanging lights and
+                                                                      the events' things in it (docs/PLAN-lights.md) */
     else {                                                          /* not drawn yet: the look as it was */
         static const float KS[4] = { 1.0f, 0.5f, 0.12f, -0.5f };
         for (int f = 0; f < 4; f++) { spr_key(SP_KEY0 + f, KS[f], R_GOLD); spr_key(SP_KEYS0 + f, KS[f], R_IRON); spr_key(SP_KEYC0 + f, KS[f], R_BLOOD); }

@@ -22,6 +22,7 @@
 #include "crawl_portrait.h"
 #include "crawl_tutor.h"
 #include "crawl_stamp.h"
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -119,6 +120,9 @@
 /* Drawn levels (the tutorial's two): the maps, gen_drawn, their items, dead and marks; the burning floor; the ice */
 #include "game/drawn.c"
 
+/* A drawn level read from the world editor's export as the game runs (its PLAY): crawl_drawn_text */
+#include "game/drawn_text.c"
+
 /* The mice (docs/PLAN-mice.md): their holes, their days, scurrying, the holes as ways through, the tell; the charnel rats told */
 #include "game/mice.c"
 
@@ -142,6 +146,12 @@
 
 /* Ways to touch the world: things carried, set down and used (thing_use) */
 #include "game/things.c"
+
+/* A drawn level's events (docs/PLAN-events.md): the triggers heard, their actions done and undone; the torches' light and look; the dream at them */
+#include "game/events.c"
+
+/* A drawn level's hazards (docs/PLAN-events.md, 2c): the game's own kinds at the drawing's anchors and cells, set off by clock, box and event */
+#include "game/drawn_haz.c"
 
 /* Puzzles: which a level has, where the pieces go, solved and wrong, the shapes they take; the Crypts' (pz_make_run1); pz_make, pz_touched; the dream at a puzzle */
 #include "game/puzzles.c"

@@ -28,8 +28,9 @@ enum { MOB_SKEL, MOB_GHOST, MOB_BAT, MOB_WSKULL, MOB_SHIELD, MOB_SPIDER,
        MOB_WHIPPER, MOB_SEXTON, MOB_LIGHTLESS,
        MOB_RAT };   /* kept in saves (the record): new kinds go at the end (REC_KINDS 24 at most: the charnel rat took the last) */
 enum { MS_WALK, MS_DIE, MS_RECOIL, MS_FLEE };   /* the last two: wraiths only */
-enum { IT_COINS, IT_CHALICE, IT_GEMS, IT_CROWN, IT_CHEST, IT_KEY, IT_POTION, IT_URN, IT_RING, IT_BONE, IT_SCRIP, IT_MAP };   /* IT_SCRIP: color is its boss;
-                                                                      IT_MAP the tutorial's (docs/PLAN-tutorial.md 7.4) */
+enum { IT_COINS, IT_CHALICE, IT_GEMS, IT_CROWN, IT_CHEST, IT_KEY, IT_POTION, IT_URN, IT_RING, IT_BONE, IT_SCRIP, IT_MAP, IT_COMPASS };   /* IT_SCRIP: color is its boss;
+                                                                      IT_MAP the tutorial's (docs/PLAN-tutorial.md 7.4); IT_COMPASS one
+                                                                      found on a drawn level (docs/PLAN-events.md) */
 static const int ITEM_VALUE[] = { 10, 25, 50, 100, 250, 0, 0, 0, 0, 0, 0 };
 enum { MIS_BONE, MIS_FIRE, MIS_EMBER, MIS_TURNED, MIS_WEB };   /* what the dead throw: bones, a wall skull's fireball, an imp's
                                                                     ember; a spell of yours the Ill-Fated Knight's Mirror Rune
@@ -70,11 +71,15 @@ typedef struct { uint8_t kind, tex, theme, visits; int16_t region, door; uint8_t
  * its floor is turned (1, 2 mirrored, 4 across), bit 4 that it lies as laid, not turned at random. */
 typedef struct { int x, y, along_x; float open, idle; int opening, locked, color, was; } Door;   /* locked: 1 locked, 2 unlocked;
                                                                       was: opening last frame (its sound and its noise) */
-typedef struct { float x, y, power, radius, phase; int cx, cy, first, count; } Light;
+typedef struct { float x, y, power, radius, phase; int cx, cy, first, count, torch, look; } Light;   /* torch: a torch's or a light prop's,
+                                                                      which breathe at three left (docs/PLAN-lights.md, 2); drawing only;
+                                                                      look: how it falls as the frame is drawn (LK_*), never in the light map */
+enum { LK_PLAIN, LK_DAPPLE, LK_RED };                                /* thrown through a cage's holes; tinged by red glass (docs/PLAN-lights.md) */
 typedef struct { float x, y, phase; int spr, nfr, flags; } Deco;   /* nfr: frames to cycle through */
 enum { DF_SWAY = 1,                                                  /* hanging: swings a little, from the top */
        DF_FLIP = 2, DF_FLOAT = 4, DF_SINK = 8,                       /* the Backrooms' things out of place: upside down on the */
-       DF_LOOP = 16 };                                               /* ceiling, floating, half sunk; a creature caught in a loop */
+       DF_LOOP = 16,                                                 /* ceiling, floating, half sunk; a creature caught in a loop */
+       DF_SLOW = 32 };                                               /* three frames of candles, at a candle's pace (the new hanging lights) */
 typedef struct {
     int type, state, alive; float x, y, z, t, anim, speed; int cx, cy, tx, ty;
     int seen, attacking, hits, misses; float cool, throw_t, contact, orbit, stagger, ignore;   /* skeleton throws, bat bites */
@@ -163,6 +168,8 @@ typedef struct {
                                                                       gargoyle woke */
     float told_t;                                                  /* told of you (docs/PLAN-mice.md): a charnel rat by a mouse, rearing;
                                                                       a spider by a wall spider, watchful */
+    int dsp, dsp_ech, dsp_el;                                      /* from an owner's spawn point (docs/PLAN-mapedit.md): 1 if so; its
+                                                                      chance of an element, % or -1 by rank; the element or -1 */
 } Mob;
 enum { FT_THREW = 1, FT_DROPPED = 2, FT_HATCHED = 4, FT_HORN = 8, FT_RUNG = 16, FT_SHED = 32, FT_BROKE = 64, FT_NOW = 128 };
 /* What the two tracks share (docs/PLAN-combat.md, section 17.3). Change any of it only as that section says. The statuses, the

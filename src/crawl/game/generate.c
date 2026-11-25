@@ -119,7 +119,7 @@ static void light_static_ph(float lx, float ly, float power, float radius, float
     if (G.nlights >= MAXLIGHTS) return;
     Light *L = &G.lights[G.nlights++];
     L->x = lx; L->y = ly; L->power = power; L->radius = radius; L->phase = phase;
-    L->cx = (int)lx; L->cy = (int)ly; L->first = G.nlc; L->count = 0;
+    L->cx = (int)lx; L->cy = (int)ly; L->first = G.nlc; L->count = 0; L->torch = 0; L->look = LK_PLAIN;
     static int stamp[MAPN][MAPN], qx[MAPN * MAPN], qy[MAPN * MAPN], dist[MAPN][MAPN];
     static int gen;
     gen++;
@@ -164,11 +164,11 @@ static void dress_level(void);
 #define MG (2 * NB + 1)
 typedef struct { uint8_t kind, theme, w, lo, trunk; int8_t room; int16_t region; uint8_t keep; } MCell;   /* keep: not filled as a dead end */
 static MCell MM[MG][MG];
-static int mroom[12][4];                                         /* the rooms on the plan: x, y, w, h */
+static int mroom[MAXROOMS][4];                                         /* the rooms on the plan: x, y, w, h */
 #define ARENA_PLAN 15                       /* plan rows from here on are a boss's (cells from BAND_Y0) */
 #define ARENA_DOOR_MX 3                     /* and the way down to it: plan column 3, cell x 6 */
 static int st_ante_room, st_ante_wx, st_ante_wy;                  /* a vestibule's vault room (0 none), and the plan wall between them (docs/PLAN-stamps.md) */
-static int8_t st_room[12];                                       /* a drawn room's place in st_placed, plus one; 0 a chamber (docs/PLAN-stamps.md) */
+static int8_t st_room[MAXROOMS];                                       /* a drawn room's place in st_placed, plus one; 0 a chamber (docs/PLAN-stamps.md) */
 static int mstart(int m) { return (m & 1) ? 2 * m - 1 : 2 * m; }  /* the first cell of plan row/column m */
 static MCell *mc(int x, int y) {
     static MCell solid = { K_WALL, 0, 0, 0, 0, -1, -1, 0 };
@@ -182,8 +182,37 @@ static void mcarve(int x, int y, int region, int theme, int room) {
 }
 static int in_mroom(int r, int x, int y) { return x >= mroom[r][0] && y >= mroom[r][1] && x < mroom[r][0] + mroom[r][2] && y < mroom[r][1] + mroom[r][3]; }
 /* a drawn level (docs/PLAN-tutorial.md) isn't on the plan's grid: its lanes are drawn with it, and each cell's steps to one kept */
-static int g_drawn;                                                /* 1 or 2: the drawn level in play; 0 any other place */
+static int g_drawn;                                                /* 1 + the drawing in play (DRAWN[]); 0 any other place */
+#define DRAWN_TUT 2                                                /* the first two drawings are the tutorial's: their lessons, and their
+                                                                      dead take every element alike (docs/PLAN-mapedit.md) */
 static uint8_t g_lane[MAPN][MAPN], g_ldist[MAPN][MAPN];
+/* a drawn level's events (docs/PLAN-events.md; events.c runs them), and what the parts above it ask of them */
+static int g_events;                                               /* the drawing in play has triggers, torches or fields of its own */
+static uint8_t g_gate[MAXDOORS];                                   /* a door barred on a drawn level (B, or shut by an event): the run's
+                                                                      door barred (T_BARRED), unbarred once an event frees it (T_UNBARRED),
+                                                                      and once opened it stays open, as the tutorial's gate */
+static int drawn_torches(void);                                    /* the owner's torches, in place of the generator's (gen_dress): how many */
+/* A drawn level's lights (docs/PLAN-lights.md, section 1: the format the editor writes): the style, its cell in the drawing. Hanging
+ * ones hang over its middle, standing ones stand in it as the generator's do. The last four are the new hanging lights, laid as a
+ * chandelier (the three hanging) or a lantern (the cage) till their sheet is approved. Here, not in drawn.c, so that the generator's
+ * own light props can be noted by style as they are laid (gen_level.c), for the editor's listing and for a drawing that has its own. */
+enum { DL_CHANDELIER, DL_LANTERN, DL_CANDLESTAND, DL_BRAZIER, DL_MINELAMP, DL_CRYSTALS, DL_FIREPIT, DL_MAGMA, DL_TOTEM,
+       DL_CORONA, DL_SANCTUARY, DL_BONES, DL_CAGE, NDL };
+typedef struct { int style, x, y; } DrawnLight;
+#define GLP_MAX 96
+static struct { int n; struct { int style, x, y, deco, light, kind0; } p[GLP_MAX]; } GLP;   /* the generator's light props laid on this
+                                                                      level: the style, its cell, its decoration and light (-1 none), what
+                                                                      the cell was before it stood there; noted only, read by nothing that plays */
+static int drawn_lights(void);                                     /* the drawing's own lights (drawn.c): how many it has */
+static int glp_on;                                                 /* the generator's light props noted: while dress_level lays a level */
+static float ev_light(int l);                                      /* a light's share this frame: a torch out or guttering, all stuttering */
+static void ev_struck(int k);                                      /* a thing that wants a spell, done (mk_finish) */
+static int ev_mk_watched(int k);                                   /* a trigger waits on it struck: the dream tries it harder */
+static int ev_goal(int x, int y, int *gx, int *gy);                /* the dream at the events */
+static int ev_at_strike(void);                                     /* and, arrived where it means to strike a thing from, the cast */
+static int ev_item_ok(const Item *it);                             /* an item the dream may take: no trigger on it waits on another */
+static void ev_pickup(int thing);                                  /* an item a drawing laid, taken (collect) */
+static void ev_tick(float dt);                                     /* the runner, each frame (update_hazards) */
 /* level 1's burning floor (docs/PLAN-tutorial.md, section 6): lamp oil spilled across the hall and alight, crossed to go on */
 #define DFIRE_CELLS 16
 #define DFIRE_OUT 20.0f                                            /* it burns low and goes out this long after you are past */
@@ -278,7 +307,7 @@ static int thing_use(int i);
 static int pz_level(int level);
 static int pz_kind_of(int level);
 static int mz_vault(int *kx, int *ky, int *room) {
-    int order[12], no = 0;
+    int order[MAXROOMS], no = 0;
     for (int r = 1; r < G.nrooms; r++) {
         int taken = 0;
         for (int k = 0; k < G.nvaults; k++) taken |= G.vault_room[k] == r;

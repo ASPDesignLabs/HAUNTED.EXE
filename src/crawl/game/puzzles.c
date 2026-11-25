@@ -658,6 +658,8 @@ static void thing_pile(int item, int place) {
 static int pz_takes(int place, int item) {
     const Thing *p = &G.thing[place], *it = &G.thing[item];
     if (p->tri || it->tri) return p->tri && it->tri;               /* a trial's go only with a trial's */
+    if (p->ev || it->ev) return p->ev && it->ev && (p->want < 0 || p->want == it->val) && ev_place_ok(p->ev - 1);   /* an event's socket: its relic,
+                                                                      once what it waits on has fired */
     if (G.pz == PZ_URNS && p->in >= 0 && G.thing[p->in].val < it->val) return 0;   /* never a larger on a smaller */
     if (G.pz == PZ_FOSSIL && p->want != it->val) return 0;        /* a bone fits only its own socket */
     if (p->grp == 1 && it->grp != 2) return 0;
@@ -667,6 +669,7 @@ static void pz_touched(int i, int how) {
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "EVENT thing %d role %d how %d state %d by %s t=%.2f\n", i, G.thing[i].role, how, G.thing[i].state, G.player ? "player" : "autopilot", G.t);
 #endif
+    ev_thing(i, how);                                              /* a drawn level's events' (docs/PLAN-events.md) */
     if (G.thing[i].tri) { tri_touched(i, how); return; }           /* a trial's thing */
     if (G.pz < 0 || G.pz_solved) return;
     int set = pz_set_of(G.pz);

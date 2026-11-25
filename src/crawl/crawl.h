@@ -73,8 +73,15 @@ enum {
     T_ICE,                                        /* its ice field: a sheet laid over the floor, as a mark (C_CLEAR nowhere) */
     T_MHOLE,                                      /* the mice's holes (docs/PLAN-mice.md): each of the run's materials, both looks, with a hole */
     T_MHOLE_LAST = T_MHOLE + 9,                   /* at the foot at the level's size (NMAT x NVAR; crawl_art_mice) */
+    T_UNLIT,                                      /* the run's own light on the wall (T_FEAT + F1_TORCH) as an event leaves it
+                                                     (docs/PLAN-events.md): guttering, two frames; just snuffed; cold */
+    T_UNLIT_LAST = T_UNLIT + 3,
+    T_PLATE, T_PLATE_DOWN,                        /* an event's pressure plate (docs/PLAN-events.md, the owner's sheet): up, and pressed; laid
+                                                     over the cell's own floor (C_CLEAR where it shows) */
+    T_BARRED, T_UNBARRED,                         /* a drawn level's barred door (B): the run's own door (T_RDOOR) barred, and unbarred */
     NTEX
 };
+_Static_assert(NTEX <= 256, "a face's overlay (Cell.fover) is a byte");
 #define NMAT 5
 #define NVAR 2
 #define NBLEND 6
@@ -83,6 +90,7 @@ enum {
 #define NCEILS 3
 #define T_MATV(m, v) (T_MAT + (m) * NVAR + (v))
 _Static_assert(T_MHOLE_LAST - T_MHOLE + 1 == NMAT * NVAR, "a hole for each material's each look");
+enum { UL_GUTTER0, UL_GUTTER1, UL_SNUFFED, UL_COLD };   /* T_UNLIT's slots */
 /* run I's slots, by name: its materials, what stands on its walls (the torch's three frames from F1_TORCH),
  * its floors and its ceilings */
 enum { M1_ASHLAR, M1_RUBBLE, M1_PLASTER, M1_BEDROCK, M1_BONES };
@@ -326,6 +334,11 @@ enum {
     SP_TOAD_SIT, SP_TOAD_HOP, SP_LF_FUNGUS_BIG, SP_LF_FUNGUS_SMALL, SP_SPORE, SP_PUDDLE, SP_RING_0, SP_RING_1, SP_RING_2, SP_PRINT_L, SP_PRINT_R,
     SP_DRIP, SP_NEYES_A, SP_NEYES_B, SP_SLSKULL_A, SP_SLSKULL_B, SP_SLHAND_A, SP_SLHAND_B,
     SP_COMPASSWARE,                             /* the merchant's compass: a chipped disc of stone with bone studs, a bone needle, floating (docs/PLAN-compass.md) */
+    /* the new hanging lights (docs/PLAN-lights.md, the owner's sheet), by their frames, made each level in the run's look: the iron
+     * corona, the sanctuary lamp, the bone candelabrum, the pierced cage lantern; and the events' things (docs/PLAN-events.md): the
+     * relic, the socket empty and holding it, the lever up and pulled down */
+    SP_CORONA0, SP_CORONA2 = SP_CORONA0 + 2, SP_SANCT0, SP_SANCT1, SP_BONELAB0, SP_BONELAB2 = SP_BONELAB0 + 2, SP_CAGE0, SP_CAGE2 = SP_CAGE0 + 2,
+    SP_EV_RELIC, SP_EV_SOCKET0, SP_EV_SOCKET1, SP_EV_LEVER0, SP_EV_LEVER1,
     NSPR
 };
 

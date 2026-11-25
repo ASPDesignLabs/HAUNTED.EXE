@@ -6,18 +6,105 @@
  * cells (x east from its corner, y south, as media/sheets/tutorial/level*-read.png has them), laid at (ox, oy) in the level's map.
  * The look, the dressing and the torches are the generator's, laid on a seed of the drawing's own, so they lie the same each
  * time too. The letters: # stone, . floor, + floor on a lane, F the burning floor, f on a lane, D a door, G a gold door,
- * C a crimson door, = the one-way gate, S the start (on a lane), h the place to mend and X the exit (walls, used from their open
- * side, north first), I the ice, i on a lane, c a secret's wall, q its room, Q on a lane. Doors are on lanes. ---- */
+ * C a crimson door, = the one-way gate, B a door barred till an event opens it, S the start (on a lane), h the place to mend and
+ * X the exit (walls, used from their open side, north first), I the ice, i on a lane, c a secret's wall, q its room, Q on a lane.
+ * Doors are on lanes. From level 3 the drawings are the owner's, from the map editor (docs/PLAN-mapedit.md), with their events
+ * (docs/PLAN-events.md). ---- */
 typedef struct { int x, y, w, h, rtype; } DrawnRoom;
-enum { DT_GOLD, DT_KEY, DT_DEAD, DT_SGOLD, DT_MARK, DT_SWITCH, DT_GSEAL, DT_MAP };   /* SGOLD: in the secret; MARK's kind 0 a coffer,
+enum { DT_GOLD, DT_KEY, DT_DEAD, DT_SGOLD, DT_MARK, DT_SWITCH, DT_GSEAL, DT_MAP,   /* SGOLD: in the secret; MARK's kind 0 a coffer,
                                                                       1 a cage (any line), 2 the class's own */
+       DT_COMPASS, DT_RELIC, DT_SOCKET, DT_LEVER, DT_PLATE, DT_SPOT };   /* the events' (docs/PLAN-events.md): RELIC's kind its
+                                                                      number in _RELIC; SOCKET's the relic it takes, -1 any; SPOT's its tag */
 typedef struct { int what, kind; float x, y; } DrawnThing;          /* kind: an IT_* for gold, a key's colour, a MOB_* */
+/* A spawn point from the map editor (docs/PLAN-mapedit.md): where, in the drawing's cells; the kind, or -1 the budget's choice; the
+ * chance it is filled, %; its chance of being born to an element, %, or -1 by its rank as elem_roll has it; the element, or -1 the
+ * run's favourites; its rank, or -1 the level's usual; 1 + the wake group that fills it (0: as the level is laid); 1 + the tag of the
+ * spots it is laid at (0: where drawn) */
+typedef struct { float x, y; int kind, chance, echance, elem, rank, wake, spot; } DrawnSpawn;
+/* The events (docs/PLAN-events.md, section 2b: the format the editor writes, and this reads). A torch: its wall's cell, the face it
+ * hangs on (0 east, 1 south, 2 west, 3 north), its group, lit at the start. A trigger: what fires it (TG_*), its type (TT_*), how long
+ * it holds (s), whether its torches, fields and doors go back with it, its thing (an index in _THING) or the box walked into, what it
+ * waits on (a bit a trigger), its actions and its actions going back (runs in _ACT). An action (TA_*): its torch group, field, wake
+ * group or SFX_*; a door's cell; its delay. A pick: a thing the run's dice lay in one of its rooms (a bit each) or at a spot of its
+ * tag. A field: a cell of it (the field is every cell of its kind joined to it), live at the start, its harm (% of health each 0.5 s),
+ * the chance of its status (%), whether it may kill. */
+typedef struct { int x, y, d, group, lit; } DrawnTorch;
+enum { TG_PICKUP, TG_PLACE, TG_STRIKE, TG_ENTER, TG_USE, TG_STEP, TG_ALL };
+enum { TT_ONCE, TT_EVERY, TT_TOGGLE, TT_TIMED };
+typedef struct { int kind, type; float hold; int undo, thing, x0, y0, x1, y1; unsigned needs; int act, nact, back, nback; } DrawnTrig;
+enum { TA_FLICKER_ON, TA_FLICKER_OFF, TA_LIGHT_ON, TA_LIGHT_OFF, TA_FLICKER_ALL, TA_FIELD_ON, TA_FIELD_OFF, TA_DOOR_OPEN,
+       TA_DOOR_UNLOCK, TA_DOOR_SHUT, TA_WAKE, TA_SECRET, TA_LINE, TA_SOUND, TA_HAZ_ON, TA_HAZ_OFF };   /* HAZ: arg the hazard */
+typedef struct { int kind, arg, x, y; float after; const char *text; } DrawnAct;
+typedef struct { int thing; unsigned rooms; int tag; } DrawnPick;
+enum { DF_FIRE, DF_ICE };
+typedef struct { int kind, x, y, on, dmg, chance, kills; } DrawnField;
+/* A hazard (section 2c): the game's own kind (HZ_*), its anchor (on the floor, or the wall it is set in), its cells (a run in _HZCELL,
+ * in the order painted), one place in them at a time (zone) or all, what sets it off (HH_*: its clock, every s give or take give, the
+ * first after first; the box x0, y0, x1, y1 walked into), live at the start; harm (% of health a strike), the chance of its status (%),
+ * whether it may kill and its warning (s), each -1 for the game's own */
+enum { HH_CLOCK = 1, HH_ENTER = 2 };
+typedef struct { int kind, ax, ay, cell, ncell, zone, how; float every, give, first; int x0, y0, x1, y1, on, harm, chance, kills;
+                 float warn; } DrawnHaz;
+typedef struct { int x, y; } DrawnCell;
 typedef struct {
     const char *const *map; int w, h, ox, oy, face;                 /* face: the heading at the start, as G.h */
     const DrawnRoom *room; int nroom, vault[NKEYS];                /* vault: the room each colour's doors keep, -1 none */
     const DrawnThing *thing; int nthing;
     uint32_t seed;                                                 /* the dice its look is laid with */
+    int level;                                                     /* the level it is laid on, the first time down (the owner picks) */
+    const DrawnSpawn *spawn; int nspawn;                           /* its spawn points (the map editor's), filled by the budget */
+    const DrawnTorch *torch; int ntorch;                           /* the events' (docs/PLAN-events.md), each at the end: a row that */
+    const DrawnTrig *trig; int ntrig;                              /* leaves them off has none */
+    const DrawnAct *act; int nact;
+    const char *const *relic; int nrelic;                          /* the relics' names */
+    const DrawnPick *pick; int npick;
+    const DrawnField *field; int nfield;                           /* none: the tutorial's own fire and ice (DF, IC) */
+    const DrawnHaz *haz; int nhaz;                                 /* its hazards, and the cells they cover (drawn_haz.c) */
+    const DrawnCell *hzcell; int nhzcell;
+    const DrawnLight *light; int nlight;                           /* its lights (docs/PLAN-lights.md; DrawnLight in generate.c): any, and
+                                                                      none of the generator's light props */
 } Drawn;
+/* What a drawn level's events hold while it is played (events.c runs them); laid with the level, never saved */
+#define EV_THINGS 256                       /* a drawing's things, for where this play lays each */
+#define EV_SPAWNS 64
+#define EV_TORCHES 120                                            /* at_torch holds 1 + the torch in a byte */
+#define EV_TRIGS 32                         /* a bit each in a trigger's needs */
+#define EV_QUEUE 96
+#define EV_FIELDS 8
+#define EV_FCELLS 192
+enum { EA_NONE, EA_IN, EA_OUT };            /* a torch flickering to life, or out */
+typedef struct { int wx, wy, d, group, light, lit, anim; float t; } EvTorch;   /* light: its G.lights, -1 none; t: the flicker's time
+                                                                      (below 0, waiting its turn in the group) */
+typedef struct { int kind, on, dmg, chance, kills, first, n; float t, fade; } EvField;   /* t: since it was lit or put out; fade: the
+                                                                      fire's flames, 0 to 1 */
+static struct {
+    float now;                                                     /* the events' clock: the level's time while they run */
+    float tx[EV_THINGS], ty[EV_THINGS];                            /* each thing where this play lays it (the picks), in the drawing's cells */
+    float sx[EV_SPAWNS], sy[EV_SPAWNS];                            /* and each spawn point */
+    int mk[MAXMK];                                                 /* a thing that wants a spell: 1 + its thing, 0 none */
+    float rearm[MAXMK];                                            /* and, struck for a trigger that fires again, when it may be again */
+    int nt;
+    EvTorch torch[EV_TORCHES];
+    int8_t at_torch[MAPN][MAPN], light_of[MAXLIGHTS];             /* 1 + the torch on a wall's cell, or a light is */
+    struct { int n, on, inside; float back_t; } tr[EV_TRIGS];      /* fired n times; on (a switch or timed); in its box; when it goes back */
+    struct { int act, trig, kind, back; float due; } q[EV_QUEUE]; int nq;   /* actions waiting out their delay; kind: the action's own or
+                                                                      its undoing; back: going back's (kept when it goes back) */
+    float all_t;                                                   /* every light stuttering, this long yet */
+    int nf; EvField f[EV_FIELDS];
+    int fx[EV_FCELLS], fy[EV_FCELLS]; float fwait[EV_FCELLS];     /* the fields' cells, each field's together; each ice cell's wait */
+    uint8_t fat[MAPN][MAPN];                                       /* 1 + the field a cell is in */
+    int f_in; float f_tick, f_stack;                               /* the field the caster stands in (1 +), and its next harm, its next stack */
+} EV;
+/* What a drawn level's hazards hold while it is played (drawn_haz.c runs them): each live or not, in its box, its fixed site in
+ * G.site (-1: one that arises), when its clock next sets it off and when its box last did; laid with the level, never saved */
+#define DH_CELLS 256
+typedef struct { int live, inside, site; float next, last; } DhOne;
+static struct { float now; int n; DhOne h[MAXSITE]; } DH;
+static void dh_lay(void);                                          /* drawn_haz.c: laid with the level, where its sites would be */
+static int dh_kind_ok(int k) { return k >= 0 && k < NHZ && k != HZ_ARC && k != HZ_GRASP; }   /* the runs' own, fixed, arising or sapping:
+                                                                      every kind but the knight's arc and the Wraith's hands */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"     /* a row, or a spawn point, leaves off what it has none of: zeros */
 static const char *const DRAWN1_MAP[32] = {
     "##S++#################",    /*  0 */
     "####D#################",    /*  1 */
@@ -147,40 +234,212 @@ static const DrawnRoom DRAWN2_ROOM[] = {
 #define NDRAWN 2
 static const Drawn DRAWN[NDRAWN] = {
     { DRAWN1_MAP, 22, 32, 11, 6, 0, DRAWN1_ROOM, (int)(sizeof DRAWN1_ROOM / sizeof DRAWN1_ROOM[0]), { 5, -1, -1 },
-      DRAWN1_THING, (int)(sizeof DRAWN1_THING / sizeof DRAWN1_THING[0]), 0x7D1A0001u },
+      DRAWN1_THING, (int)(sizeof DRAWN1_THING / sizeof DRAWN1_THING[0]), 0x7D1A0001u, 1, NULL, 0 },
     { DRAWN2_MAP, 15, 35, 15, 5, 0, DRAWN2_ROOM, (int)(sizeof DRAWN2_ROOM / sizeof DRAWN2_ROOM[0]), { 0, -1, 2 },
-      DRAWN2_THING, (int)(sizeof DRAWN2_THING / sizeof DRAWN2_THING[0]), 0x7D1A0002u },
+      DRAWN2_THING, (int)(sizeof DRAWN2_THING / sizeof DRAWN2_THING[0]), 0x7D1A0002u, 2, NULL, 0 },
 };
+#pragma GCC diagnostic pop
 #define DRAWN_HALL 40                                              /* the halls' region on a drawn level */
+static Drawn g_dtext;                                              /* a drawing read as the game runs (drawn_text.c: the world */
+static int g_dtext_on;                                             /* editor's PLAY), in place of what is drawn for its level */
 static int drawn_level(int level) {                                /* which drawing a level is, 1-based; 0 none */
 #ifdef CRAWL_DEBUG
     static int off = -1;
     if (off < 0) { const char *e = getenv("CRAWL_DRAWN"); off = e && atoi(e) == 0; }   /* 0: the generated levels, as before */
     if (off) return 0;
 #endif
-    return level >= 1 && level <= NDRAWN && !PK.depth ? level : 0;
+    if (PK.depth) return 0;
+    if (g_dtext_on && g_dtext.level == level) return NDRAWN + 1;
+    for (int i = 0; i < NDRAWN; i++) if (DRAWN[i].level == level) return i + 1;   /* the level each is laid on (docs/PLAN-mapedit.md) */
+    return 0;
 }
-static const Drawn *drawn(void) { return &DRAWN[g_drawn - 1]; }
+static int drawn_tut(int level) { int d = drawn_level(level); return d >= 1 && d <= DRAWN_TUT; }   /* one of the tutorial's two */
+static const Drawn *drawn(void) { return g_drawn == NDRAWN + 1 ? &g_dtext : &DRAWN[g_drawn - 1]; }
 static char drawn_ch(int x, int y) {                               /* the letter at a cell of the level's map */
     const Drawn *D = drawn();
     x -= D->ox; y -= D->oy;
     return x < 0 || y < 0 || x >= D->w || y >= D->h ? '#' : D->map[y][x];
 }
-static int drawn_front(int wx, int wy, int *fx, int *fy) {         /* a wall's open side (north, south, west, east first): the cell
-                                                                      it is used from, and the way */
+static int drawn_front(int wx, int wy, int *fx, int *fy, int secret_ok) {   /* a wall's open side (north, south, west, east
+                                                                      first): the cell it is used from, and the way; a secret room's
+                                                                      floor only when nothing else is open and it may be */
     static const int ORDER[4] = { 3, 1, 2, 0 };
-    for (int k = 0; k < 4; k++) {
-        int d = ORDER[k];
-        if (is_open(wx + DX[d], wy + DY[d]) && !G.map[wy + DY[d]][wx + DX[d]].secret) { *fx = wx + DX[d]; *fy = wy + DY[d]; return (d + 2) & 3; }
-    }
+    for (int pass = 0; pass < 1 + !!secret_ok; pass++)
+        for (int k = 0; k < 4; k++) {
+            int d = ORDER[k];
+            if (is_open(wx + DX[d], wy + DY[d]) && (pass || !G.map[wy + DY[d]][wx + DX[d]].secret)) { *fx = wx + DX[d]; *fy = wy + DY[d]; return (d + 2) & 3; }
+        }
     *fx = *fy = -1;
     return 0;
 }
 static void drawn_clear(int x, int y) {                            /* the dressing taken off a cell the drawing wants */
     if (x < 1 || y < 1 || x >= MAPN - 1 || y >= MAPN - 1) return;
-    if (G.map[y][x].kind == K_PROP) G.map[y][x].kind = K_FLOOR;
+    if (G.map[y][x].kind == K_PROP || G.map[y][x].kind == K_PILLAR) G.map[y][x].kind = K_FLOOR;   /* a pillar too: a drawing has none of its
+                                                                      own, and a relic laid in one could be neither seen nor taken */
     G.foot[y][x] = 0; G.bulky[y][x] = 0;
     for (int d = 0; d < G.ndecos; d++) if ((int)G.decos[d].x == x && (int)G.decos[d].y == y) G.decos[d].spr = -1;
+}
+/* ---- where this play lays each thing (docs/PLAN-events.md, the picks): a thing tagged with rooms or spots stands at one of its
+ * places, the run's dice choosing; the rest, and every thing on a level without picks, where drawn ---- */
+static float drawn_tx(int i) { return i < EV_THINGS ? EV.tx[i] : drawn()->thing[i].x; }
+static float drawn_ty(int i) { return i < EV_THINGS ? EV.ty[i] : drawn()->thing[i].y; }
+static int drawn_lane_ch(char ch) { return ch == '+' || ch == 'f' || ch == 'i' || ch == 'Q' || ch == 'S' || ch == 'c' || ch == 'D' || ch == 'G' || ch == 'C' || ch == '=' || ch == 'B'; }
+static char drawn_at(int x, int y) { const Drawn *D = drawn(); return x < 0 || y < 0 || x >= D->w || y >= D->h ? '#' : D->map[y][x]; }   /* the drawing's own cells */
+static int drawn_spot_in(const DrawnRoom *r, float x, float y) { return x >= (float)r->x && y >= (float)r->y && x < (float)(r->x + r->w) && y < (float)(r->y + r->h); }
+/* the map editor's roomSpot: the thing's own place if it stands in the room, else the floor cell nearest the room's middle that is
+ * within a step of a lane, not a door, not the start; ties go up and left */
+static int drawn_room_spot(int ri, int thing, float *px, float *py) {
+    const Drawn *D = drawn();
+    const DrawnRoom *r = &D->room[ri];
+    const DrawnThing *t = &D->thing[thing];
+    int cx = (int)floorf(t->x), cy = (int)floorf(t->y);
+    if (cx >= r->x && cy >= r->y && cx < r->x + r->w && cy < r->y + r->h) { *px = t->x; *py = t->y; return 1; }
+    double mx = r->x + (r->w - 1) / 2.0, my = r->y + (r->h - 1) / 2.0, bd = 1e9;
+    int found = 0;
+    for (int y = r->y; y < r->y + r->h; y++)
+        for (int x = r->x; x < r->x + r->w; x++) {
+            char ch = drawn_at(x, y);
+            if (ch == '#' || ch == 'X' || ch == 'h' || ch == 'c' || ch == 'D' || ch == 'G' || ch == 'C' || ch == '=' || ch == 'B' || ch == 'S') continue;
+            int near = drawn_lane_ch(ch);
+            for (int d = 0; d < 4 && !near; d++) near = drawn_lane_ch(drawn_at(x + DX[d], y + DY[d]));
+            if (!near) continue;
+            double dd = fabs(x - mx) + fabs(y - my) + (double)(x + y) * 1e-4;
+            if (dd < bd) { bd = dd; *px = (float)x + 0.5f; *py = (float)y + 0.5f; found = 1; }
+        }
+    return found;
+}
+static void drawn_picks(uint32_t *rs) {                            /* before the level is laid: on the run's dice, not the drawing's */
+    const Drawn *D = drawn();
+    for (int i = 0; i < D->nthing && i < EV_THINGS; i++) { EV.tx[i] = D->thing[i].x; EV.ty[i] = D->thing[i].y; }
+    for (int i = 0; i < D->nspawn && i < EV_SPAWNS; i++) { EV.sx[i] = D->spawn[i].x; EV.sy[i] = D->spawn[i].y; }
+    for (int p = 0; p < D->npick; p++) {
+        const DrawnPick *P = &D->pick[p];
+        if (P->thing < 0 || P->thing >= D->nthing || P->thing >= EV_THINGS) continue;
+        float ox[64], oy[64]; int n = 0;
+        for (int s = 0; s < D->nthing && n < 64 && P->tag >= 0; s++)   /* a spot of its tag */
+            if (D->thing[s].what == DT_SPOT && D->thing[s].kind == P->tag) { ox[n] = D->thing[s].x; oy[n] = D->thing[s].y; n++; }
+        for (int r = 0; r < D->nroom && r < 32 && n < 64; r++) {   /* each of its rooms: a spot standing there, else roomSpot */
+            if (!(P->rooms >> r & 1)) continue;
+            int here = 0;
+            for (int s = 0; s < D->nthing && n < 64; s++)
+                if (D->thing[s].what == DT_SPOT && drawn_spot_in(&D->room[r], D->thing[s].x, D->thing[s].y)) { ox[n] = D->thing[s].x; oy[n] = D->thing[s].y; n++; here = 1; }
+            if (!here && drawn_room_spot(r, P->thing, &ox[n], &oy[n])) n++;
+        }
+        if (!n) continue;
+        int k = (int)(rng_next(rs) % (uint32_t)n);
+        EV.tx[P->thing] = ox[k]; EV.ty[P->thing] = oy[k];
+#ifdef CRAWL_DEBUG
+        fprintf(stderr, "DRAWN level %d: thing %d laid at (%.2f,%.2f), %d of %d places\n", G.level, P->thing, ox[k], oy[k], k + 1, n);
+#endif
+    }
+    for (int i = 0; i < D->nspawn && i < EV_SPAWNS; i++) {         /* a spawn point at one of its tag's spots */
+        if (!D->spawn[i].spot) continue;
+        float ox[64], oy[64]; int n = 0;
+        for (int s = 0; s < D->nthing && n < 64; s++)
+            if (D->thing[s].what == DT_SPOT && D->thing[s].kind == D->spawn[i].spot - 1) { ox[n] = D->thing[s].x; oy[n] = D->thing[s].y; n++; }
+        if (!n) continue;
+        int k = (int)(rng_next(rs) % (uint32_t)n);
+        EV.sx[i] = ox[k]; EV.sy[i] = oy[k];
+    }
+}
+/* the owner's torches (from gen_dress, in place of the generator's): each on its wall's face, its light a static one whose share
+ * events.c sets each frame */
+static int drawn_torches(void) {
+    const Drawn *D = drawn();
+    if (!D->ntorch) return 0;                                      /* none hung: the generator's, on the drawing's dice, as before */
+    for (int i = 0; i < D->ntorch && EV.nt < EV_TORCHES; i++) {
+        const DrawnTorch *t = &D->torch[i];
+        int wx = D->ox + t->x, wy = D->oy + t->y, d = t->d & 3, fx = wx + DX[d], fy = wy + DY[d];
+        if (wx < 0 || wy < 0 || wx >= MAPN || wy >= MAPN || fx < 1 || fy < 1 || fx >= MAPN - 1 || fy >= MAPN - 1   /* the ring too, facing in */
+            || G.map[wy][wx].kind != K_WALL || G.map[wy][wx].secret || !is_open(fx, fy)) continue;
+        Cell *w = &G.map[wy][wx];
+        w->tex = T_TORCH0; w->ftorch = (uint8_t)(d + 1);
+        int k = EV.nt++;
+        EV.torch[k].wx = wx; EV.torch[k].wy = wy; EV.torch[k].d = d; EV.torch[k].group = t->group; EV.torch[k].lit = t->lit != 0;
+        EV.torch[k].light = G.nlights < MAXLIGHTS ? G.nlights : -1;
+        light_static(fx + 0.5f - DX[d] * 0.42f, fy + 0.5f - DY[d] * 0.42f, 1.55f, 4.6f);   /* as the generator's */
+        if (EV.torch[k].light >= 0 && G.nlights > EV.torch[k].light) { EV.light_of[EV.torch[k].light] = (int8_t)(k + 1); G.lights[EV.torch[k].light].torch = 1; }
+        EV.at_torch[wy][wx] = (int8_t)(k + 1);
+    }
+    return D->ntorch;
+}
+/* the owner's lights (docs/PLAN-lights.md), after the dressing (whose own light props gen_dress has taken off) and its clearing: each
+ * laid by the generator's own hand for its style, footprint and all, the four new hanging lights by theirs (gen_level.c). Their dice are given back, so what follows on the drawing's seed lies as it would. A standing one on a lane, or where
+ * the drawing sets a thing down, is not solid (its picture and light, the cell still floor): it never shuts a way. */
+static int drawn_lights(void) { return g_drawn ? drawn()->nlight : 0; }
+static void drawn_lay_lights(void) {
+    const Drawn *D = drawn();
+    if (!D->nlight) return;
+    uint32_t rs = G.rs;
+    int laid = 0, soft = 0;
+    g_foot = 1;
+    for (int i = 0; i < D->nlight; i++) {
+        const DrawnLight *L = &D->light[i];
+        int x = D->ox + L->x, y = D->oy + L->y, st = L->style;
+        if (x < 1 || y < 1 || x >= MAPN - 1 || y >= MAPN - 1 || st < 0 || st >= NDL) continue;
+        int hang = st == DL_CHANDELIER || st == DL_LANTERN || st >= DL_CORONA, k0 = G.map[y][x].kind;
+        if (k0 == K_WALL || (!hang && k0 == K_DOOR)) {           /* (a hanging one may hang over the dressing, or a doorway) */
+#ifdef CRAWL_DEBUG
+            fprintf(stderr, "DRAWN level %d: light %d (style %d) at (%d,%d) has no floor to %s\n", G.level, i, st, L->x, L->y, hang ? "hang over" : "stand on");
+#endif
+            continue;
+        }
+        if (!hang) drawn_clear(x, y);                              /* a standing one takes the place of what the dressing set there */
+        int free_ = g_lane[y][x];                                  /* a lane, or a thing's cell: kept open */
+        for (int t = 0; t < D->nthing && !free_; t++) free_ = D->ox + (int)drawn_tx(t) == x && D->oy + (int)drawn_ty(t) == y;
+        switch (st) {
+        case DL_CHANDELIER: chandelier(x, y); break;
+        case DL_LANTERN: lantern(x, y); break;
+        case DL_CORONA: corona(x, y); break;
+        case DL_SANCTUARY: sanctuary(x, y); break;
+        case DL_BONES: bonelabrum(x, y); break;
+        case DL_CAGE: cage_lantern(x, y); break;
+        case DL_CANDLESTAND: candlestand(x, y); break;
+        case DL_BRAZIER: brazier(x, y); break;
+        case DL_MINELAMP: minelamp(x, y); break;
+        case DL_CRYSTALS: crystals(x, y); break;
+        case DL_FIREPIT: fire_pit(x, y); break;
+        case DL_MAGMA: magma(x, y); break;
+        default: totem(x, y); break;
+        }
+        if (!hang && free_ && (G.map[y][x].kind == K_PROP || G.map[y][x].kind == K_PILLAR)) { G.map[y][x].kind = K_FLOOR; G.foot[y][x] = 0; soft++; }
+        laid++;
+    }
+    g_foot = 0;
+    G.rs = rs;
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "DRAWN level %d: %d lights%s", G.level, laid, soft ? "" : "\n");
+    if (soft) fprintf(stderr, ", %d of them standing where the way must stay open, not solid\n", soft);
+#else
+    (void)laid; (void)soft;
+#endif
+}
+/* the owner's fire and ice (docs/PLAN-events.md): each field every cell of its kind joined to its own, with its settings */
+static void ev_fields(void) {
+    const Drawn *D = drawn();
+    int nc = 0;
+    static int qx[MAPN * MAPN], qy[MAPN * MAPN];
+    for (int i = 0; i < D->nfield && EV.nf < EV_FIELDS; i++) {
+        const DrawnField *F = &D->field[i];
+        int sx = D->ox + F->x, sy = D->oy + F->y, fire = F->kind == DF_FIRE;
+        int k = EV.nf++;
+        EV.f[k].kind = F->kind; EV.f[k].on = F->on != 0; EV.f[k].dmg = F->dmg; EV.f[k].chance = F->chance; EV.f[k].kills = F->kills;
+        EV.f[k].first = nc; EV.f[k].n = 0; EV.f[k].t = 99.0f; EV.f[k].fade = EV.f[k].on ? 1.0f : 0.0f;
+        char c0 = drawn_ch(sx, sy);
+        if (fire ? c0 != 'F' && c0 != 'f' : c0 != 'I' && c0 != 'i') continue;
+        int qh = 0, qt = 0;
+        qx[qt] = sx; qy[qt] = sy; qt++; EV.fat[sy][sx] = (uint8_t)(k + 1);
+        while (qh < qt) {
+            int x = qx[qh], y = qy[qh]; qh++;
+            if (nc < EV_FCELLS) { EV.fx[nc] = x; EV.fy[nc] = y; nc++; EV.f[k].n++; }
+            for (int d = 0; d < 4; d++) {
+                int nx = x + DX[d], ny = y + DY[d];
+                char ch = drawn_ch(nx, ny);
+                if (nx < 1 || ny < 1 || nx >= MAPN - 1 || ny >= MAPN - 1 || EV.fat[ny][nx] || (fire ? ch != 'F' && ch != 'f' : ch != 'I' && ch != 'i')) continue;
+                EV.fat[ny][nx] = (uint8_t)(k + 1); qx[qt] = nx; qy[qt] = ny; qt++;
+            }
+        }
+    }
 }
 static void gen_drawn(void) {
     const Drawn *D = drawn();
@@ -201,7 +460,8 @@ static void gen_drawn(void) {
     memset(g_lane, 0, sizeof g_lane);
     memset(&DF, 0, sizeof DF);
     memset(&IC, 0, sizeof IC); IC.sw = IC.gate = IC.gate_door = -1; IC.live = 1; IC.t = 99.0f;   /* the ice, laid */
-    for (int r = 0; r < D->nroom && r < 12; r++) {
+    memset(g_gate, 0, sizeof g_gate);
+    for (int r = 0; r < D->nroom && r < MAXROOMS; r++) {
         const DrawnRoom *dr = &D->room[r];
         G.rooms[r] = (Room){ D->ox + dr->x, D->oy + dr->y, dr->w, dr->h, r, RTYPES[dr->rtype].theme, dr->rtype };
         mroom[r][0] = mroom[r][1] = 0; mroom[r][2] = mroom[r][3] = 1;   /* a block each, so nothing laid by the plan's blocks */
@@ -210,7 +470,7 @@ static void gen_drawn(void) {
     for (int y = 0; y < D->h; y++)
         for (int x = 0; x < D->w; x++) {
             char ch = D->map[y][x];
-            int mx = D->ox + x, my = D->oy + y, rg = DRAWN_HALL, th = TH_CORRIDOR, door = ch == 'D' || ch == 'G' || ch == 'C' || ch == '=';
+            int mx = D->ox + x, my = D->oy + y, rg = DRAWN_HALL, th = TH_CORRIDOR, door = ch == 'D' || ch == 'G' || ch == 'C' || ch == '=' || ch == 'B';
             if (ch == 'c') { G.map[my][mx].secret = 2; g_lane[my][mx] = 1; }   /* a secret's wall: a lane once it has slid */
             if (ch == '#' || ch == 'h' || ch == 'X' || ch == 'c') continue;
             if (ch == 'q' || ch == 'Q') {                          /* the secret's room, carved as a secret's is */
@@ -223,6 +483,7 @@ static void gen_drawn(void) {
             carve(mx, my, rg, th);
             if (door) G.map[my][mx].kind = K_DOOR;
             if (ch == '+' || ch == 'f' || ch == 'i' || door || ch == 'S') g_lane[my][mx] = 1;
+            if (D->nfield) continue;                               /* its fields are the events' (ev_fields), not the tutorial's */
             if ((ch == 'I' || ch == 'i') && IC.n < ICE_CELLS) { IC.cx[IC.n] = mx; IC.cy[IC.n] = my; IC.n++; IC.at[my][mx] = (uint8_t)IC.n; }
             if ((ch == 'F' || ch == 'f') && DF.n < DFIRE_CELLS) {
                 DF.cx[DF.n] = mx; DF.cy[DF.n] = my; DF.n++; DF.at[my][mx] = 1;
@@ -235,35 +496,62 @@ static void gen_drawn(void) {
             char ch = drawn_ch(x, y);
             int lk = ch == 'G' || ch == 'C', col = ch == 'C' ? 2 : 0, ax = is_open(x - 1, y) && is_open(x + 1, y);
             G.map[y][x].door = (int16_t)G.ndoors;
-            G.doors[G.ndoors++] = (Door){ x, y, ax, 0.0f, 0.0f, 0, ch == '=' ? GATED : lk, col, 0 };
+            G.doors[G.ndoors++] = (Door){ x, y, ax, 0.0f, 0.0f, 0, ch == '=' || ch == 'B' ? GATED : lk, col, 0 };
+            if (ch == 'B') g_gate[G.ndoors - 1] = 1;               /* barred: the run's door with a beam across it (T_BARRED), till an
+                                                                      event unbars it (T_UNBARRED) or opens it */
             if (lk) G.vault_door[col] = G.ndoors - 1;
             if (ch == '=') IC.gate_door = G.ndoors - 1;            /* the one-way gate: barred till its seal is struck from the south */
         }
     for (int k = 0; k < NKEYS; k++) if (D->vault[k] >= 0) { G.vault_room[k] = D->vault[k]; G.nvaults = k + 1; }
-    for (int y = 0; y < D->h; y++)                                 /* the secret, laid by hand (7.5) */
-        for (int x = 0; x < D->w && G.nsecrets < MAXSECRETS; x++) {
+    for (int y = 0; y < D->h; y++)                                 /* the secrets, laid by hand (7.5): each wall its own room, the q */
+        for (int x = 0; x < D->w && G.nsecrets < MAXSECRETS; x++) {   /* cells joined to the cell behind it (docs/PLAN-events.md) */
             if (D->map[y][x] != 'c') continue;
             int sx = D->ox + x, sy = D->oy + y, in = -1, len = 0, x0 = MAPN, y0 = MAPN, x1 = -1, y1 = -1;
             for (int d = 0; d < 4 && in < 0; d++) if (is_open(sx - DX[d], sy - DY[d]) && !G.map[sy - DY[d]][sx - DX[d]].secret) in = d;
             if (in < 0) continue;
             while (G.map[sy + DY[in] * (len + 1)][sx + DX[in] * (len + 1)].secret == 1) len++;
-            for (int yy = 0; yy < D->h; yy++)
-                for (int xx = 0; xx < D->w; xx++)
-                    if (D->map[yy][xx] == 'q' || D->map[yy][xx] == 'Q') { x0 = imin(x0, D->ox + xx); y0 = imin(y0, D->oy + yy); x1 = imax(x1, D->ox + xx); y1 = imax(y1, D->oy + yy); }
+            static int qx[MAPN * MAPN], qy[MAPN * MAPN];
+            static uint8_t seen[MAPN][MAPN];
+            memset(seen, 0, sizeof seen);
+            int qh = 0, qt = 0;
+            if (G.map[sy + DY[in]][sx + DX[in]].secret == 1) { qx[qt] = sx + DX[in]; qy[qt] = sy + DY[in]; seen[qy[qt]][qx[qt]] = 1; qt++; }
+            while (qh < qt) {
+                int cx = qx[qh], cy = qy[qh]; qh++;
+                x0 = imin(x0, cx); y0 = imin(y0, cy); x1 = imax(x1, cx); y1 = imax(y1, cy);
+                for (int d = 0; d < 4; d++) {
+                    int nx = cx + DX[d], ny = cy + DY[d];
+                    if (nx < 1 || ny < 1 || nx >= MAPN - 1 || ny >= MAPN - 1 || seen[ny][nx] || G.map[ny][nx].secret != 1) continue;
+                    seen[ny][nx] = 1; qx[qt] = nx; qy[qt] = ny; qt++;
+                }
+            }
+            if (x1 < 0) { x0 = x1 = sx + DX[in]; y0 = y1 = sy + DY[in]; }   /* (no room drawn behind it: the cell, as an empty closet) */
             G.secrets[G.nsecrets++] = (Secret){ sx - DX[in], sy - DY[in], in, sx, sy, 0, 0, 0, len, 1, -1, -1, x0, y0, x1, y1, D->seed | 1u, 0, 0, 0 };
             G.nlinks++;
+#ifdef CRAWL_DEBUG
+            if (g_drawn > DRAWN_TUT) fprintf(stderr, "DRAWN level %d: secret %d at (%d,%d), its room (%d,%d)-(%d,%d)\n", G.level, G.nsecrets, x, y, x0 - D->ox, y0 - D->oy, x1 - D->ox, y1 - D->oy);
+#endif
         }
+    ev_fields();                                                   /* the owner's fire and ice, by field */
     gen_dress();
     for (int i = 0; i < D->nthing; i++)                            /* what the drawing sets down, and the ice, clear of the dressing */
-        if (D->thing[i].what >= DT_SGOLD) drawn_clear(D->ox + (int)D->thing[i].x, D->oy + (int)D->thing[i].y);
+        if (D->thing[i].what >= DT_SGOLD) drawn_clear(D->ox + (int)drawn_tx(i), D->oy + (int)drawn_ty(i));
     for (int i = 0; i < IC.n; i++) drawn_clear(IC.cx[i], IC.cy[i]);
+    for (int i = 0; i < EV.nf; i++) if (EV.f[i].kind == DF_ICE) for (int j = EV.f[i].first; j < EV.f[i].first + EV.f[i].n; j++) drawn_clear(EV.fx[j], EV.fy[j]);
+    for (int i = 0; i < D->nspawn && i < EV_SPAWNS; i++) if (D->spawn[i].spot) drawn_clear(D->ox + (int)EV.sx[i], D->oy + (int)EV.sy[i]);
     for (int y = 0; y < MAPN; y++)                                 /* and no prop on a lane: the dressing doesn't know the drawn ones */
         for (int x = 0; x < MAPN; x++) if (g_lane[y][x] && G.map[y][x].kind == K_PROP) drawn_clear(x, y);
+    drawn_lay_lights();                                            /* the owner's lights, if any, clear of all that */
     for (int i = 0; i < IC.n; i++) {                               /* each cell's wait as the ice turns: by the walls first */
         int open = 0;
         for (int d = 0; d < 4; d++) open += IC.at[IC.cy[i] + DY[d]][IC.cx[i] + DX[d]] != 0;
         IC.wait[i] = 0.3f * (float)open + 0.15f * (float)(hash2(IC.cx[i], IC.cy[i]) & 3);
     }
+    for (int i = 0; i < EV.nf; i++)                                /* and each field's, the same way */
+        for (int j = EV.f[i].first; j < EV.f[i].first + EV.f[i].n; j++) {
+            int open = 0;
+            for (int d = 0; d < 4; d++) open += EV.fat[EV.fy[j] + DY[d]][EV.fx[j] + DX[d]] == i + 1;
+            EV.fwait[j] = 0.3f * (float)open + 0.15f * (float)(hash2(EV.fx[j], EV.fy[j]) & 3);
+        }
     static int qx[MAPN * MAPN], qy[MAPN * MAPN];                   /* each cell's steps to a lane, for what lies within reach of one */
     int qh = 0, qt = 0;
     for (int y = 0; y < MAPN; y++)
@@ -289,12 +577,13 @@ static void drawn_items(void) {                                    /* the gold a
     G.nitems = 0; G.items_total = 0; G.items_got = 0; G.value_total = G.value_got = 0;
     for (int i = 0; i < D->nthing; i++) {
         const DrawnThing *t = &D->thing[i];
-        if (t->what != DT_GOLD && t->what != DT_KEY && t->what != DT_SGOLD && t->what != DT_MAP) continue;
-        float x = D->ox + t->x, y = D->oy + t->y;
-        int type = t->what == DT_KEY ? IT_KEY : t->what == DT_MAP ? (RUN.has_map ? IT_CHALICE : IT_MAP) : t->kind;   /* the map held: gold (T18 a) */
+        if (t->what != DT_GOLD && t->what != DT_KEY && t->what != DT_SGOLD && t->what != DT_MAP && t->what != DT_COMPASS) continue;
+        float x = D->ox + drawn_tx(i), y = D->oy + drawn_ty(i);
+        int type = t->what == DT_KEY ? IT_KEY : t->what == DT_MAP ? (RUN.has_map ? IT_CHALICE : IT_MAP) : t->what == DT_COMPASS ? IT_COMPASS : t->kind;   /* the map held: gold (T18 a) */
         Item *it = add_item((int)x, (int)y, type);
         if (!it) continue;
         it->x = x; it->y = y;
+        if (D->ntrig) it->ev = i + 1;                              /* a trigger may watch it picked up (docs/PLAN-events.md) */
         if (t->what == DT_KEY) it->color = t->kind;
         if (t->what == DT_SGOLD) { it->secret = 1; G.items_total--; G.value_total -= treasure_value(type); }   /* the secret's, out of the count */
         if (type == IT_MAP) { int nl = G.nlights; light_static(x, y, 0.55f, 2.2f); if (G.nlights > nl) G.lights[nl].phase = -1000.0f; }   /* its glow */
@@ -309,14 +598,14 @@ static void drawn_walls(void) {                                    /* the exit a
             char ch = D->map[y][x];
             int wx = D->ox + x, wy = D->oy + y, fx, fy, d;
             if (ch == 'X') {
-                d = drawn_front(wx, wy, &fx, &fy);
+                d = drawn_front(wx, wy, &fx, &fy, 0);
                 if (fx < 0) continue;
                 G.exit_fx = fx; G.exit_fy = fy; G.exit_dir = d; G.exit_wx = wx; G.exit_wy = wy;
                 G.exit_in_vault = vault_of_room(fx, fy);           /* level 2's is behind the crimson door */
                 G.map[wy][wx].tex = T_EXIT0;
                 light_static(fx + 0.5f + DX[d] * 0.35f, fy + 0.5f + DY[d] * 0.35f, 0.9f, 3.2f);   /* its runes light the stone */
             } else if (ch == 'h' && G.nrest < 2) {
-                d = drawn_front(wx, wy, &fx, &fy);
+                d = drawn_front(wx, wy, &fx, &fy, 1);                 /* it may face a secret room (the owner's word) */
                 if (fx < 0) continue;
                 G.map[wy][wx].tex = T_REST;
                 G.rest_x[G.nrest] = wx; G.rest_y[G.nrest] = wy; G.rest_fx[G.nrest] = fx; G.rest_fy[G.nrest] = fy; G.nrest++;
@@ -332,13 +621,49 @@ static void drawn_dead(void) {                                     /* the dead w
     for (int i = 0; i < D->nthing; i++) {
         const DrawnThing *t = &D->thing[i];
         if (t->what != DT_DEAD) continue;
-        float x = D->ox + t->x, y = D->oy + t->y;
+        float x = D->ox + drawn_tx(i), y = D->oy + drawn_ty(i);
         Mob *m = t->kind == MOB_SHAMBLER ? riser_make(t->kind, (int)x, (int)y, -1) : spawn_mob((int)x, (int)y, t->kind);   /* under turned earth */
         if (!m) continue;
         m->x = x; m->y = y;
         set_rank(m, RK_I);
         m->home = G.map[m->cy][m->cx].region;
     }
+}
+/* the owner's spawn points (docs/PLAN-mapedit.md): wake 0, those filled as the level is laid; else those of wake group wake - 1, now
+ * (an event's, docs/PLAN-events.md) */
+static int drawn_fill(int wake) {
+    const Drawn *D = drawn();
+    float B = budget_of(G.level) * (G.corrupt ? 1.4f : 1.0f) * (G.boss >= 0 ? 0.5f : 1.0f);
+    int heads, made = 0, tried = 0;
+    float spent = set_spent(&heads);
+    for (int pass = 0; pass < 2; pass++)                           /* the kinds the owner chose first, then the budget's choices */
+        for (int i = 0; i < D->nspawn; i++) {
+            const DrawnSpawn *s = &D->spawn[i];
+            if ((s->kind < 0) != (pass == 1) || s->wake != wake) continue;
+            tried++;
+            if (rnd(100) >= s->chance || heads >= 48) continue;
+            float sx = i < EV_SPAWNS ? EV.sx[i] : s->x, sy = i < EV_SPAWNS ? EV.sy[i] : s->y;   /* (at a spot, as this play lays it) */
+            int x = D->ox + (int)sx, y = D->oy + (int)sy;
+            if (x < 1 || y < 1 || x >= MAPN - 1 || y >= MAPN - 1 || G.map[y][x].kind != K_FLOOR || occupied(x, y, NULL)) continue;
+            int type = s->kind >= 0 ? s->kind : random_type();
+            if (s->kind < 0 && spent + KIND_COST[type] * rank_cost(s->rank >= 0 ? s->rank : RK_I) > B) continue;   /* the budget spent */
+            Mob *m = spawn_mob(x, y, type);
+            if (!m) continue;
+            m->x = D->ox + sx; m->y = D->oy + sy;
+            if (s->rank >= 0) set_rank(m, s->rank);
+            m->home = G.map[y][x].region;
+            m->dsp = 1; m->dsp_ech = s->echance; m->dsp_el = s->elem;
+            spent += KIND_COST[type] * rank_cost(m->rank); heads++; made++;
+        }
+#ifdef CRAWL_DEBUG
+    if (!wake) fprintf(stderr, "DRAWN level %d: %d of %d spawn points filled, the dead cost %.2f of %.2f\n", G.level, made, tried, spent, B);
+    else fprintf(stderr, "EVENT ev_wake group %d: %d of %d filled, the dead cost %.2f of %.2f t=%.2f\n", wake - 1, made, tried, spent, B, G.t);
+#endif
+    return made;
+}
+static void drawn_spawns(void) {                                   /* after the dead drawn */
+    if (!drawn()->nspawn) return;                                  /* none: no dice thrown, so the tutorial's levels lie as before */
+    drawn_fill(0);
 }
 static void drawn_marks(void) {                                    /* level 2's things that want a spell, its switch and its gate's seal */
     const Drawn *D = drawn();
@@ -349,7 +674,7 @@ static void drawn_marks(void) {                                    /* level 2's 
     for (int i = 0, n = 0; i < D->nthing; i++) {
         const DrawnThing *t = &D->thing[i];
         if (t->what != DT_MARK && t->what != DT_SWITCH && t->what != DT_GSEAL) continue;
-        float x = D->ox + t->x, y = D->oy + t->y;
+        float x = D->ox + drawn_tx(i), y = D->oy + drawn_ty(i);
         int kind = t->what == DT_SWITCH ? MKK_RSEAL : t->what == DT_GSEAL ? MKK_GSEAL : t->kind == 0 ? MKK_COFFER : t->kind == 1 ? MKK_CAGE : -1;
         int el = own >= 0 ? own : EL_PHYS;                         /* the switch and the gate take any spell, whatever is held */
         if (kind < 0) { if (own < 0) continue; kind = own == EL_FIRE && (n++ & 1) ? MKK_RACK : MK_OWN[own]; }
@@ -360,14 +685,52 @@ static void drawn_marks(void) {                                    /* level 2's 
         if (m->deco >= 0) mk_deco(m, MKK[kind].s0, 1);
         if (kind == MKK_RSEAL) { m->pips = 3; IC.sw = G.nmk - 1; }
         if (kind == MKK_GSEAL) { m->pips = 1; m->door = IC.gate_door; IC.gate = G.nmk - 1; }
+        EV.mk[G.nmk - 1] = i + 1;                                  /* for a trigger that watches it struck */
     }
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "DRAWN level %d: %d things that want a spell (line %d), the switch %d, the gate's seal %d (door %d), %d ice\n", G.level, G.nmk, own, IC.sw, IC.gate, IC.gate_door, IC.n);
     if (getenv("CRAWL_ICE") && !atoi(getenv("CRAWL_ICE"))) IC.live = 0;   /* testing: the ice down from the start */
 #endif
 }
+static int thing_new(int role, float x, float y, int spr);         /* things.c */
+/* the events' things (docs/PLAN-events.md), after the puzzles' are cleared: relics carried as a puzzle's things are, the sockets
+ * that take them, levers and plates; each in its own look, the owner's (media/sheets/events/event_things.png: the socket holding is
+ * drawn as it holds, the plate as a mark on the floor, draw/sprites.c and floor.c). The compass is an item (drawn_items); a spot is nothing */
+static void drawn_events(void) {
+    const Drawn *D = drawn();
+    for (int i = 0; i < D->nthing; i++) {
+        const DrawnThing *t = &D->thing[i];
+        float x = D->ox + drawn_tx(i), y = D->oy + drawn_ty(i);
+        int k = -1;
+        switch (t->what) {
+        case DT_RELIC:
+            k = thing_new(TR_ITEM, x, y, SP_EV_RELIC);
+            if (k >= 0) { snprintf(G.thing[k].name, sizeof G.thing[k].name, "%s", t->kind >= 0 && t->kind < D->nrelic && D->relic[t->kind] ? D->relic[t->kind] : "A RELIC"); G.thing[k].val = t->kind; }
+            break;
+        case DT_SOCKET:
+            k = thing_new(TR_PLACE, x, y, SP_EV_SOCKET0);
+            if (k >= 0) { snprintf(G.thing[k].name, sizeof G.thing[k].name, "A PLINTH"); G.thing[k].hold = 0.18f; G.thing[k].want = t->kind; }
+            break;
+        case DT_LEVER:
+            k = thing_new(TR_LEVER, x, y, SP_EV_LEVER0);
+            if (k >= 0) { snprintf(G.thing[k].name, sizeof G.thing[k].name, "A LEVER"); G.thing[k].frames = 2; }
+            break;
+        case DT_PLATE:
+            k = thing_new(TR_PLATE, x, y, -1);
+            if (k >= 0) snprintf(G.thing[k].name, sizeof G.thing[k].name, "A FLAGSTONE");
+            break;
+        default: break;
+        }
+        if (k >= 0) G.thing[k].ev = i + 1;
+    }
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "DRAWN level %d: %d events' things, %d torches, %d triggers, %d fields\n", G.level, G.nthing, EV.nt, D->ntrig, EV.nf);
+#endif
+}
 
+static void ev_field_lights(void);
 static void drawn_fire_lights(void) {                              /* a light a row, flickering, low as it goes out */
+    ev_field_lights();
     if (!g_drawn || !DF.n || DF.fade <= 0.02f) return;
     for (int i = 0; i < DF.n; i++) {
         if (i && DF.cy[i] == DF.cy[i - 1]) continue;               /* the first cell of each row */
@@ -413,13 +776,80 @@ static void drawn_fire_tick(float dt) {                            /* every fram
 #endif
 }
 
+/* ---- the owner's fields (docs/PLAN-events.md), on a drawn level that exports them in place of the tutorial's one fire and one ice:
+ * each lit or put out by an event; fire harms its share of health each half second while stood in, with its chance of setting you
+ * On Fire at the first touch; ice gives a Chilled stack each 0.4 s at its chance and holds what stands on it. Unless it may kill,
+ * neither takes you under a quarter of your health, as the tutorial's. Out, the floor is burnt out or thawed and does nothing ---- */
+static float ev_ice_k(int f, int j) {                              /* an ice cell: how far laid, 0 bare, 1 ice */
+    const EvField *F = &EV.f[f];
+    float u = clampf((F->t - (F->on ? EV.fwait[j] : 1.2f - EV.fwait[j])) / ICE_TURN, 0.0f, 1.0f);
+    return F->on ? u : 1.0f - u;
+}
+static int ev_ice_at(int x, int y) {                               /* an event's ice to stand on here */
+    if (x < 0 || y < 0 || x >= MAPN || y >= MAPN || !EV.fat[y][x]) return 0;
+    int f = EV.fat[y][x] - 1;
+    if (EV.f[f].kind != DF_ICE) return 0;
+    for (int j = EV.f[f].first; j < EV.f[f].first + EV.f[f].n; j++) if (EV.fx[j] == x && EV.fy[j] == y) return ev_ice_k(f, j) > 0.5f;
+    return 0;
+}
+static int ev_fire_live(int f) { return EV.f[f].kind == DF_FIRE && EV.f[f].fade >= 0.35f; }
+static void ev_field_lights(void) {                                /* each burning field: a light a row, as the tutorial's */
+    if (!g_drawn || !EV.nf) return;
+    for (int f = 0; f < EV.nf; f++) {
+        const EvField *F = &EV.f[f];
+        if (F->kind != DF_FIRE || F->fade <= 0.02f) continue;
+        float sx[MAPN] = { 0 }; int k[MAPN] = { 0 };
+        for (int j = F->first; j < F->first + F->n; j++) { sx[EV.fy[j]] += (float)EV.fx[j] + 0.5f; k[EV.fy[j]]++; }
+        for (int y = 0; y < MAPN; y++)
+            if (k[y]) light_dynamic(sx[y] / (float)k[y], (float)y + 0.5f, 1.6f * F->fade * (0.82f + 0.18f * sinf((float)G.t * (13.0f + (float)y) + (float)y)), 3.6f);
+    }
+}
+static void ev_fields_tick(float dt) {                             /* every frame, whoever plays */
+    if (!g_drawn || !EV.nf || PK.depth || G.shop) return;
+    for (int f = 0; f < EV.nf; f++) {
+        EvField *F = &EV.f[f];
+        F->t += dt;
+        if (F->kind == DF_FIRE) F->fade = F->on ? fminf(1.0f, F->fade + dt) : fmaxf(0.0f, F->fade - dt / 1.5f);   /* it catches, or burns low */
+    }
+    for (int j = 0; j < MAXMOBS; j++) {                            /* what stands on live ice is held in it */
+        Mob *m = &G.mobs[j];
+        if (m->alive && m->state == MS_WALK && !KIND_IS(m, KF_SPIRIT) && !buried(m) && ev_ice_at((int)m->x, (int)m->y)) m->frozen = fmaxf(m->frozen, 0.3f);
+    }
+    int cx = (int)floorf(G.px), cy = (int)floorf(G.py), fi = cx >= 0 && cy >= 0 && cx < MAPN && cy < MAPN ? EV.fat[cy][cx] : 0;
+    if (!fi || G.dead || (EV.f[fi - 1].kind == DF_FIRE ? !ev_fire_live(fi - 1) : !ev_ice_at(cx, cy))) { EV.f_in = 0; return; }
+    const EvField *F = &EV.f[fi - 1];
+    float floor_hp = F->kills ? 0.0f : DFIRE_FLOOR * (float)G.max_hp;
+    if (F->kind == DF_ICE) {
+        if (EV.f_in != fi) { EV.f_in = fi; EV.f_stack = 0.0f; }
+        if ((EV.f_stack -= dt) > 0.0f) return;
+        EV.f_stack = ICE_STACK;
+        if (rnd(100) >= F->chance || !af_can(AF_CHILL)) return;
+        if (G.af_n < 3) af_chill(1, 0);                            /* held at three on it, as the tutorial's */
+        else G.af[AF_CHILL] = G.af0[AF_CHILL];
+        return;
+    }
+    if (EV.f_in != fi) {                                           /* the first touch: alight, by its chance */
+        EV.f_in = fi; EV.f_tick = 0.0f;
+        G.blame = (Blame){ BL_HAZARD, HZ_FIRE, 0 };
+        if (rnd(100) < F->chance && af_can(AF_FIRE)) af_ignite(fminf(DFIRE_AFTER * (float)G.max_hp, fmaxf(0.0f, (float)G.hp - floor_hp)));
+    }
+    if ((EV.f_tick -= dt) > 0.0f) return;
+    EV.f_tick += DFIRE_TICK;
+    float room = (float)G.hp - floor_hp - (F->kills ? 0.0f : G.af_burn), dmg = fminf((float)F->dmg / 100.0f * (float)G.max_hp * F->fade, room);
+    if (dmg >= 1.0f) { G.blame = (Blame){ BL_HAZARD, HZ_FIRE, 0 }; harm_next = EL_FIRE; hurt_ex(dmg, HURT_ELEM, G.px, G.py); }
+    if (!F->kills) G.af_burn = fminf(G.af_burn, fmaxf(0.0f, (float)G.hp - floor_hp));   /* nor the burning after, below the floor */
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT ev_fire_floor %d hurt %.1f hp=%d/%d burn=%.1f %s t=%.2f\n", fi - 1, dmg, G.hp, G.max_hp, G.af_burn, G.player ? "player" : "autopilot", G.t);
+#endif
+}
+
 /* level 2's ice (docs/PLAN-tutorial.md 7.1) */
 static float ice_k(int i) {                                        /* how far a cell is laid: 0 bare, 1 ice */
     float u = clampf((IC.t - (IC.live ? IC.wait[i] : 1.2f - IC.wait[i])) / ICE_TURN, 0.0f, 1.0f);
     return IC.live ? u : 1.0f - u;
 }
 static int ice_at(int x, int y) {                                  /* ice to stand on here */
-    return g_drawn == 2 && x >= 0 && y >= 0 && x < MAPN && y < MAPN && IC.at[y][x] && ice_k(IC.at[y][x] - 1) > 0.5f;
+    return g_drawn && x >= 0 && y >= 0 && x < MAPN && y < MAPN && IC.at[y][x] && ice_k(IC.at[y][x] - 1) > 0.5f;
 }
 static void ice_down(void) {                                       /* the switch struck: it thaws */
     IC.live = 0; IC.t = 0.0f;
@@ -438,7 +868,7 @@ static void ice_up(void) {                                         /* the map ta
 #endif
 }
 static void ice_tick(float dt) {                                   /* every frame, whoever plays */
-    if (g_drawn != 2 || !IC.n) return;
+    if (!g_drawn || !IC.n) return;                                 /* (any drawn level's: it read level 2's alone, docs/PLAN-events.md) */
     IC.t += dt;
     if (IC.live && (IC.breath -= dt) <= 0.0f) {                    /* a cold breath, heard near it */
         IC.breath = 2.5f + 2.0f * rndf();

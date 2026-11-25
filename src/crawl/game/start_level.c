@@ -37,8 +37,17 @@ static void start_level(void) {
     crawl_art_level(G.level);
     ui_marble_make(0x51ABu ^ (unsigned)G.level * 7919u); ui_marble_lv = G.level;   /* the menus' marble, made now, not on a frame in play */
     g_drawn = drawn_level(G.level);                                /* the owner's drawing (docs/PLAN-tutorial.md), laid on its own dice */
+    memset(&EV, 0, sizeof EV);                                     /* and its events (docs/PLAN-events.md) */
+    memset(&DH, 0, sizeof DH);                                     /* and its hazards (2c) */
+    g_events = g_drawn && (drawn()->ntrig || drawn()->ntorch || drawn()->nfield);
     uint32_t run_rs = G.rs;
-    if (g_drawn) { G.rs = drawn()->seed; gen_drawn(); } else gen_level();
+    if (g_drawn) { drawn_picks(&run_rs); G.rs = drawn()->seed; gen_drawn(); } else gen_level();   /* (where its things lie: the run's dice) */
+#ifdef CRAWL_DEBUG
+    if (g_drawn && getenv("CRAWL_LIGHTLIST"))                      /* the generator's light props as laid in play, to set beside crawl_drawn_lights */
+        for (int i = 0; i < GLP.n; i++)
+            if (GLP.p[i].deco >= 0 && GLP.p[i].deco < G.ndecos && G.decos[GLP.p[i].deco].spr >= 0)
+                fprintf(stderr, "LIGHTLIST level %d: %d %d %d\n", G.level, GLP.p[i].style, GLP.p[i].x - drawn()->ox, GLP.p[i].y - drawn()->oy);
+#endif
     memset(G.mobs, 0, sizeof G.mobs); G.nroute = 0; G.npacks = 0; G.gathered = 0;   /* and the patrols' rounds, the packs */
     memset(G.scent, 0, sizeof G.scent); G.namb = 0; G.hunt_kind = G.hunt_on = G.hunt_said = 0; G.noise_t = -1.0f; G.still_t = 0.0f;   /* the trail */
     memset(G.shots, 0, sizeof G.shots);
@@ -63,7 +72,7 @@ static void start_level(void) {
         if (G.boss < 0) place_exit(G.cx, G.cy);                    /* a boss level's way out is beyond its boss */
     }
     place_altar();
-    if (g_drawn) { G.nsite = 0; G.snare_t = 0.0f; G.arise_t = 1e9f; }
+    if (g_drawn) { G.nsite = 0; G.snare_t = 0.0f; G.arise_t = 1e9f; dh_lay(); }   /* none of the run's own: the drawing's alone (2c) */
     else place_sites();                                            /* the run's fixed hazards (1.0.0b13) */
     G.nthing = 0; G.carry = 0; G.read_t = 0.0f;                    /* a puzzle's things are its level's */
     docs_clear();                                                  /* and what was read on the last */
@@ -74,7 +83,10 @@ static void start_level(void) {
         place_rests();                                             /* the places to mend (1.0.0b15) */
         place_marked();                                            /* things that want a spell (1.0.0b16) */
         place_fights();                                            /* and things for fights (step 8) */
-    } else drawn_marks();                                         /* level 2's (docs/PLAN-tutorial.md 7.2, 7.3, 7.6); level 1 has none */
+    } else {
+        drawn_marks();                                             /* level 2's (docs/PLAN-tutorial.md 7.2, 7.3, 7.6); level 1 has none */
+        if (g_events) drawn_events();                              /* the relics, sockets, levers and plates (docs/PLAN-events.md) */
+    }
     ward_make();                                                   /* a soul-lamp by each challenge, out (1.0.0b18.1) */
 #ifdef CRAWL_DEBUG
     if (getenv("CRAWL_THINGS")) things_test();
@@ -93,7 +105,7 @@ static void start_level(void) {
     G.spd = 0.0f; G.bobph = 0.0f; G.camz = 0.5f; G.hand = 0.0f; G.cooldown = 2.0f; G.calm = 0.0f;
     start_move();
     memset(G.spawned, 0, sizeof G.spawned); memset(G.named, 0, sizeof G.named);
-    if (g_drawn) drawn_dead();
+    if (g_drawn) { drawn_dead(); drawn_spawns(); }                 /* and the owner's spawn points (docs/PLAN-mapedit.md) */
     else if (mind_on()) place_creatures(); else place_creatures_old();   /* step 8: one budget spent on set pieces */
     if (!g_drawn) place_stamp_spawns();                            /* and the dead a drawn room asks for */
     if (G.corrupt) snd_sfx_ex(SFX_DEEPCHIME, 0.45f, 0.5f);         /* and the bell heard as you come */

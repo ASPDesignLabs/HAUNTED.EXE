@@ -172,7 +172,7 @@ static float ward_str(void);
 static float weak_el(const Mob *m, int el) {
     if (m->type == MOB_GHOST) return el == EL_SPIRIT && spirit_mastery() ? 1.0f : 0.0f;   /* a spectre: Spirit Mastery's alone */
     if (m->type == MOB_WRAITH && m->boss) return el == EL_FIRE ? 1.2f : 1.0f;   /* the Wraith Unbound, in light */
-    if (g_drawn) return 1.0f;                                      /* the drawn levels' dead take every element alike (T6 a) */
+    if (g_drawn && g_drawn <= DRAWN_TUT) return 1.0f;              /* the tutorial's dead take every element alike (T6 a) */
     int strong = m->ward[0] == el + 1 || m->ward[1] == el + 1;
     if (!elem_mode()) {                                            /* the old: a knight down to its breastplate has nothing left
                                                                       to keep fire off; a ward keeps 60% to 90% off (1.0.0b16) */
@@ -289,11 +289,13 @@ static int elem_roll(const Mob *m) {                               /* 1 + the el
     static const float CHANCE[NRANK] = { 0.0f, 0.15f, 0.25f, 0.35f, 0.45f, 0.0f };
     static const int8_t FAV[4][2] = { { EL_FIRE, EL_SPIRIT }, { EL_FROST, EL_POISON }, { EL_LIGHT, EL_POISON }, { EL_FIRE, EL_SPIRIT } };
     float ch = CHANCE[clampi(m->rank, 0, NRANK - 1)];
+    if (m->dsp && m->dsp_ech >= 0) ch = (float)m->dsp_ech / 100.0f;   /* an owner's spawn point's own chance (docs/PLAN-mapedit.md) */
     if (ch <= 0.0f) return 0;
 #ifdef CRAWL_DEBUG
     if (getenv("CRAWL_ELEM")) { int e = atoi(getenv("CRAWL_ELEM")) - 1; return elem_may(m, e) ? e + 1 : 0; }
 #endif
     if (rndf() >= ch) return 0;
+    if (m->dsp && m->dsp_el >= 0 && elem_may(m, m->dsp_el)) return m->dsp_el + 1;   /* and its own element */
     const int8_t *fav = FAV[clampi(crawl_set(G.level), 0, 3)];
     float w[EL_PHYS], tot = 0.0f;
     for (int e = 0; e < EL_PHYS; e++) { w[e] = elem_may(m, e) ? (e == fav[0] || e == fav[1] ? 3.0f : 1.0f) : 0.0f; tot += w[e]; }

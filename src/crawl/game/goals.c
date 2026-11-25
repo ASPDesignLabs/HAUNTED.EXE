@@ -98,7 +98,7 @@ static int key_goal(int k, int depth, int *gx, int *gy) {
     if (G.has_key[k]) { *gx = d->x; *gy = d->y; return 1; }
     for (int i = 0; i < G.nitems; i++) {
         const Item *it = &G.items[i];
-        if (!it->alive || it->type != IT_KEY || it->color != k) continue;
+        if (!it->alive || it->type != IT_KEY || it->color != k || (it->ev && !ev_item_ok(it))) continue;   /* (not one a trigger waits on) */
         int v = vault_of_room(it->cx, it->cy);
         if (v >= 0 && v != k && G.doors[G.vault_door[v]].locked == 1) return key_goal(v, depth + 1, gx, gy);
         *gx = it->lx; *gy = it->ly;
@@ -114,6 +114,7 @@ static int key_calls(const Item *it) {
 }
 
 static int worth_taking(const Item *it) {
+    if (it->ev && !ev_item_ok(it)) return 0;                       /* a trigger on it waits on another: left till it counts */
     if (it->type == IT_SCRIP) return 1;
     if (it->type == IT_POTION) return G.hp < G.max_hp * 4 / 5;      /* saved for when it is needed */
     if (it->type == IT_BONE) return RUN.gear.atk[AT_SPEAR] >= 0 && RUN.gear.bones < bones_max();

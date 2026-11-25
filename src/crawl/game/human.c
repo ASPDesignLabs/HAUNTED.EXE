@@ -53,12 +53,15 @@ static int open_door(Door *d) {
     if (d->locked == TRIALED) { if (G.msg_t <= 0.0f) { say("EXIT SEALED WHILE TRIAL IS IN PROGRESS"); sfx_at(SFX_KNOCK, d->x + 0.5f, d->y + 0.5f, 0.7f); } return 0; }
     if (d->locked == GATED) {                                      /* a winch's or a hearth's gate */
         if (G.msg_t <= 0.0f) {
+            int told = 0;
             for (int i = 0; i < G.nmk; i++)
                 if (G.mk[i].door == d - G.doors) {
                     if (G.mk[i].kind == MKK_GSEAL) say("%s", G.py < d->y + 0.5f ? "IT OPENS FROM THE OTHER SIDE" : "STRIKE ITS SEAL WITH A SPELL");   /* the tutorial's */
                     else say(G.mk[i].kind == MKK_HEARTH ? "IT RISES WHILE THE HEARTH BURNS" : "%s IS NEAR: IT WANTS LIGHTNING", mk_name(&G.mk[i]));
+                    told = 1;
                     break;
                 }
+            if (!told && g_drawn && g_gate[d - G.doors]) say("THE WAY IS BARRED");   /* a drawn level's: an event opens it (docs/PLAN-events.md) */
             sfx_at(SFX_KNOCK, d->x + 0.5f, d->y + 0.5f, 0.7f);
         }
         return 0;

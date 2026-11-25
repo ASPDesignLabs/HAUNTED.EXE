@@ -5,7 +5,8 @@
 (() => {
   "use strict";
 
-  const PREFIX = "haunted.exe/";                     // the origin is shared with the organisation's other pages
+  const PREFIX = window.HVS_PREFIX || "haunted.exe/";   // the origin is shared with the organisation's other pages (the world
+                                                     // editor's PLAY keeps its own: docs/PLAN-mapedit.md)
   const VERSION = document.documentElement.dataset.version || "";
   const AUDIO_AHEAD = 0.1;                           // seconds of sound kept queued
   const $ = (id) => document.getElementById(id);
@@ -545,6 +546,7 @@
   // ---- booting -------------------------------------------------------------------------------------
   async function boot() {
     if (booted || !plate.classList.contains("ready")) return;
+    if (window.HVS_WANT_LEVEL && !window.HVS_LEVEL) return;       // the world editor's PLAY: not before its level has come
     probe.tapAt = performance.now();
     plate.classList.remove("ready");
     $("press").textContent = "Loading...";
@@ -552,6 +554,12 @@
     try { await coreReady; } catch (e) { $("press").textContent = coreFailed; return; }
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
     session.del("fled");
+    if (window.HVS_LEVEL) {                                       // the world editor's PLAY: its level, read before the game starts
+      const b = new TextEncoder().encode(window.HVS_LEVEL);
+      const why = b.length >= M._web_drawn_cap() ? "it is too long" : (M.HEAPU8.set(b, M._web_drawn_buf()), M.UTF8ToString(M._web_drawn_load(b.length)));
+      if (why) { $("press").textContent = "The level cannot be played: " + why; return; }
+    }
+    if (window.HVS_FORCE) Object.assign(cfg, window.HVS_FORCE);   // and the settings it plays with
     loadSlots();
     M._web_config(cfg.sound, cfg.volume, cfg.brightness, cfg.haunt, cfg.crawl, Math.round(cfg.stay * 60), cfg.shift, cfg.pad, cfg.music, cfg.effects);
     M._web_start();

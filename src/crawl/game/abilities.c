@@ -566,7 +566,7 @@ static void update_doors(float dt) {
         if (d->opening) {
             d->open = fminf(1.0f, d->open + dt / 0.85f);
             if (d->open >= 1.0f) { d->opening = 0; d->idle = 0.0f; }
-        } else if (d->open > 0.0f && !(g_drawn == 2 && i == IC.gate_door && !d->locked)) {   /* the tutorial's gate, risen, stays up */
+        } else if (d->open > 0.0f && !(g_drawn && (i == IC.gate_door || g_gate[i]) && !d->locked)) {   /* a drawn level's gate, risen, stays up */
             int busy = pdist < 1.6f || (d->locked == 2 && vault_of_room((int)G.px, (int)G.py) == d->color);
             if (d->locked == SEALED || d->locked == TRIALED || d->locked == GATED) busy = door_body(d);   /* it shuts behind you, not on you */
             for (int m = 0; m < MAXMOBS; m++)

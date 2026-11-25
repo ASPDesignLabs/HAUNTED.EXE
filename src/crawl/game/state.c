@@ -149,6 +149,8 @@ typedef struct {
     int8_t cx[HZ_CELLS], cy[HZ_CELLS]; uint8_t cd[HZ_CELLS];
     float pre;                                                     /* Premonition's second, before its own warning */
     int site; uint64_t hitmask;                                    /* the fixed one it is a turn of (-1: none); the creatures it has struck */
+    int dh, droll;                                                 /* a drawn level's (docs/PLAN-events.md, 2c): 1 + its hazard there, 0 none;
+                                                                      its status rolled for this turn, 0 not yet, 1 it takes, 2 not */
 } Hazard;
 /* a fixed hazard (1.0.0b13): where it stands (a wall cell and the point on its face, for what is set in a wall), its
  * cells, its clock and state, its turn now (a hazard), whether it is drinking from you and what it has taken */
@@ -156,6 +158,9 @@ typedef struct {
     int kind, x, y, d, wx, wy, n, state, haz, drink;
     float t, wait, k, took, hit_t, ax, ay;
     int8_t cx[HZ_CELLS], cy[HZ_CELLS]; uint8_t cd[HZ_CELLS];
+    int dh, idle;                                                  /* a drawn level's: 1 + its hazard there (0 none), and not live */
+    float amp, per;                                                /* and its painted reach (the censer's swing, the seam's, the crystal's) and
+                                                                      the censer's swing, s; 0 the game's own */
 } HzSite;
 /* a thing a puzzle lays out (1.0.0b13, docs/PLAN-b13.md section 6): what it is (TR_*), drawn as a sprite (one frame a state
  * when it has frames) with a mark carved on it, or on the floor; an item sits in a place (in), and was taken from one (home)
@@ -186,7 +191,7 @@ typedef struct {
                                                                      which way it points from where you stand */
     int16_t spr, mark, ramp;
     int8_t in, home, below;                                        /* below: in a pile, the item under it */
-    int cx, cy, val, want, grp;
+    int cx, cy, val, want, grp, ev;                                /* ev: 1 + the drawn level's thing it is (docs/PLAN-events.md) */
     float x, y, z, hold, scale, t, hx, hy, mz;
     char name[40], text[160];
 } Thing;
@@ -244,8 +249,9 @@ static float dk(int e, int t, int w);                              /* D7's own, 
 typedef struct { int alive, kind; float x, y, vx, vy, life, spin, dmg, life0; int from, atk; Blame by; int el1; } Bone;   /* life0: an ember's whole flight; from: its thrower;
                                                                                                     atk: a turned spell's kind;
                                                                                                     el1: 1 + its element (PLAN-combat) */
-typedef struct { int alive, type, cx, cy, seen, color, lx, ly, secret, gen; float x, y, phase; int value; } Item;   /* lx, ly: the lane cell it is taken from;
-                                                                                                   gen: 1 + its place among a pocket's things (0: not a pocket's) */
+typedef struct { int alive, type, cx, cy, seen, color, lx, ly, secret, gen; float x, y, phase; int value, ev; } Item;   /* lx, ly: the lane cell it is taken from;
+                                                                                                   gen: 1 + its place among a pocket's things (0: not a pocket's);
+                                                                                                   ev: 1 + the drawn level's thing (docs/PLAN-events.md) */
 typedef struct { int alive; float x, y, t, r; int big; } Boom;           /* big 2: the Blight Flask's green splash */
 typedef struct { int alive, kind; float x0, y0, z0, x1, y1, z1, t; } Beam;   /* lightning and soul drain, for a moment */
 typedef struct { int alive; float x, y, t, dps; int foe; float life; } Burn;   /* fire on the floor; foe 1: an ember's, which burns the caster;
@@ -258,7 +264,10 @@ typedef struct { int alive; float x, y, t; int feat; } Pool;              /* wha
 #define MAXPOOLS 4
 typedef struct { int deco, type, rank; float t; } Remains;         /* what something you slew left: for Grave Call to raise */
 #define MAXREMAINS 12
+#define COMPASS_PRICE 2500                  /* the compass (docs/PLAN-compass.md): sold once the map is yours, gone with a death; one found
+                                               when it is yours already is worth this (docs/PLAN-events.md) */
 typedef struct { int x, y, w, h, region, theme, rtype; } Room;   /* rtype: its run's room type, RT_* */
+#define MAXROOMS 24                         /* a drawn level's most (docs/PLAN-events.md); the generator makes 12 at most */
 /* stand at f, press d: the wall at s slides len cells back into its room (x0..x1, y0..y1). links: the chain
  * it begins (1, a room alone); door: the doorway at the back of its room into the pockets (x -1: none) */
 typedef struct { int fx, fy, d, sx, sy, tex, state, rolled, len, links, door_x, door_y, x0, y0, x1, y1; uint32_t seed; int sealed;
@@ -669,7 +678,7 @@ static struct {
     int level, ptheme, vis_x, vis_y, vis_deco;                     /* a pocket's look (PT_*), PT_NONE on the level; its visportal or water cooler */
     int faced, look;                                                /* walls by face and floors textured: a drawn run's look, or her hall's; look: whose (crawl_set) */
     Cell map[MAPN][MAPN];
-    Room rooms[12]; int nrooms;
+    Room rooms[MAXROOMS]; int nrooms;
     Door doors[MAXDOORS]; int ndoors;
     Light lights[MAXLIGHTS]; int nlights;
     uint16_t lc_idx[MAXLC]; float lc_w[MAXLC]; int nlc;

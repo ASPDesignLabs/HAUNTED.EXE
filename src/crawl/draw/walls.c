@@ -55,7 +55,9 @@ static void render_walls(Frame *f, float dx, float dy, float plx, float ply, flo
                 } else if (cell(pxc, pyc)->kind == K_DOOR) tex = G.faced ? T_RJAMB : T_JAMB;
                 else if (c->face[fd] && plain_tex(tex)) {
                     tex = c->face[fd]; flip = c->fflip >> fd & 1;
-                    if (c->fover[fd]) over = c->fover[fd] == T_FEAT + F1_TORCH ? T_FEAT + F1_TORCH + torch_frame(mx, my, tframe) : c->fover[fd];
+                    if (c->fover[fd]) over = c->fover[fd] != T_FEAT + F1_TORCH ? c->fover[fd]
+                                           : g_events && g_drawn && EV.at_torch[my][mx] ? ev_torch_tex(mx, my, tframe)   /* an event's (docs/PLAN-events.md) */
+                                           : T_FEAT + F1_TORCH + torch_frame(mx, my, tframe);
                 }
                 if (tex == T_TORCH0) tex = T_TORCH0 + torch_frame(mx, my, tframe);
                 if (tex == T_EXIT0) tex = boss_sealed() ? T_GATE : G.exit_open > 0.3f ? T_EXIT_OPEN : T_EXIT0 + ((int)(G.t * 2.5) & 1);   /* barred while a boss lives */
@@ -94,7 +96,7 @@ static void render_walls(Frame *f, float dx, float dy, float plx, float ply, flo
                 }
                 if (t <= 0.0f || u < 0.0f || u >= 1.0f || u < d->open) continue;
                 static const int LOCKTEX[NKEYS] = { T_LOCKED, T_LOCKED_S, T_LOCKED_C }, RLOCKTEX[NKEYS] = { T_RLOCKED, T_RLOCKED_S, T_RLOCKED_C };
-                perp = t; tex = d->locked == WINGED ? T_WINGDOOR : g_drawn == 2 && d - G.doors == IC.gate_door ? (d->locked == GATED && G.py > d->y + 0.5f ? T_GATE_SEAL : T_GATE) : d->locked == GATED ? T_GATE : G.tri >= 0 && d - G.doors == G.tri_door ? T_TRDOOR : d->locked ? (G.faced ? RLOCKTEX[d->color] : LOCKTEX[d->color]) : (G.faced ? T_RDOOR : T_DOOR); side = d->along_x ? 0 : 1;
+                perp = t; tex = d->locked == WINGED ? T_WINGDOOR : g_drawn && d - G.doors == IC.gate_door ? (d->locked == GATED && G.py > d->y + 0.5f ? T_GATE_SEAL : T_GATE) : g_drawn && g_gate[d - G.doors] ? (d->locked == GATED ? T_BARRED : T_UNBARRED) : d->locked == GATED ? T_GATE : G.tri >= 0 && d - G.doors == G.tri_door ? T_TRDOOR : d->locked ? (G.faced ? RLOCKTEX[d->color] : LOCKTEX[d->color]) : (G.faced ? T_RDOOR : T_DOOR); side = d->along_x ? 0 : 1;
                 texx = clampi((int)((u - d->open) * TS), 0, TS - 1);
                 hit = 1;
             }
@@ -109,6 +111,7 @@ static void render_walls(Frame *f, float dx, float dy, float plx, float ply, flo
         float light = lm_at(hx, hy) * atten(perp) * (side ? 0.82f : 1.0f);
         float fog = fog_amount(hx, hy, 1.0f - expf(-perp * 0.28f));
         const uint8_t *col = &crawl_tex[tex][texx * TS];
+        const uint8_t *cl = tl_on && (tl_torch_tex(tex) || (over >= 0 && tl_torch_tex(over))) ? tl_lut : NULL;   /* three left: a torch burns cold */
         int y0 = clampi((int)ceilf(top - 0.5f), 0, H), y1 = clampi((int)ceilf(bot - 0.5f), 0, H);
         float tstep = TS / lineh, ty = (y0 + 0.5f - top) * tstep;
         if (over >= 0) {                                            /* what stands on the wall, over its stone */
@@ -144,7 +147,7 @@ static void render_walls(Frame *f, float dx, float dy, float plx, float ply, flo
             for (int y = y0; y < y1; y++, ty += tstep) {
                 int tyi = clampi((int)ty, 0, TS - 1), m = cm[tyi];
                 float L = m && BAYER[y & 3][x & 3] < thr ? (m == 1 ? light * 0.2f : light * 1.3f) : light;
-                f->pix[y * W + x] = fogged(shade(col[tyi], L, x, y), fog, light, x, y);
+                f->pix[y * W + x] = fogged(tl_px(cl, shade(col[tyi], L, x, y)), fog, light, x, y);
             }
             continue;
         }
@@ -165,19 +168,31 @@ static void render_walls(Frame *f, float dx, float dy, float plx, float ply, flo
             int gs = tn / TS;                                       /* texels of the column to a row of the glow */
             for (int y = y0; y < y1; y++, ty += tstep) {
                 int ti = clampi((int)ty, 0, tn - 1);
-                f->pix[y * W + x] = fogged(shade(col[ti], light + gl[ti / gs], x, y), fog, light, x, y);
+                f->pix[y * W + x] = fogged(tl_px(cl, shade(col[ti], light + gl[ti / gs], x, y)), fog, light, x, y);
+            }
+            continue;
+        }
+        int qx = (int)floorf(hx), qy = (int)floorf(hy), lkc = lk_any && (unsigned)qx < MAPN && (unsigned)qy < MAPN ? lk_cell[qy][qx] : 0;
+        if (lkc) {                                                  /* a cage's spots, row by row; a red glass's tinge (lk_*) */
+            float lv = lm_at(hx, hy), lf = atten(perp) * (side ? 0.82f : 1.0f);
+            for (int y = y0; y < y1; y++, ty += tstep) {
+                int ti = clampi((int)ty, 0, tn - 1);
+                float l = (lkc & 1) ? lk_dapple(lv, qx, qy, hx, hy, 1.0f - ((float)ti + 0.5f) / (float)tn) * lf : light;
+                uint8_t c = tl_px(cl, shade(col[ti], l, x, y));
+                if (lkc & 2) c = lk_tinge(c, lv, qx, qy, hx, hy, x, y);
+                f->pix[y * W + x] = fogged(c, fog, l, x, y);
             }
             continue;
         }
         for (int y = y0; y < y1; y++, ty += tstep)
-            f->pix[y * W + x] = fogged(shade(col[clampi((int)ty, 0, tn - 1)], light, x, y), fog, light, x, y);
+            f->pix[y * W + x] = fogged(tl_px(cl, shade(col[clampi((int)ty, 0, tn - 1)], light, x, y)), fog, light, x, y);
     }
 }
 
 /* alpha < 1: dithered see-through. remap: the ramp R_PURPLE turns into. flags: how it is drawn.
  * lut: a creature's rank, recolouring its body (crawl_rank_lut) */
 typedef struct { float x, y, z, depth; int spr; float alpha, twinkle, scale; int remap, flags; float sway; const uint8_t *lut; int glint; float web, mg; int mgw;
-                 int eye, etype, erank, estate; const uint8_t *ov; float vap; int ecol, ward, mflag, skit; } Draw;   /* ecol: 1 + EC_*, its eyes' colour whatever its rank; mflag: a
+                 int eye, etype, erank, estate; const uint8_t *ov; float vap; int ecol, ward, mflag, skit; const uint8_t *cold; } Draw;   /* cold: three left's flame (tl_lut), a light prop's; ecol: 1 + EC_*, its eyes' colour whatever its rank; mflag: a
                                                                                                 mouse carrying word, its mark over it (docs/PLAN-mice.md);
                                                                                                 skit: 1 + the wall spider painted on the stone */   /* ov: its rank's dressing (crawl_dress);
                                                                                                 vap: its spirit vapour, 0 none, 1 full */   /* eye: a creature's eyes go on after it (render_eyes), as its kind, rank and state */   /* mg: the hidden

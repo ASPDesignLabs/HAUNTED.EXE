@@ -52,6 +52,32 @@ KEEP void web_slot_load(int i, int len) { app_slot_load(i, g_slot, len); }
 /* a slot the game wrote since last asked: its bytes in web_slot_buf, its length, or 0 */
 KEEP int web_slot_take(int i) { return app_slot_take(i, g_slot, sizeof g_slot); }
 
+/* a drawn level from the world editor's export, before web_start (its PLAY, docs/PLAN-mapedit.md): the page puts the text's
+ * bytes in web_drawn_buf; then "" if it was read, else why not */
+int crawl_drawn_text(const char *text, char *err, int nerr);
+static char g_dtxt[262144], g_derr[256];
+KEEP char *web_drawn_buf(void) { return g_dtxt; }
+KEEP int web_drawn_cap(void) { return (int)sizeof g_dtxt; }
+KEEP const char *web_drawn_load(int len) {
+    g_dtxt[len < 0 ? 0 : len < (int)sizeof g_dtxt ? len : (int)sizeof g_dtxt - 1] = 0;
+    return crawl_drawn_text(g_dtxt, g_derr, sizeof g_derr) ? g_derr : "";
+}
+
+/* the generator's lights on the drawing loaded (docs/PLAN-lights.md): after web_drawn_load, with or without web_start (the editor
+ * loads this module in its own page only to ask). A static array: how many, then style (DL_*), x, y for each, in the drawing's cells;
+ * the count -1 if no drawing was read, or if there was no memory to keep the game's state while it is laid (about 3 MB; not seen) */
+typedef struct { int style, x, y; } DrawnLight;                    /* as the game's */
+int crawl_drawn_lights(DrawnLight *out, int max);
+#define WEB_LIGHTS 256
+KEEP int *web_drawn_lights(void) {
+    static int a[1 + 3 * WEB_LIGHTS];
+    static DrawnLight L[WEB_LIGHTS];
+    int n = crawl_drawn_lights(L, WEB_LIGHTS);
+    a[0] = n < 0 ? -1 : n;
+    for (int i = 0; i < n; i++) { a[1 + 3 * i] = L[i].style; a[2 + 3 * i] = L[i].x; a[3 + 3 * i] = L[i].y; }
+    return a;
+}
+
 KEEP void web_start(void) {
     if (g_started) return;
     g_started = 1;

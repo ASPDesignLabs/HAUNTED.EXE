@@ -87,6 +87,7 @@ static int thing_use(int i) {
             pz_touched(it, TU_SET);
             return 1;
         }
+        if (t->in >= 0 && t->ev) { thing_say(&G.thing[t->in], "%s IS SET FAST"); return 1; }   /* an event's socket keeps what is set in it */
         if (t->in >= 0) {                                          /* take back what it holds (a pile's top) */
             int it = t->in;
             Thing *o = &G.thing[it];

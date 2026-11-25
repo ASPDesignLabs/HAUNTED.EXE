@@ -173,18 +173,20 @@ static void af_struck(int el, Blame b, float d, int by, float mult) {
     if (k < 0 || el == EL_PHYS || b.what == BL_BOSS || af_boss_fight() || !af_can(k) || !af_rolls(k, af_rank_chance(b.rank) * mult)) return;
     af_put(k, d, by);
 }
+static float af_dchance = -1.0f;                                   /* a drawn level's hazard, its own chance of its status (docs/PLAN-events.md,
+                                                                      2c), while it is the one at work; -1 the game's */
 static void af_stroke(int el, float d) {                           /* a hazard's stroke: a frost one a stack (S9), the rest at the base chance (S10) */
     int k = af_of(el);
     if (k < 0 || af_boss_fight() || !af_can(k)) return;
-    if (k == AF_CHILL) { if (af_rolls(k, 1.0f)) af_chill(1, 0); return; }
-    if (af_rolls(k, AF_BASE)) af_put(k, d, 0);
+    if (k == AF_CHILL) { if (af_rolls(k, af_dchance >= 0.0f ? af_dchance : 1.0f)) af_chill(1, 0); return; }
+    if (af_rolls(k, af_dchance >= 0.0f ? af_dchance : AF_BASE)) af_put(k, d, 0);
 }
 static void af_cold(float dt) {                                    /* standing in the cold: a stack a second and a half (S9) */
     if (G.level_t - G.af_cold_t > 0.5 || G.level_t < G.af_cold_t) G.af_cold = 0.5f;   /* come in fresh: the first after a second */
     G.af_cold_t = (float)G.level_t;
     if ((G.af_cold += dt) < 1.5f) return;
     G.af_cold -= 1.5f;
-    if (af_can(AF_CHILL) && af_rolls(AF_CHILL, 1.0f)) af_chill(1, 0);
+    if (af_can(AF_CHILL) && af_rolls(AF_CHILL, af_dchance >= 0.0f ? af_dchance : 1.0f)) af_chill(1, 0);
 }
 static void af_purify(void) {                                      /* Purify: Poisoned, Chilled and On Fire cured, and a freeze broken */
     G.af[AF_POISON] = G.af[AF_CHILL] = G.af[AF_FIRE] = 0.0f; G.af_n = 0; G.af_burn = G.af_acc = 0.0f;
@@ -199,6 +201,7 @@ static void af_clear(void) {                                       /* a death, a
     G.af_n = G.af_by = 0; G.af_k = G.af_shake = G.af_hardt = G.af_burn = G.af_acc = G.af_cold = 0.0f;
 }
 static int harm_from;                                              /* 1 + the creature whose harm hurt_ex is about to take */
+static int dh_spare(int kind);                                     /* drawn_haz.c: a drawn level's hazard of this kind may not kill */
 /* a person's last two minutes, in tens of seconds: health lost, kills, and how long since a hurt (docs/PLAN-ai.md, section 27) */
 static struct { float hp[12]; int k[12], i; float t, calm, over_t, quiet; int n0; } WELL;
 static int hurt_ex(float dmg, int kind, float sx, float sy) {
@@ -237,6 +240,10 @@ static int hurt_ex(float dmg, int kind, float sx, float sy) {
     }
     int d = (int)(dmg + 0.5f);
     if (d < 1) d = 1;
+    if (G.blame.what == BL_HAZARD && dh_spare(G.blame.type)) {     /* a drawn hazard that may not kill: never under a quarter of health */
+        d = imin(d, G.hp - G.max_hp / 4);
+        if (d < 1) return 0;
+    }
     G.hp -= d; G.hurts++;
     if (G.player) { WELL.hp[WELL.i] += (float)d; WELL.calm = 0.0f; WELL.over_t = 0.0f; }   /* hurt: the cap is the run's again */
     rec_harm(G.blame, el);

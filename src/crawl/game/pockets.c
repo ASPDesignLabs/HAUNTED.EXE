@@ -410,7 +410,7 @@ static void crawl_enter(uint32_t seed) {
     G.rs = seed | 1u;
     if (!resume) {
         memset(&RUN, 0, sizeof RUN);
-        RUN.active = 1; RUN.level = 1; RUN.hp = 100; RUN.shop_next = 1;
+        RUN.active = 1; RUN.level = g_dtext_on ? g_dtext.level : 1; RUN.hp = 100;   /* a drawing read for PLAY: begun on its level */ RUN.shop_next = 1;
         RUN.run_id = new_run_id(seed); RUN.peds = 2; RUN.repo_n = 2; RUN.atone = 1;
         gear_reset(&RUN.gear);
 #ifdef CRAWL_DEBUG
@@ -487,6 +487,20 @@ static void collect(Item *it) {
 #endif
         if (g_drawn == 2) { ice_up(); tu_map_taken(); }           /* and the ice comes back behind you; the lessons show it */
         break;
+    case IT_COMPASS:                                               /* one found (docs/PLAN-events.md): yours as if bought; held, her price */
+#ifdef CRAWL_DEBUG
+        fprintf(stderr, "EVENT compass_taken by %s held %d t=%.2f\n", G.player ? "player" : "autopilot", RUN.has_compass, G.t);
+#endif
+        if (!RUN.has_compass) {
+            RUN.has_compass = 1; RUN.compass_kind = WK_EXIT; RUN.compass_color = 0; G.compass_look = 0;
+            snd_sfx(SFX_KEYGET); snd_sfx_ex(SFX_SHIMMER, 0.8f, 0.5f); G.gold = 1.0f; G.grin_t = 1.6f;
+            if (G.player) say("THE COMPASS IS YOURS: IT LEANS TOWARD THE WAY OUT");
+        } else {
+            RUN.treasure += COMPASS_PRICE; G.level_treasure += COMPASS_PRICE;
+            snd_sfx_ex(SFX_COIN, 1.2f, 0.5f); G.gold = 1.0f; G.grin_t = 1.6f;
+            if (G.player) say("A SECOND COMPASS: WORTH $%d", COMPASS_PRICE);
+        }
+        break;
     case IT_BONE:                                                  /* for the spear */
         if (RUN.gear.bones < bones_max()) RUN.gear.bones++;
         snd_sfx_ex(SFX_BONES, 0.5f, 0.5f);
@@ -525,5 +539,6 @@ static void collect(Item *it) {
     }
     }
     pop_readout();
+    if (it->ev) ev_pickup(it->ev - 1);                             /* a trigger that watches it taken (docs/PLAN-events.md) */
 }
 

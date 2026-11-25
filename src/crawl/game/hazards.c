@@ -12,6 +12,7 @@ static uint8_t hz_dmap[MAPN][MAPN];                                 /* warned or
 #define HZ_SOFT 3                                                  /* a cell always so (a sapper's haze, rime, a puzzle's stones): a little out of the way */
 static int hz_quiet;                                               /* a fixed one's turn: named when first seen, not when it fires */
 static void hz_name(int kind);
+static void dh_tick(float dt);                                     /* drawn_haz.c: a drawn level's hazards (docs/PLAN-events.md, 2c) */
 static int hz_step(void) { return G.boss >= 0 ? G.bstep : 0; }
 static float hz_warn(float base) { return fmaxf(0.9f, base - 0.06f * (float)hz_step()); }   /* never under 0.9 s */
 static Hazard *hz_new(int kind, int omen) {
@@ -29,6 +30,32 @@ static Hazard *hz_new(int kind, int omen) {
         }
     return NULL;
 }
+/* a drawn level's hazard (docs/PLAN-events.md, 2c; drawn_haz.c lays and sets them off): its settings over the game's own, -1 none */
+static const DrawnHaz *hz_drawn(int dh) { return dh > 0 && g_drawn && dh <= drawn()->nhaz ? &drawn()->haz[dh - 1] : NULL; }
+static float hz_dchance(int dh) { const DrawnHaz *z = hz_drawn(dh); return z && z->chance >= 0 ? (float)z->chance / 100.0f : -1.0f; }
+static float hz_dshare(int dh, float own) { const DrawnHaz *z = hz_drawn(dh); return z && z->harm >= 0 ? (float)z->harm / 100.0f : own; }
+static void hz_dapply(Hazard *h, int dh) {                         /* a turn of one: its harm and warning, if the drawing gives them */
+    const DrawnHaz *z = hz_drawn(dh);
+    if (!h || !z) return;
+    h->dh = dh;
+    if (z->harm >= 0) h->share = (float)z->harm / 100.0f;
+    if (z->warn >= 0.0f) h->warn = hz_warn(z->warn);
+}
+static int hz_droll(Hazard *h) {                                   /* its status this turn, at the drawing's chance: rolled once, at the first touch */
+    float c = hz_dchance(h->dh);
+    if (c < 0.0f) return 1;
+    if (!h->droll) h->droll = rndf() < c ? 1 : 2;
+    return h->droll == 1;
+}
+static void hz_dburn(Hazard *h) {                                  /* a fire of one with a chance of its own sets you On Fire, as a field does */
+    if (!h->dh || h->droll || hz_dchance(h->dh) < 0.0f || G.dead) return;
+    if (hz_droll(h) && af_can(AF_FIRE)) { G.blame = (Blame){ BL_HAZARD, (uint8_t)h->kind, 0 }; af_ignite(DFIRE_AFTER * (float)G.max_hp); }
+}
+#ifdef CRAWL_DEBUG
+static const char *const HZ_TAG[NHZ] = { "HZ_ROCK", "HZ_FIRE", "HZ_BILE", "HZ_VOID", "HZ_ARC", "HZ_GRASP", "HZ_CENSER", "HZ_BREATH", "HZ_VOTIVE",
+    "HZ_COLD", "HZ_RELIQ", "HZ_SLUICE", "HZ_GALV", "HZ_SNARE", "HZ_SILT", "HZ_SAINT", "HZ_TIMBER", "HZ_DAMP", "HZ_CART", "HZ_LODE", "HZ_TITHE",
+    "HZ_FISSURE", "HZ_ASH", "HZ_CRYSTAL", "HZ_GLASS", "HZ_DCOLD", "HZ_MIRROR" };
+#endif
 static int hz_phase(const Hazard *h) { return h->t < h->warn ? 0 : (h->t < h->warn + h->on ? 1 : 2); }   /* warning, harm, fading */
 static int hz_floor(int x, int y) { return x > 0 && y > 0 && x < MAPN - 1 && y < MAPN - 1 && G.map[y][x].kind == K_FLOOR && !G.map[y][x].secret; }
 
@@ -410,11 +437,18 @@ static void update_hazards(float dt) {
     drawn_fire_tick(dt);                                           /* a drawn level's burning floor (docs/PLAN-tutorial.md) */
     drawn_fire_dmarks();
     ice_tick(dt);                                                  /* and level 2's ice: the dream crosses it if it must */
-    for (int i = 0; i < IC.n && g_drawn == 2 && IC.live; i++) hz_dput(IC.cx[i], IC.cy[i], HZ_SOFT);
+    for (int i = 0; i < IC.n && g_drawn && IC.live; i++) hz_dput(IC.cx[i], IC.cy[i], HZ_SOFT);
+    ev_fields_tick(dt);                                            /* a drawn level's own fields, and its events (docs/PLAN-events.md) */
+    for (int f = 0; f < EV.nf && g_drawn; f++)
+        if (EV.f[f].kind == DF_ICE ? EV.f[f].on : ev_fire_live(f))
+            for (int j = EV.f[f].first; j < EV.f[f].first + EV.f[f].n; j++) hz_dput(EV.fx[j], EV.fy[j], HZ_SOFT);
+    ev_tick(dt);
+    dh_tick(dt);                                                   /* and its hazards, set off (docs/PLAN-events.md, 2c) */
     int px = (int)G.px, py = (int)G.py, mhp = G.max_hp > 0 ? G.max_hp : 100;
     for (int i = 0; i < MAXHAZ; i++) {
         Hazard *h = &G.haz[i];
         if (!h->alive) continue;
+        af_dchance = hz_dchance(h->dh);                            /* a drawn one's chance of its status, while it is at work */
         if (h->pre > 0.0f) {                                       /* Premonition: shown, and the autopilot keeps out, before it warns */
             h->pre -= dt;
             for (int y = imax(1, (int)(h->y - h->r - 2.0f)); y <= imin(MAPN - 2, (int)(h->y + h->r + 2.0f)); y++)
@@ -446,16 +480,18 @@ static void update_hazards(float dt) {
             break;
         case HZ_FIRE:
             if (struck) { sfx_at(SFX_IGNITE, h->x, h->y, 1.0f); sfx_at(SFX_EXPLODE, h->x, h->y, 0.5f); }
-            if (ph == 1) for (int k = 0; k < h->n; k++) if (h->cx[k] == px && h->cy[k] == py) { G.hz_acc += h->share * (float)mhp * dt; break; }
+            if (ph == 1) for (int k = 0; k < h->n; k++) if (h->cx[k] == px && h->cy[k] == py) { G.hz_acc += h->share * (float)mhp * dt; hz_dburn(h); break; }
             break;
         case HZ_BILE:
             if (ph < 2)
                 for (int k = 0; k < h->n; k++)
                     if (h->cx[k] == px && h->cy[k] == py && hz_bile_wet(h, k) >= 1.0f && G.purify_t <= 0.0f) {   /* Purify keeps it off */
-                        float r = 1.0f - gear_poison_resist(&RUN.gear), was = G.poison_t;
-                        G.poison_t = fmaxf(G.poison_t, 2.5f * r); G.poison_by = (Blame){ BL_HAZARD, HZ_BILE, 0 };
-                        af_poison(G.poison_t - was);
-                        G.poison_dps = fmaxf(G.poison_dps, (1.0f + (float)imax(0, (G.level - 4) / 2)) * h->share * (0.5f + 0.5f * r));
+                        if (hz_droll(h)) {                         /* (a drawn one's own chance of it) */
+                            float r = 1.0f - gear_poison_resist(&RUN.gear), was = G.poison_t;
+                            G.poison_t = fmaxf(G.poison_t, 2.5f * r); G.poison_by = (Blame){ BL_HAZARD, HZ_BILE, 0 };
+                            af_poison(G.poison_t - was);
+                            G.poison_dps = fmaxf(G.poison_dps, (1.0f + (float)imax(0, (G.level - 4) / 2)) * h->share * (0.5f + 0.5f * r));
+                        }
                         G.hz_slow = fminf(G.hz_slow, 0.8f);
                         break;
                     }
@@ -469,11 +505,11 @@ static void update_hazards(float dt) {
             break;
         case HZ_BREATH: case HZ_DAMP: case HZ_SILT:                /* breathed: poison; a fire through the gas sends it up */
             if (h->kind != HZ_BREATH && h->src != -7 && ph == 1 && hz_fire_in(h)) { hz_burst(h); break; }   /* (a trial's gas only chokes) */
-            if (ph == 1 && !G.dead && hz_in_cells(h, px, py)) hz_poison(h->kind, h->share);
+            if (ph == 1 && !G.dead && hz_in_cells(h, px, py) && hz_droll(h)) hz_poison(h->kind, h->share);
             break;
         case HZ_VOTIVE: case HZ_FISSURE:                           /* burning wax, the fissure's breath */
             if (struck) { sfx_at(SFX_IGNITE, h->x, h->y, 0.8f); if (h->kind == HZ_FISSURE) sfx_at(SFX_EXPLODE, h->x, h->y, 0.4f); }
-            if (ph == 1 && !G.dead && hz_in_cells(h, px, py)) hz_seep(h->kind, h->share, dt);
+            if (ph == 1 && !G.dead && hz_in_cells(h, px, py)) { hz_seep(h->kind, h->share, dt); hz_dburn(h); }
             break;
         case HZ_COLD:
             if (ph == 1 && !G.dead && hz_in_cells(h, px, py)) { if (af_off()) hz_chill(0.6f); else af_cold(dt); hz_seep(HZ_COLD, h->share, dt); }
@@ -567,6 +603,7 @@ static void update_hazards(float dt) {
         else
             for (int y = y0; y <= y1; y++) for (int x = x0; x <= x1; x++) hz_dput(x, y, hz_covers(h, x, y));
     }
+    af_dchance = -1.0f;
     while (G.hz_acc >= 1.0f && !G.dead) {                          /* fire and void, a point at a time */
         G.hz_acc -= 1.0f;
 #ifdef CRAWL_DEBUG
