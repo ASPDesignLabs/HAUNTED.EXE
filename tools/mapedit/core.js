@@ -33,7 +33,7 @@ const isOpen = ch => !WALLS.has(ch);            /* is_open: a cell one may stand
 
 function blank(level) {
     return { v: 1, name: 'Untitled level', level: level || 3, face: 0, seed: '', lattice: true, corrupt: false,
-             grid: new Array(N * N).fill('#'), lane: new Array(N * N).fill(0), rooms: [], things: [], stamps: [], torches: [], events: [], hazards: [], next: 1 };
+             grid: new Array(N * N).fill('#'), lane: new Array(N * N).fill(0), rooms: [], things: [], stamps: [], torches: [], events: [], hazards: [], lights: [], next: 1 };
 }
 function clone(m) { return JSON.parse(JSON.stringify(m)); }
 
@@ -252,8 +252,16 @@ function exportDrawn(DATA, m, n) {
         if (!hzCells.length) out.push('    { 0, 0 },    /* the array may not be empty: paint a hazard\'s cells */');
         out.push('};');
     }
-    const evTail = trigs.length || tor.length || relicList.length || pk.length || fl.length || tags.length || hzs.length
-        ? `, ${tor.length ? P + '_TORCH' : 'NULL'}, ${tor.length}, ${trigs.length ? P + '_TRIG' : 'NULL'}, ${trigs.length}, ${trigs.length ? P + '_ACT' : 'NULL'}, ${trigs.length ? Math.max(1, acts.length) : 0}, ${relicList.length ? P + '_RELIC' : 'NULL'}, ${relicList.length}, ${pk.length ? P + '_PICK' : 'NULL'}, ${pk.length}, ${fl.length ? P + '_FIELD' : 'NULL'}, ${fl.length}${hzs.length ? `, ${P}_HAZ, ${hzs.length}, ${P}_HZCELL, ${Math.max(1, hzCells.length)}` : ''}` : '';
+    const lts = m.lights || [];
+    if (lts.length) {
+        out.push(`/* lights (docs/PLAN-lights.md): the style; its cell in the drawing. With any, the generator hangs and stands none of its own */`);
+        out.push(`static const DrawnLight ${P}_LIGHT[] = {`);
+        const ll = lts.map(l => `{ ${l.style}, ${l.x - b.x0}, ${l.y - b.y0} }`);
+        for (let i = 0; i < ll.length; i += 6) out.push('    ' + ll.slice(i, i + 6).join(', ') + ',');
+        out.push('};');
+    }
+    const evTail = trigs.length || tor.length || relicList.length || pk.length || fl.length || tags.length || hzs.length || lts.length
+        ? `, ${tor.length ? P + '_TORCH' : 'NULL'}, ${tor.length}, ${trigs.length ? P + '_TRIG' : 'NULL'}, ${trigs.length}, ${trigs.length ? P + '_ACT' : 'NULL'}, ${trigs.length ? Math.max(1, acts.length) : 0}, ${relicList.length ? P + '_RELIC' : 'NULL'}, ${relicList.length}, ${pk.length ? P + '_PICK' : 'NULL'}, ${pk.length}, ${fl.length ? P + '_FIELD' : 'NULL'}, ${fl.length}${hzs.length || lts.length ? (hzs.length ? `, ${P}_HAZ, ${hzs.length}, ${P}_HZCELL, ${Math.max(1, hzCells.length)}` : ', NULL, 0, NULL, 0') : ''}${lts.length ? `, ${P}_LIGHT, ${lts.length}` : ''}` : '';
     out.push(`/* its row in DRAWN[] */`);
     out.push(`    { ${P}_MAP, ${b.w}, ${b.h}, ${b.x0}, ${b.y0}, ${m.face}, ${P}_ROOM, (int)(sizeof ${P}_ROOM / sizeof ${P}_ROOM[0]), { ${vault.join(', ')} },`);
     out.push(`      ${P}_THING, (int)(sizeof ${P}_THING / sizeof ${P}_THING[0]), ${seed}u, ${m.level}, ${spawns.length ? P + '_SPAWN' : 'NULL'}, ${spawns.length ? `(int)(sizeof ${P}_SPAWN / sizeof ${P}_SPAWN[0])` : 0}${evTail} },`);
@@ -322,6 +330,23 @@ const HAZ_INFO = {
     HZ_MIRROR: { name: 'The mirror', site: 1, help: 'The Deep\'s soul-sapping glass. The anchor is the mirror; paint the cells it draws from.' },
 };
 const EL_COL = { EL_FIRE: '#f0742a', EL_FROST: '#8fd6f0', EL_LIGHT: '#ffe66b', EL_POISON: '#8fd65a', EL_SPIRIT: '#c79bf0', EL_PHYS: '#c9ccd4' };
+/* the lights (docs/PLAN-lights.md): the generator's own light props and the four new hanging ones (drawn as a chandelier or a lantern
+   in the game till their sheet is approved); hang: over its cell, else standing in it as a prop */
+const LIGHT_STYLES = [
+    ['DL_CHANDELIER', 'Chandelier', 1, 'A ring of candles on chains, swaying: the Crypts and the Catacombs, vaults and halls.'],
+    ['DL_LANTERN', 'Lantern', 1, 'A lantern hung on a chain, swaying: any run, passages and small rooms.'],
+    ['DL_CORONA', 'Iron corona', 1, 'A great wheel of wrought iron, spikes and candles, on four chains: halls and naves. Its art awaits its sheet; a chandelier till then.'],
+    ['DL_SANCTUARY', 'Sanctuary lamp', 1, 'One lamp of red glass on three fine chains, a small steady glow: chapels and burial vaults. Awaits its sheet; a chandelier till then.'],
+    ['DL_BONES', 'Bone candelabrum', 1, 'Antlers, ribs and skulls bound into a chandelier, candles in the eye sockets: ossuaries, charnel pits. Awaits its sheet; a chandelier till then.'],
+    ['DL_CAGE', 'Pierced cage lantern', 1, 'A tall lantern of pierced iron throwing dappled light: passages, small rooms. Awaits its sheet; a lantern till then.'],
+    ['DL_CANDLESTAND', 'Candlestand', 0, 'A standing stand of candles: low, walked round.'],
+    ['DL_BRAZIER', 'Brazier', 0, 'A brazier of coals on the floor: the Hollows and the Deep.'],
+    ['DL_FIREPIT', 'Fire pit', 0, 'A pit of fire in the floor.'],
+    ['DL_MINELAMP', 'Mine lamp', 0, 'A miner\'s lamp on a post, solid: the Hollows.'],
+    ['DL_TOTEM', 'Totem', 0, 'A totem with its lights, solid: the Crypts and the Catacombs.'],
+    ['DL_CRYSTALS', 'Crystals', 0, 'A cluster of crystals, a steady glow: the Deep.'],
+    ['DL_MAGMA', 'Magma', 0, 'Magma welling in the floor: the Deep.'],
+];
 const HZ_DEF = { zone: false, clock: true, enter: false, every: 8, give: 2, first: 3, on: true, harm: -1, chance: -1, warn: -1, kills: false };
 /* the level's run's hazards: fixed (sites), its sapper, and those that arise */
 function hazardsOf(DATA, level) {
@@ -1007,6 +1032,16 @@ function check(DATA, m) {
     const seen = new Set(), loop = id => { if (seen.has(id)) return true; seen.add(id); const e = ev.find(o => o.id === id); const r = e && (e.needs || []).some(loop); seen.delete(id); return r; };
     ev.forEach(e => { if (loop(e.id)) add('error', `Trigger "${e.name || 'untitled'}" waits, through others, on itself: it can never fire.`); });
     find('B').forEach(c => { if (!ev.some(e => (e.actions || []).some(a => (a.kind === 'door_open' || a.kind === 'door_unlock') && a.door && a.door[0] === c[0] && a.door[1] === c[1]))) add('warn', 'A barred door no event opens: it stays shut for good.', [c]); });
+    /* lights (docs/PLAN-lights.md) */
+    const lts = m.lights || [], styleOf = id => LIGHT_STYLES.find(s => s[0] === id);
+    lts.forEach(l => {
+        const S0 = styleOf(l.style), c = at(l.x, l.y);
+        if (!S0) { add('error', `A light of a style the game does not have (${l.style}).`, [[l.x, l.y]]); return; }
+        if (!isOpen(c) || DOORS.has(c)) add('error', `The ${S0[1].toLowerCase()} at (${l.x},${l.y}) is not over open floor.`, [[l.x, l.y]]);
+        else if (!S0[2] && L[idx(l.x, l.y)]) add('warn', `The ${S0[1].toLowerCase()} at (${l.x},${l.y}) stands on a lane: the dream walks round a prop, or is stopped by it.`, [[l.x, l.y]]);
+    });
+    if (lts.filter((l, i) => lts.findIndex(o => o.x === l.x && o.y === l.y) !== i).length) add('warn', 'Two lights share a cell: the game lays both, one inside the other.');
+    if (lts.length > 60) add('warn', `${lts.length} lights: the game holds 160 lights in all, torches and the rest among them.`);
     /* hazards (docs/PLAN-events.md, 2c) */
     const hzs = m.hazards || [], mine = hazardsOf(DATA, m.level);
     if (hzs.length > MAX.hazards) add('error', `${hzs.length} hazards: a drawn level holds ${MAX.hazards}.`);
@@ -1104,7 +1139,7 @@ function sampleEvents() {
     return m;
 }
 
-const API = { rolls, rollCreatures, rollGold, typeWeights, HAZ_INFO, EL_COL, HZ_DEF, hazardsOf, hzRunOf, hzName, ROOM_RUNS, ROOM_ANY, fieldLive, spotTags, pickOptions, fields, fieldByName, FIELD_DEF, canWatch, TRIG_TYPES, UNDO, roomSpot, picks, layouts, dreamAll, TRIGGERS, ACTIONS, SOUNDS, SOUND_NAMES, torchGroups, wakeGroups, torchLit, sampleEvents, N, DIRS, DOORS, WALLS, LANE_OF, BASE_OF, RUNS, RANKS, ELEM_FAV, GOLD_KINDS, KEY_NAMES, MARK_NAMES, MAX, idx, inMap, isOpen,
+const API = { LIGHT_STYLES, rolls, rollCreatures, rollGold, typeWeights, HAZ_INFO, EL_COL, HZ_DEF, hazardsOf, hzRunOf, hzName, ROOM_RUNS, ROOM_ANY, fieldLive, spotTags, pickOptions, fields, fieldByName, FIELD_DEF, canWatch, TRIG_TYPES, UNDO, roomSpot, picks, layouts, dreamAll, TRIGGERS, ACTIONS, SOUNDS, SOUND_NAMES, torchGroups, wakeGroups, torchLit, sampleEvents, N, DIRS, DOORS, WALLS, LANE_OF, BASE_OF, RUNS, RANKS, ELEM_FAV, GOLD_KINDS, KEY_NAMES, MARK_NAMES, MAX, idx, inMap, isOpen,
               blank, clone, xformRows, stampRows, stampDef, compose, laneAt, lanes, importDrawn, exportDrawn, bounds, frontOf, dream,
               levelInfo, rankCost, budget, elemDefault, check, label, thingCell };
 if (typeof module !== 'undefined' && module.exports) module.exports = API; else root.MapCore = API;
