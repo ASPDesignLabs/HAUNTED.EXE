@@ -326,7 +326,8 @@ static int drawn_torches(void) {
     for (int i = 0; i < D->ntorch && EV.nt < EV_TORCHES; i++) {
         const DrawnTorch *t = &D->torch[i];
         int wx = D->ox + t->x, wy = D->oy + t->y, d = t->d & 3, fx = wx + DX[d], fy = wy + DY[d];
-        if (wx < 1 || wy < 1 || wx >= MAPN - 1 || wy >= MAPN - 1 || G.map[wy][wx].kind != K_WALL || G.map[wy][wx].secret || !is_open(fx, fy)) continue;
+        if (wx < 0 || wy < 0 || wx >= MAPN || wy >= MAPN || fx < 1 || fy < 1 || fx >= MAPN - 1 || fy >= MAPN - 1   /* the ring too, facing in */
+            || G.map[wy][wx].kind != K_WALL || G.map[wy][wx].secret || !is_open(fx, fy)) continue;
         Cell *w = &G.map[wy][wx];
         w->tex = T_TORCH0; w->ftorch = (uint8_t)(d + 1);
         int k = EV.nt++;
