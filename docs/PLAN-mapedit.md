@@ -124,3 +124,13 @@ playtest branch), seeds 1 and 3, 420 s: line for line the same but the time-take
 and reason, none crashed, under `make asan`. In Playwright's Chromium, the editor served locally: the owner's saved map (two gates) is
 refused with the checks; with barred doors, PLAY opens the game, its page names the level, it boots and the dream plays; no page errors.
 The browser build compiled here with Emscripten 6.0.13 (CI's). Not yet used by the owner.
+
+**Session 4, later (25 November 2026): rooms by run; hazards in the editor.** The room types are listed under their runs (`ROOM_RUNS`,
+`ROOM_ANY` in `core.js`, as `pick_rtype` lays them); `test.js` holds every type to one group. Hazards (docs/PLAN-events.md, 2c): a
+palette group headed with the level's run, its kinds as the game has them (`extract.py` reads `HZ_FIXED`, `HZ_ARISE`, `HZ_SAPPER` and
+`HZ_ELEM`); each placed at its anchor (a wall for those set in one), its cells painted in order (*PAINT ITS CELLS*), placed or a zone, a
+clock, a box walked into, live at the start, may kill, and harm, status and warning each "the game's own" or a number; triggers' *A
+hazard wakes* and *A hazard stops*; drawn in its element's colour, the anchor as a warning sign, the box dashed; the checks (stone under
+it, no cells, no box, never goes off, another run's, two of one name, the limits). Until the game's side lands, PLAY offers to play a
+level without its hazards (`PLAY_HAZARDS`). Tested by `test.js` (the export, its checks, `fixtures/hazards.c`) and in Playwright's
+Chromium (placing, painting, the pane, the events' list, PLAY's offer); not used by the owner.
