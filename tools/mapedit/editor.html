@@ -1461,7 +1461,7 @@ document.addEventListener('click', e => { const d = $('layersBox'); if (d.open &
 /* ---------- PLAY: the game's browser build in play/, over the editor, given this level as its export (docs/PLAN-mapedit.md, part 3).
    The game reads the same text EXPORT C gives, and a new run there begins on this level. ---------- */
 let playText = null;
-const PLAY_RELOOK = false;                               /* the game in play/ draws the relics' looks (docs/PLAN-events.md, 2d): true once it does */
+const PLAY_RELOOK = true;                                /* the game in play/ draws the relics' looks (docs/PLAN-events.md, 2d): true once it does */
 const PLAY_LIGHTS = true;                                /* the game in play/ reads lights (docs/PLAN-lights.md): true once it does */
 const PLAY_HAZARDS = true;                               /* the game in play/ lays hazards (docs/PLAN-events.md, 2c): true once it does */
 const sameOrigin = () => (location.origin && location.origin !== 'null' ? location.origin : '*');

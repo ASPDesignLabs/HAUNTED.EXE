@@ -159,3 +159,10 @@ Storage: the five it lists are the harness's `drawnlights` five, cell for cell; 
 field. The dream on it (`CRAWL_LEVEL=3`, seeds 1 to 8, 900 s): level 4 reached on all eight, the compass taken on all eight. Level 3 is no
 longer the generator's, so the dream's logs differ from the build before's from level 3 on: that is the drawing, not a fault. Harness only;
 not yet played by hand in the game's own build (the owner has played it through PLAY). The playtest branch stays unmerged as it was.
+
+**Session 5 (26 November 2026): the relics' looks; main's side passages carried over.** Main's side passages (the owner's parallel work)
+merged into the work branch, main's tree whole and the two commits since the squash on top. Each relic's *Look*, chosen from the twelve
+(docs/PLAN-events.md, 2d); `DRAWNn_RELOOK` written only when some relic is not the bone key; PLAY draws them (`PLAY_RELOOK`), the side
+passages sent with it as before. The editor republished to its own link (`YFoMe2do1aVStj3EGshEz6`, where the owner's maps are kept); the
+owner's other copy (`9f163JHMAJesUR8bPgMyWP`) belongs to another login, which this session can neither read nor publish to: Storage was
+sent to the owner as a backup file for it. In Playwright's Chromium: Storage loads as level 3, no errors; with a crowned skull, PLAY boots.
