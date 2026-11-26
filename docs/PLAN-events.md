@@ -142,6 +142,24 @@ typedef struct { int x, y; } DrawnCell;
 At most 12 hazards a drawn level (`MAXSITE`) and 256 cells in all. The editor's dream walk ignores them (the game's dream steps round
 them; a hazard cannot shut a way). The tutorial's two levels export none.
 
+## 2d. The relics' looks (asked and settled 26 November 2026)
+
+The owner approved the twelve relics' sheet (`media/sheets/events/relics.png`): "They look great! Allow me to edit the relics
+appearance through a drop-down so we don't have to create a ton of new art for the editor." So each relic in the editor has a *Look*
+chosen from the twelve by name (its icon on the map stays the one relic's), and the game draws it so.
+
+```c
+enum { RL_BONEKEY, RL_FINGER, RL_HEART, RL_SKULL, RL_ROSARY, RL_AMPULLA, RL_NAIL, RL_HILT, RL_SEAL, RL_PSALTER, RL_MASK, RL_EYE, NRL };
+/* Drawn's row, after the lights: relook, a look for each relic (RL_*) in _RELIC's order, as many as nrelic; NULL: each the bone key.
+   The editor writes it only when some relic is not the bone key, so every export before it reads as it did. A row with a relook and
+   no lights writes the lights' place as NULL, 0 (and the hazards' as NULL, 0, NULL, 0) before it. */
+static const int DRAWN3_RELOOK[] = { RL_SKULL, RL_BONEKEY };
+```
+
+The art is the sheet's (`tools/lightmock.c`'s `relic_draw`, moved into the art as before). A relic lies in its look; set in its socket,
+the socket shows it across the hands with **its own shape cut and lit in the panel**, as the sheet draws; an empty socket bound to one
+relic shows that relic's shape, unlit; an empty socket that takes any relic shows the bone key's, as today. Nothing of it is saved.
+
 ## 3. Steps
 
 | | Step | Proof |
@@ -397,3 +415,6 @@ nail bound in faded velvet and gilt thread; 8 a broken sword's hilt; 9 an abbot'
 cut in it; 10 a chained psalter in red leather and brass; 11 a funerary mask of bronze, verdigris in its hollows; 12 a weeping eye
 of crystal, lit within, in a rayed gilt mount, a red tear down its stem. *For the owner:* the twelve and their names; the lead
 ampulla is the dimmest of them in the Deep; the seal and the mask are both bronze ovals, told apart by their shapes.
+
+**The twelve relics approved (26 November 2026)** with their sheet, `media/sheets/events/relics.png`; the looks chosen per relic in the
+editor (2d). The socket cutting each relic's own shape, as the sheet shows, taken as approved with it ("They look great!").
