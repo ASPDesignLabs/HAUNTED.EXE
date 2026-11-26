@@ -230,7 +230,12 @@ static void tu_tick(float dt) {                                    /* from updat
             }
         if (G.has_key[0] && !TU.key_taken) {                       /* B18: the gold key, and the cracks two cells off */
             TU.key_taken = 1;
-            if (tu_beat(TB2_GOLD, TL_CRACKS, 0) && G.nsecrets && !G.secrets[0].state) tu_steer(atan2f((float)G.secrets[0].sy + 0.5f - G.py, (float)G.secrets[0].sx + 0.5f - G.px), 0);
+            int near = -1; float nd = 1e9f;                        /* the nearest secret not yet opened (the drawing has more than one) */
+            for (int i = 0; i < G.nsecrets; i++) {
+                float d = hypotf((float)G.secrets[i].sx + 0.5f - G.px, (float)G.secrets[i].sy + 0.5f - G.py);
+                if (!G.secrets[i].state && d < nd) { nd = d; near = i; }
+            }
+            if (tu_beat(TB2_GOLD, TL_CRACKS, 0) && near >= 0) tu_steer(atan2f((float)G.secrets[near].sy + 0.5f - G.py, (float)G.secrets[near].sx + 0.5f - G.px), 0);
         }
         if (G.has_key[2] && !TU.crimson) { TU.crimson = 1; tu_beat(TB2_CRIMSON, TL_CRIMSON, 0); }   /* B19 */
         if (TU.prev_y > 0.0f && fx >= 11.0f && fx < 15.0f && IC.live && !TU.steer && (TU.prev_y >= 18.0f) != (fy >= 18.0f)) {   /* trigger 2's line */
