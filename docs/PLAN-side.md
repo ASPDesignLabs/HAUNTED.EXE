@@ -239,6 +239,16 @@ The owner's asks of 26 November, before the squash; my defaults where they left 
   something off with nothing to lay it, and a timed switch without a name. `tools/mapedit/fixtures/side_works2.txt`, *The Timed Lever*,
   has one of each (for `HOST_SIDE`; not built in).
 
+### 2g. The jump's sound and a life lost (session 7)
+
+The owner asked to hear a few jumps and three death jingles, and chose. All are in `snd.c` at the end of the list, drawn in its own
+synth: `SFX_SJUMP1` a cloak's swish, `SFX_SJUMP2` a hop, `SFX_SJUMP3` a boot and a breath, **`SFX_SJUMP4` the bone pipe (chosen)**;
+**`SFX_SDEATH1` the toll (chosen)**, bells stepping down D, B flat, G, D and slowing, an organ's D minor and a deep bell under the last;
+`SFX_SDEATH2` the music box running down, its last note sagging a whole tone; `SFX_SDEATH3` the choir's sigh, a harp falling and voices
+sinking to a low D minor. The rest are kept, at the owner's word, for other things to do. TUNING's `jump_sound` (4) and `death_sound` (1)
+choose among them, 0 being what was there before (the whoosh; the groan, and nothing for the drop); the toll plays for the drop too.
+`host music none secs out.wav sfxN:gain@t` renders an effect alone.
+
 ## 3. Steps
 
 | Step | What | State |
@@ -433,3 +443,7 @@ powerups' seconds) theirs to tune.
 Later the same day the owner, playing the republished editor, heard creatures far off the screen; every sound a passage makes away from
 the caster is now placed as 2f says (`CRAWL_SIDESND=1` logs each, its distance and its gain). Checked by that log on run I's and run
 II's passages with a person standing at the door; under the sanitizers on run I's. Harness only.
+
+Then four jumps and three jingles to hear (2g), rendered with `host music` and sent; the owner chose the bone pipe and the toll. Each death
+sounds once (`EVENT side_death_sound`), the drop included; the sanitizers clean on three passages' worth of each; `make smoke` passed.
+Harness only, but for the owner's ear on the rendered files.

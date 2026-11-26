@@ -85,6 +85,17 @@ static void sd_sfx_at(int id, float gain, float x, float y) {
     if (getenv("CRAWL_SIDESND")) fprintf(stderr, "SND %d at %.0f px: %s %.2f of %.2f t=%.2f\n", id, d, g > 0.02f ? "heard" : "unheard", g, gain, SD.t);
 #endif
 }
+static void sd_jump_sfx(void) {                                    /* the jump, as TUNING's jump_sound chooses (2g) */
+    int k = clampi((int)(SDT[TU_JUMP_SND] + 0.5f), 0, 4);
+    if (k) snd_sfx_ex(SFX_SJUMP1 + k - 1, 0.26f, 0.5f); else snd_sfx_ex(SFX_WHOOSH, 0.25f, 0.5f);
+}
+static void sd_death_sfx(int pit) {                                /* a life lost, as death_sound chooses: 0 the groan (none for the drop) */
+    int k = clampi((int)(SDT[TU_DEATH_SND] + 0.5f), 0, 3);
+    if (k) snd_sfx_ex(SFX_SDEATH1 + k - 1, 0.8f, 0.5f); else if (!pit) snd_sfx(SFX_DEATH);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT side_death_sound %d%s t=%.2f\n", k, pit ? " (the drop)" : "", SD.t);
+#endif
+}
 static void sd_sfx_th(int id, float gain, int i) { const SdThing *t = &SD.L->th[i]; sd_sfx_at(id, gain, (float)(t->x * SD_TILE) + 8.0f, (float)(t->y * SD_TILE) + 8.0f); }
 static void sd_sfx_hz(int id, float gain, int h) {                 /* a trap: at the thing that holds it */
     for (int i = 0; i < SD.L->nth; i++) if (SD.L->th[i].kind == SDT_HAZ && SD.L->th[i].a == h) { sd_sfx_th(id, gain, i); return; }
@@ -254,7 +265,7 @@ static void sd_hurt(float dmg, int el, float from_x) {
 #endif
     if (G.hp > 0) { snd_sfx(SFX_HURT); return; }
     G.hp = 0; SD.dying = 1; SD.die_t = 0.0f; SD.vx *= 0.4f;
-    snd_sfx(SFX_DEATH);
+    sd_death_sfx(0);
 }
 static void sd_move_x(float dx) {
     float h = sd_box_h();
@@ -331,7 +342,7 @@ static void sd_caster(float dt) {
     }
     if (SD.jbuf > 0.0f && SD.coyote > 0.0f && !SD.crouch) {
         SD.vy = -SD_JUMP; SD.ground = 0; SD.on_plat = -1; SD.coyote = 0.0f; SD.jbuf = 0.0f;
-        snd_sfx_ex(SFX_WHOOSH, 0.25f, 0.5f);
+        sd_jump_sfx();
     }
     if (!SD.ground) SD.vy = fminf(SD_FALL_MAX, SD.vy + (in->jump && SD.vy < 0.0f ? SD_G_HELD : SD_G) * dt);
     int was = SD.ground;
@@ -365,12 +376,12 @@ static void sd_place_harm(float dt) {
             SD.pois_t = 0.0f;
             int n = imax(1, (int)(SDT[TU_BITE] * (float)G.max_hp * (1.0f - el_resist(&RUN.gear, EL_POISON)) + 0.5f));
             G.hp -= n; snd_sfx_ex(SFX_HURT, 0.5f, 0.5f);
-            if (G.hp <= 0) { G.hp = 0; SD.dying = 1; SD.die_t = 0.0f; snd_sfx(SFX_DEATH); }
+            if (G.hp <= 0) { G.hp = 0; SD.dying = 1; SD.die_t = 0.0f; sd_death_sfx(0); }
         }
     } else SD.pois_t = SDT[TU_BITE_EVERY] * 0.8f;                 /* the first bite comes quick (its own clock: it shared the flask's
                                                                       till 26 November, and every flask flew at four tenths) */
     if (SD.y > (float)(SD.L->h * SD_TILE + 48)) {                  /* down past the foot: gone */
-        G.hp = imax(0, G.hp); SD.dying = 1; SD.die_t = 1.0f;
+        G.hp = imax(0, G.hp); SD.dying = 1; SD.die_t = 1.0f; sd_death_sfx(1);
 #ifdef CRAWL_DEBUG
         fprintf(stderr, "EVENT side_pit t=%.2f\n", SD.t);
 #endif

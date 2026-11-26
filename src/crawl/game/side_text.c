@@ -45,7 +45,7 @@ enum { TU_WALK, TU_RUN, TU_CREEP, TU_ACCEL, TU_BRAKE, TU_AIR, TU_JUMP, TU_GRAV_H
        TU_HURT_SAFE, TU_KNOCK_X, TU_KNOCK_Y, TU_SPIKES, TU_BITE, TU_BITE_EVERY, TU_WADE, TU_CURRENT, TU_GATE_TIME,
        TU_FIRE_REACH, TU_FROST_REACH, TU_LIGHT_REACH, TU_SPIRIT_REACH, TU_FIRE_SPEED, TU_FROST_SPEED, TU_SPIRIT_SPEED, TU_BOLT_SPEED,
        TU_FLASK_NEAR, TU_FLASK_FAR, TU_FLASK_LIFT, TU_FLASK_HOLD, TU_DEAD_PACE, TU_DEAD_SIGHT, TU_CAM_LEAD,
-       TU_CAST_EVERY, TU_FLASK_AIM, NTU };   /* the last two: 26 November, the owner's (fire rate doubled; the flask aimed while held) */
+       TU_CAST_EVERY, TU_FLASK_AIM, TU_JUMP_SND, TU_DEATH_SND, NTU };   /* the last two: 26 November, the owner's (fire rate doubled; the flask aimed while held) */
 static const struct { const char *name; float def, lo, hi, step; const char *what; } TUNE[NTU] = {
     { "walk", 72.0f, 20.0f, 200.0f, 1.0f, "walking pace, pixels a second" },
     { "run", 128.0f, 40.0f, 300.0f, 1.0f, "running pace (Shift, B, or the stick pushed hard)" },
@@ -85,6 +85,8 @@ static const struct { const char *name; float def, lo, hi, step; const char *wha
     { "cam_lead", 24.0f, 0.0f, 100.0f, 1.0f, "how far ahead the view looks" },
     { "cast_every", 0.5f, 0.1f, 2.0f, 0.05f, "the time between casts, of the crypt's (0.5: twice as quick)" },
     { "flask_aim", 140.0f, 20.0f, 400.0f, 5.0f, "the flask held: how fast left and right move where it lands, pixels a second" },
+    { "jump_sound", 4.0f, 0.0f, 4.0f, 1.0f, "the jump's sound: 4 the bone pipe (the owner's); 0 the whoosh, 1 a cloak, 2 a hop, 3 a boot and a breath" },
+    { "death_sound", 1.0f, 0.0f, 3.0f, 1.0f, "a life lost: 1 the toll (the owner's); 0 the groan, 2 the music box, 3 the choir's sigh" },
 };
 static int sd_tune_of(const char *name) { for (int k = 0; k < NTU; k++) if (!strcmp(TUNE[k].name, name)) return k; return -1; }
 typedef struct { char name[40]; int w, h; uint8_t t[SD_H][SD_W]; SdThing th[SD_THINGS]; int nth; float tune[NTU]; uint64_t tuned;

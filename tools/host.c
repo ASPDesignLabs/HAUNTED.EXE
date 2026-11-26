@@ -308,7 +308,7 @@ int main(int argc, char **argv) {
          * Pieces: crypts, catacombs, hollows, deep, merchant, perfect, title, special, ending, lamp, office, ossuary
          * (docs/PLAN-music-work.md), menu1-menu4. Events: fight0-fight3, frail, well, menu, title (the ledger opened), lamp
          * (the Lampstand or ascending), back, trial, untrial, place0-place2, run1-run4 (the
-         * run's piece), as name@seconds. HOST_DRIPS=0 leaves out the cave's drips and moans; HOST_MUTE=mask the patches
+         * run's piece), sfxN (an effect, SFX_* by number; the piece none for it alone), as name@seconds. HOST_DRIPS=0 leaves out the cave's drips and moans; HOST_MUTE=mask the patches
          * by number (bit 63 the pieces' drums), to weigh a mix. */
         static const char *PN[] = { "none", "crypts", "catacombs", "hollows", "deep" };
         const char *piece = argv[2];
@@ -365,6 +365,7 @@ int main(int argc, char **argv) {
                 else if (!strcmp(e, "untrial")) snd_set_trial(0);
                 else if (!strncmp(e, "place", 5)) snd_set_place(atoi(e + 5));
                 else if (!strncmp(e, "run", 3)) snd_set_track(MU_NONE + atoi(e + 3));
+                else if (!strncmp(e, "sfx", 3)) snd_sfx(atoi(e + 3));     /* an effect by its number, to hear it with a piece or alone */
                 else fprintf(stderr, "music: no event %s\n", e);
             }
             snd_render(pcm + pos * 2, per);
