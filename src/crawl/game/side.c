@@ -45,6 +45,7 @@ static struct {
     int face, ground, crouch, on_plat, drop;
     float coyote, jbuf, anim, cast_t, cd, inv_t, hurt_t, pois_k, held, in_t, pois_t;   /* held: the flask drawn back; pois_t: the poison's clock */
     int frame, dying, leaving, out_link, out_goal, holding;
+    float aim_d, aim_dy;                                           /* the flask held: how far ahead it lands, and how far below the hand */
     float die_t, fade, mark_x, mark_y;
     float beam_t, bx0, by0, bx1, by1;                              /* lightning, a moment */
     SdPlat plat[SD_THINGS]; SdFall fall[SD_THINGS];
@@ -138,16 +139,19 @@ static int sd_dream_in(void) {                                     /* PS_USE: th
 }
 
 /* ---- the world as it stands ---- */
+static uint8_t SDLG[SD_H][SD_W];                                   /* 1 + the LEDGE thing over a tile, 0 none (sd_works_build) */
 static int sd_tile(int tx, int ty) {                               /* the letter, the dark outside the sides and under the foot */
     if (tx < 0 || tx >= SD.L->w) return '#';
     if (ty < 0) return '#';
     if (ty >= SD.L->h) return '.';
-    return SD.L->t[ty][tx];
+    int c = SD.L->t[ty][tx];
+    if (SDLG[ty][tx] && SD.st[SDLG[ty][tx] - 1] && c != '#' && c != '%') return '=';   /* a ledge laid by a thing, while it is on */
+    return c;
 }
 static int sd_fall_at(int tx, int ty) {                            /* a falling block standing there, -1 none */
     const SdLevel *L = SD.L;
     for (int i = 0; i < L->nth; i++)
-        if (L->th[i].kind == SDT_FALL && L->th[i].x == tx && L->th[i].y == ty && SD.fall[i].state <= 1) return i;
+        if (L->th[i].kind == SDT_FALL && L->th[i].x == tx && L->th[i].y == ty && SD.fall[i].state <= 1 && SD.st[i]) return i;   /* (off: not there) */
     return -1;
 }
 static int sd_gate_at(int tx, int ty);                             /* side_works.c */
@@ -217,8 +221,9 @@ static int sd_on_plat(float x, float y, float prev_y, int *which, float *top) { 
 
 /* ---- the caster ---- */
 static void sd_life_lost(void);
+static int sd_fx_ward(void);
 static void sd_hurt(float dmg, int el, float from_x) {
-    if (SD.dying || SD.inv_t > 0.0f || dmg <= 0.0f) return;
+    if (SD.dying || SD.inv_t > 0.0f || dmg <= 0.0f || sd_fx_ward()) return;   /* (the ward: untouchable) */
     const Gear *g = &RUN.gear;
     int phys = el == EL_PHYS;
     float d = dmg;
@@ -342,7 +347,7 @@ static void sd_place_harm(float dt) {
     SD.pois_k = in ? 1.0f : 0.0f;
     if (in) {
         SD.pois_t += dt;
-        if (SD.pois_t >= SDT[TU_BITE_EVERY]) {                     /* a share of your health each while */
+        if (SD.pois_t >= SDT[TU_BITE_EVERY] && !sd_fx_ward()) {   /* a share of your health each while */
             SD.pois_t = 0.0f;
             int n = imax(1, (int)(SDT[TU_BITE] * (float)G.max_hp * (1.0f - el_resist(&RUN.gear, EL_POISON)) + 0.5f));
             G.hp -= n; snd_sfx_ex(SFX_HURT, 0.5f, 0.5f);
@@ -363,7 +368,7 @@ static void sd_falls(float dt) {
     const SdLevel *L = SD.L;
     for (int i = 0; i < L->nth; i++) {
         const SdThing *t = &L->th[i];
-        if (t->kind != SDT_FALL) continue;
+        if (t->kind != SDT_FALL || !SD.st[i]) continue;
         SdFall *f = &SD.fall[i];
         switch (f->state) {
         case 0:                                                    /* in place: stood on, it starts to go */
@@ -567,7 +572,28 @@ static float sd_reach(int el) {
     }
 }
 static float sd_speed(int el) { return el == EL_FIRE ? SDT[TU_FIRE_SPEED] : el == EL_FROST ? SDT[TU_FROST_SPEED] : el == EL_SPIRIT ? SDT[TU_SPIRIT_SPEED] : SDT[TU_BOLT_SPEED]; }
-static float sd_flask_k(void) { return clampf(SD.held / SDT[TU_FLASK_HOLD], 0.2f, 1.0f); }   /* the throw grows as it is held, over a second */
+static void sd_flask_way(float k, float *vx, float *vy);
+#define SD_FLASK_KMAX 2.2f                                         /* the furthest a held flask goes: about fourteen tiles, as tuned */
+static float sd_flask_land(float k, float dy) {                    /* how far ahead a throw lands, dy below the hand */
+    float vx, vy; sd_flask_way(k, &vx, &vy); vx = fabsf(vx);
+    float disc = vy * vy + 2.0f * SD_G * dy;
+    return disc < 0.0f ? 0.0f : vx * (-vy + sqrtf(disc)) / SD_G;
+}
+static float sd_flask_k(void) {                                    /* the throw that lands where it is aimed (the owner, 26 November) */
+    float best = 1e9f, bk = 0.5f;
+    for (float k = 0.0f; k <= SD_FLASK_KMAX; k += 0.02f) { float e = fabsf(sd_flask_land(k, SD.aim_dy) - SD.aim_d); if (e < best) { best = e; bk = k; } }
+    return bk;
+}
+static void sd_flask_aim0(void) {                                  /* pressed: aimed at the nearest of the dead ahead, else between near and far */
+    SD.aim_d = 0.5f * (sd_flask_land(0.0f, SD_HAND - 2.0f) + sd_flask_land(1.0f, SD_HAND - 2.0f)); SD.aim_dy = SD_HAND - 2.0f;
+    float best = sd_flask_land(SD_FLASK_KMAX, SD_HAND - 2.0f) + 6.0f;   /* (only what it can reach) */
+    for (int i = 0; i < SD_MOBS; i++) {
+        const SdMob *m = &SD.mob[i];
+        float dx = (m->x - SD.x) * (float)SD.face;
+        if (!m->alive || m->state == SDM_DIE || dx < 4.0f || dx > best || fabsf(m->y - SD.y) > 80.0f) continue;
+        best = dx; SD.aim_d = dx - 6.0f; SD.aim_dy = (m->y - 2.0f) - (SD.y - SD_HAND);
+    }
+}
 static void sd_flask_way(float k, float *vx, float *vy) { *vx = (float)SD.face * (SDT[TU_FLASK_NEAR] + (SDT[TU_FLASK_FAR] - SDT[TU_FLASK_NEAR]) * k); *vy = -SDT[TU_FLASK_LIFT] - 60.0f * k; }
 static void sd_flask_mark(void) {                                  /* where the flask would land now: its arc tried */
     float vx, vy, x = SD.x + (float)SD.face * 6.0f, y = SD.y - SD_HAND;
@@ -580,6 +606,8 @@ static void sd_flask_mark(void) {                                  /* where the 
     }
     SD.mark_x = x; SD.mark_y = y;
 }
+static float sd_fx_rapid(void), sd_fx_might(void); static int sd_fx_ward(void); static void sd_fx_power(int kind, float secs);   /* side_fx.c: powerups */
+static float sd_cast_every(void) { return SDT[TU_CAST_EVERY] * sd_fx_rapid(); }
 static void sd_cast(int release) {
     int sp = G.spell;
     if (sp < 0 || sp >= NATK || RUN.gear.atk[sp] < 0) { sp = own_spell(); if (sp < 0) return; G.spell = sp; }
@@ -596,7 +624,7 @@ static void sd_cast(int release) {
                 && !(KINDS[m->kind].flags & KF_SPIRIT)) { m->hp = 0.0f; sd_mob_slain(m, AT_BFS); }
         }
         snd_sfx_ex(SFX_IMPLODE, 1.3f, 0.5f); rumble(1.0f, 1.0f, 0.7f);
-        SD.cd = cast_cycle(sp); SD.cast_t = 0.3f;
+        SD.cd = cast_cycle(sp) * sd_cast_every(); SD.cast_t = 0.3f;
         return;
     }
     int splinter = sp == AT_SPEAR && spear_bare();
@@ -607,9 +635,9 @@ static void sd_cast(int release) {
         if (!G.spirit_said) { G.spirit_said = 1; say("LOW ON SPIRIT: SPELLS CAST WEAK"); }
     }
     if (sp == AT_SPEAR) { if (splinter) RUN.splint_used++; else if (rndf() >= bone_spared()) RUN.gear.bones--; }
-    float dmg = spell_damage_at(g, sp, tier) * aug_dmg(sp) * (splinter ? SPLINTER_DMG : 1.0f);
+    float dmg = spell_damage_at(g, sp, tier) * aug_dmg(sp) * (splinter ? SPLINTER_DMG : 1.0f) * sd_fx_might();
     float hx = SD.x + (float)SD.face * 6.0f, hy = SD.y - SD_HAND;
-    SD.cd = cast_cycle(sp); SD.cast_t = 0.3f;
+    SD.cd = cast_cycle(sp) * sd_cast_every(); SD.cast_t = 0.3f;
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "EVENT side_cast %s tier %d t=%.2f\n", ATK_NAME[sp], tier, SD.t);
 #endif
@@ -640,7 +668,10 @@ static void sd_cast(int release) {
         break;
     }
     case EL_POISON: {                                              /* lobbed, where the mark showed */
-        float vx, vy; sd_flask_way(release ? sd_flask_k() : 0.6f, &vx, &vy);
+        float vx, vy; sd_flask_way(sd_flask_k(), &vx, &vy);
+#ifdef CRAWL_DEBUG
+        fprintf(stderr, "EVENT side_flask aimed %.0f px ahead (%.0f below), held %.2f s t=%.2f\n", SD.aim_d, SD.aim_dy, SD.held, SD.t);
+#endif
         sd_shot_new(SS_FLASK, hx, hy, vx, vy, dmg, 4.0f, SD_G, 0, sp, tier);
         snd_sfx_ex(SFX_WHOOSH, 0.5f, 0.5f);
         break;
@@ -683,6 +714,7 @@ static void sd_take(int i) {
     switch (t->kind) {
     case SDT_GOLD: { Item it; memset(&it, 0, sizeof it); it.alive = 1; it.type = t->a; it.secret = 1; collect(&it); break; }
     case SDT_KEY: G.has_key[t->a] = 1; snd_sfx(SFX_KEYGET); say("A %s KEY", t->a == 0 ? "GOLD" : t->a == 1 ? "SILVER" : "CRIMSON"); break;
+    case SDT_POWER: sd_fx_power(t->a, t->f[0]); break;
     case SDT_LIFE:
         if (RUN.sd_lost > 0) { RUN.sd_lost--; say("A LIFE: %d NOW", sd_lives()); } else { gain_souls(5.0f); say("LIVES FULL: FIVE SOULS"); }
         snd_sfx_ex(SFX_SHIMMER, 0.9f, 0.5f);
@@ -693,14 +725,17 @@ static void sd_take(int i) {
     fprintf(stderr, "EVENT side_take %d kind %d t=%.2f\n", i, t->kind, SD.t);
 #endif
 }
+static void sd_switch_timer(int i, float secs);                    /* side_works.c */
 static void sd_throw(int i) {
     const SdThing *t = &SD.L->th[i];
     int on = (t->flags & SDF_TOGGLE) ? !SD.thrown[i] : 1;
-    if (!(t->flags & SDF_TOGGLE) && SD.thrown[i]) return;
+    if (!(t->flags & SDF_TOGGLE) && SD.thrown[i] && t->f[0] <= 0.0f) return;
+    if (t->f[0] > 0.0f) { on = 1; sd_switch_timer(i, t->f[0]); }   /* timed: thrown again, it starts over */
     SD.thrown[i] = (uint8_t)on; SDP.thrown[SD.side][i] = (uint8_t)on;
     snd_sfx_ex(SFX_KNOCK, 0.7f, 0.5f); snd_sfx_ex(SFX_DEEPCHIME, 0.5f, 0.5f);
     if (t->a >= 0 && ev_live() && t->a < drawn()->nthing) ev_touch(TG_USE, t->a);   /* the crypt's own triggers on that thing */
-    say(on ? "SOMEWHERE IN THE CRYPT, SOMETHING MOVES" : "SOMETHING IN THE CRYPT GOES BACK");
+    if (t->a >= 0) say(on ? "SOMEWHERE IN THE CRYPT, SOMETHING MOVES" : "SOMETHING IN THE CRYPT GOES BACK");
+    else if (t->f[0] > 0.0f) say("THE LEVER IS THROWN: %d SECONDS", (int)(t->f[0] + 0.5f));
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "EVENT side_switch %d thing %d %s t=%.2f\n", i, t->a, on ? "on" : "off", SD.t);
 #endif
@@ -725,6 +760,8 @@ static void sd_build(void) {                                       /* the place 
     sd_works_build();
     memset(SD.mob, 0, sizeof SD.mob); memset(SD.shot, 0, sizeof SD.shot);
     memcpy(SD.taken, SDP.taken[SD.side], sizeof SD.taken); memcpy(SD.thrown, SDP.thrown[SD.side], sizeof SD.thrown);
+    for (int i = 0; i < L->nth; i++)                              /* a timed switch is never left thrown: its time began again */
+        if (L->th[i].kind == SDT_SWITCH && L->th[i].f[0] > 0.0f) SD.thrown[i] = SDP.thrown[SD.side][i] = 0;
     SD.rs = 0x51DE0000u ^ (uint32_t)(G.level * 7919 + SD.side * 104729) ^ ((uint32_t)G.retries << 20);
     for (int i = 0; i < L->nth; i++) {
         const SdThing *t = &L->th[i];
@@ -897,8 +934,15 @@ static void sd_update(float dt) {
     /* the cast: the flask is held to aim and let go to throw; the rest as pressed */
     int sp = G.spell >= 0 && G.spell < NATK ? G.spell : AT_FIRE;
     if (ATK_ELEM[sp] == EL_POISON && sp != AT_BFS) {
-        if (in->cast && !SD.dying) { if (!SD.holding) { SD.holding = 1; SD.held = 0.0f; } SD.held += dt; sd_flask_mark(); }
-        else if (SD.holding) { SD.holding = 0; sd_cast(1); }
+        if (in->cast && !SD.dying && (SD.holding || SD.cd <= 0.0f)) {   /* pressed: aimed at once; held: left and right move where it lands */
+            if (!SD.holding) { SD.holding = 1; SD.held = 0.0f; sd_flask_aim0(); }
+            SD.held += dt;
+            int ad = (in->right ? 1 : 0) - (in->left ? 1 : 0);
+            if (ad && SD.held > 0.15f) SD.aim_d = clampf(SD.aim_d + (float)(ad * SD.face) * SDT[TU_FLASK_AIM] * dt, 12.0f, sd_flask_land(SD_FLASK_KMAX, SD.aim_dy));
+            in->left = in->right = 0;                               /* (it stands while it aims) */
+            sd_flask_mark();
+        }
+        else if (SD.holding) { SD.holding = 0; sd_cast(1); }        /* let go, or tapped: thrown where it was aimed */
     } else {
         SD.holding = 0;
         if (in->cast && (in->cast_hit || SD.cd <= 0.0f)) sd_cast(0);
@@ -928,7 +972,7 @@ static void sd_update(float dt) {
     } else {
         for (int i = 0; i < SD.L->nth; i++) {                       /* what is found: walked over */
             const SdThing *t = &SD.L->th[i];
-            if (SD.taken[i] || (t->kind != SDT_GOLD && t->kind != SDT_KEY && t->kind != SDT_LIFE)) continue;
+            if (SD.taken[i] || (t->kind != SDT_GOLD && t->kind != SDT_KEY && t->kind != SDT_LIFE && t->kind != SDT_POWER)) continue;
             if (sd_at_thing(i, 10.0f, 10.0f)) sd_take(i);
         }
         if (in->up_hit) {                                          /* up: a lever, or a doorway */

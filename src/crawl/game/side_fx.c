@@ -26,7 +26,22 @@ static struct {
     SdCenser c[SD_CENSERS]; int nc;
     float web[SD_HAZ], bolt[SD_HAZ];                               /* a snare torn, seconds till it is whole; the galvanic bolt, still shown */
     int sdir[SD_HAZ];                                              /* a sluice's canal: its way, -1 or 1 */
+    float pw[NPW], pw_full[NPW];                                   /* the powerups (26 November): seconds left of each, and from */
 } FX;
+/* ---- the powerups: quickened hands, might, a ward ---- */
+static float sd_fx_rapid(void) { return FX.pw[PW_RAPID] > 0.0f ? 0.5f : 1.0f; }
+static float sd_fx_might(void) { return FX.pw[PW_MIGHT] > 0.0f ? 2.0f : 1.0f; }
+static int sd_fx_ward(void) { return FX.pw[PW_WARD] > 0.0f; }
+static void sd_fx_power(int kind, float secs) {
+    static const char *const SAY[NPW] = { "QUICKENED HANDS", "MIGHT: HARM DOUBLED", "A WARD: NOTHING TOUCHES YOU" };
+    if (kind < 0 || kind >= NPW) return;
+    FX.pw[kind] = FX.pw_full[kind] = secs;
+    say("%s FOR %d SECONDS", SAY[kind], (int)(secs + 0.5f));
+    snd_sfx_ex(SFX_SHIMMER, 0.9f, 0.5f); snd_tone(1, kind == PW_RAPID ? 76 : kind == PW_MIGHT ? 69 : 81, 0.4f, 0.5f);
+#ifdef CRAWL_DEBUG
+    fprintf(stderr, "EVENT side_power %d for %.1f t=%.2f\n", kind, secs, SD.t);
+#endif
+}
 static int sd_hz_cell(const SdHaz *z, int c, int *x, int *y);     /* side_works.c */
 static void sd_hz_strike(int i, int h, float share);
 static float sd_hz_warn(const SdHaz *z);
@@ -451,7 +466,7 @@ static void sd_fx_build(void) {
     const SdLevel *L = SD.L;
     FX.n = 0; FX.nc = 0; FX.ca_t = 0.0f;
     memset(FX.occ, 0, sizeof FX.occ); memset(FX.acc, 0, sizeof FX.acc); memset(FX.bite, 0, sizeof FX.bite); memset(FX.tip, 0, sizeof FX.tip);
-    memset(FX.rubble, 0, sizeof FX.rubble); memset(FX.danger, 0, sizeof FX.danger); memset(FX.web, 0, sizeof FX.web); memset(FX.bolt, 0, sizeof FX.bolt);
+    memset(FX.rubble, 0, sizeof FX.rubble); memset(FX.danger, 0, sizeof FX.danger); memset(FX.web, 0, sizeof FX.web); memset(FX.bolt, 0, sizeof FX.bolt); memset(FX.pw, 0, sizeof FX.pw);
     for (int i = 0; i < L->nth; i++) {
         const SdThing *t = &L->th[i];
         if (t->kind != SDT_HAZ) continue;
@@ -473,6 +488,7 @@ static void sd_fx_build(void) {
 }
 static void sd_fx_step(float dt) {
     sd_fx_censers(dt); sd_fx_particles(dt);
+    for (int k = 0; k < NPW; k++) if (FX.pw[k] > 0.0f && (FX.pw[k] -= dt) <= 0.0f) { FX.pw[k] = 0.0f; snd_sfx_ex(SFX_KEY, 0.5f, 0.5f); }
 #ifdef CRAWL_DEBUG
     static float tr;                                               /* CRAWL_SIDETRACE: how many, by kind, twice a second */
     if (getenv("CRAWL_SIDETRACE") && (tr += dt) >= 0.5f) {

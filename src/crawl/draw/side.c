@@ -330,6 +330,21 @@ static void sd_draw_fx(Frame *f, int camx, int camy) {
     }
 }
 
+/* ---- the powerups (placeholders till the owner's art): quickened hands a gold double arrow, might a red fist of flame, a ward a pale
+ * shield; on the caster while they last; their time left in the corner ---- */
+static void sd_draw_power(Frame *f, int kind, int cx, int cy, float k) {
+    static const char *const ICON[NPW][9] = {
+        { "..#...#..", "...#...#.", "....#...#", ".....#...", "....#...#", "...#...#.", "..#...#..", ".........", "........." },
+        { "...###...", "..#####..", ".###.###.", ".#######.", ".#######.", "..#####..", "...###...", "....#....", "........." },
+        { ".#######.", ".#.....#.", ".#.###.#.", ".#.###.#.", ".#..#..#.", "..#...#..", "...#.#...", "....#....", "........." } };
+    static const int RAMP[NPW] = { R_GOLD, R_FLAME, R_GHOST };
+    for (int r = -6; r <= 6; r++) for (int c = -6; c <= 6; c++) {   /* a ring of its colour about it */
+        int d2 = r * r + c * c;
+        if (d2 >= 30 && d2 <= 38 && ((r + c + (int)(SD.t * 8.0f)) & 1)) sd_px(f, cx + c, cy + r, (uint8_t)(RAMP[kind] + (int)(10.0f * k)), 31);
+    }
+    for (int r = 0; r < 9; r++) for (int c = 0; c < 9; c++)
+        if (ICON[kind][r][c] == '#') sd_px(f, cx - 4 + c, cy - 4 + r, (uint8_t)(RAMP[kind] + 13 + ((r + c) & 1) * 2), 31);
+}
 static void sd_render(Frame *f) {
     const SdLevel *L = SD.L;
     int camx = (int)floorf(SD.camx), camy = (int)floorf(SD.camy);
@@ -377,7 +392,20 @@ static void sd_render(Frame *f) {
             break;
         }
         case SDT_TORCH: sd_draw_tile(f, side_tile[ST_TORCH0 + (int)(SD.t * 9.0f + (float)i) % 3], sx, sy, 24, 0.0f, 0); break;
-        case SDT_SWITCH: sd_draw_tile(f, side_tile[SD.thrown[i] ? ST_SWITCH1 : ST_SWITCH0], sx, sy, 18, 1.0f, 0); break;
+        case SDT_SWITCH:
+            sd_draw_tile(f, side_tile[SD.thrown[i] ? ST_SWITCH1 : ST_SWITCH0], sx, sy, 18, 1.0f, 0);
+            if (t->f[0] > 0.0f) {                                  /* a timed one: its dial, a ring of marks going out as it runs */
+                float frac = SWT[i] > 0.0f ? SWT[i] / t->f[0] : 1.0f;
+                for (int a = 0; a < 16; a++) {
+                    float an = (float)a / 16.0f * TAU_F - PI_F * 0.5f;
+                    int lit = (float)a / 16.0f < frac;
+                    sd_px(f, sx + 8 + (int)lroundf(cosf(an) * 6.0f), sy - 4 + (int)lroundf(sinf(an) * 3.0f), lit ? (uint8_t)(SWT[i] > 0.0f ? R_FLAME + 12 : R_GOLD + 9) : (uint8_t)(R_STONE + 6), lit ? 31 : 16);
+                }
+            }
+            break;
+        case SDT_LEDGE:                                            /* off: its length marked faintly (on, the tiles draw it) */
+            if (!SD.st[i]) for (int k = 0; k < t->w * SD_TILE; k += 2) sd_px(f, sx + k, sy, (uint8_t)(R_WOOD + 9), 16);
+            break;
         default: break;
         }
     }
@@ -416,6 +444,12 @@ static void sd_render(Frame *f) {
     for (int i = 0; i < L->nth; i++) {
         const SdThing *t = &L->th[i];
         if (t->kind != SDT_FALL || SD.fall[i].state == 3) continue;
+        if (!SD.st[i]) {                                           /* off: only its outline, faint, where it will come */
+            int bx = t->x * SD_TILE - camx, by = t->y * SD_TILE - camy;
+            for (int k = 0; k < SD_TILE; k += 2) { sd_px(f, bx + k, by, (uint8_t)(R_STONE + 8), 16); sd_px(f, bx + k, by + SD_TILE - 1, (uint8_t)(R_STONE + 8), 16);
+                sd_px(f, bx, by + k, (uint8_t)(R_STONE + 8), 16); sd_px(f, bx + SD_TILE - 1, by + k, (uint8_t)(R_STONE + 8), 16); }
+            continue;
+        }
         const SdFall *fl = &SD.fall[i];
         int shake = fl->state == 1 ? ((int)(fl->t * 40.0f) & 1 ? 1 : -1) : 0;
         sd_draw_tile(f, side_tile[fl->state >= 1 ? ST_FALL_CRACK : ST_FALL], t->x * SD_TILE - camx + shake, t->y * SD_TILE - camy + (int)fl->dy, 17, 1.0f, 0);
@@ -444,6 +478,7 @@ static void sd_render(Frame *f) {
         switch (t->kind) {
         case SDT_KEY: sd_draw_tile(f, side_tile[ST_KEY0 + t->a], sx, sy, 24, 1.0f, 0); break;
         case SDT_LIFE: sd_draw_tile(f, side_tile[ST_LIFE], sx, sy - bob, 24, 1.0f, 0); break;
+        case SDT_POWER: sd_draw_power(f, t->a, sx + 8, sy + 8 - bob, 1.0f); break;
         case SDT_GOLD: {
             static const int SPR[] = { SP_COINS_A, SP_CHALICE, SP_GEMS, SP_CROWN, SP_CHEST };
             sd_draw_spr(f, SPR[clampi(t->a, 0, 4)], sx + 8, sy + 16, 0, 24, 0);   /* its foot on the tile's foot (it was drawn a tile low) */
@@ -503,6 +538,36 @@ static void sd_render(Frame *f) {
                 uint8_t c = fr[y * SF_W + (SD.face < 0 ? SF_W - 1 - x : x)];
                 if (c != C_CLEAR) sd_px(f, sx + x, sy + y, SD.pois_k > 0.0f && c != R_STONE && ((x + y) & 3) == 0 ? (uint8_t)(R_MOSS + 9) : c, light);
             }
+        for (int k = 0; k < NPW; k++) {                            /* a powerup on the caster: an edge of its colour, flickering; sparks at
+                                                                      the hand for quickened hands */
+            if (FX.pw[k] <= 0.0f) continue;
+            float left = FX.pw[k];
+            if (left < 2.0f && ((int)(SD.t * 10.0f) & 1)) continue; /* (running out: it blinks) */
+            static const int RAMP[NPW] = { R_GOLD, R_FLAME, R_GHOST };
+            for (int y = -1; y <= SF_H; y++) for (int x = -1; x <= SF_W; x++) {
+                int inside = x >= 0 && y >= 0 && x < SF_W && y < SF_H && fr[y * SF_W + (SD.face < 0 ? SF_W - 1 - x : x)] != C_CLEAR;
+                if (inside) continue;
+                int near = 0;
+                for (int d = 0; d < 4 && !near; d++) {
+                    int nx = x + (d == 0) - (d == 1), ny = y + (d == 2) - (d == 3);
+                    near = nx >= 0 && ny >= 0 && nx < SF_W && ny < SF_H && fr[ny * SF_W + (SD.face < 0 ? SF_W - 1 - nx : nx)] != C_CLEAR;
+                }
+                if (!near || (k == PW_RAPID) || ((x * 3 + y + (int)(SD.t * 12.0f)) % (k == PW_WARD ? 2 : 3)) == 0) continue;
+                sd_px(f, sx + x, sy + y, (uint8_t)(RAMP[k] + 10 + (int)(sd_hash(x, y, (int)(SD.t * 10.0f)) % 5)), 31);
+            }
+            if (k == PW_RAPID) for (int s = 0; s < 3; s++) {
+                float a = SD.t * 9.0f + (float)s * 2.1f;
+                sd_px(f, (int)floorf(SD.x) - camx + SD.face * 6 + (int)lroundf(cosf(a) * 3.0f), (int)floorf(SD.y - SD_HAND) - camy + (int)lroundf(sinf(a) * 3.0f), (uint8_t)(R_GOLD + 14), 31);
+            }
+        }
+    }
+    for (int k = 0, n = 0; k < NPW; k++) {                         /* their time left, top right: the icon and a bar running down */
+        if (FX.pw[k] <= 0.0f) continue;
+        int cx = W - 14 - n * 26, cy = 10;
+        sd_draw_power(f, k, cx, cy, 1.0f);
+        int bw = (int)(18.0f * FX.pw[k] / fmaxf(FX.pw_full[k], 0.1f));
+        for (int x = 0; x < 18; x++) f->pix[(cy + 9) * W + cx - 9 + x] = x < bw ? (uint8_t)(k == PW_RAPID ? R_GOLD + 13 : k == PW_MIGHT ? R_FLAME + 12 : R_GHOST + 13) : (uint8_t)(R_STONE + 4);
+        n++;
     }
     /* the lives, top left: a lamp each, the lost ones cold */
     for (int k = 0; k < SD_LIVES; k++) {

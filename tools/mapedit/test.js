@@ -226,6 +226,28 @@ DATA.hazards.fixed.flat().concat(DATA.hazards.arise.flat(), DATA.hazards.sapper)
     if (!C.check(DATA, cm).some(c => c.msg.includes('not in stone'))) fail("a side doorway on the floor was not refused");
     console.log(`side passages: ${DATA.sides.length} built in read and written back; a new one's export read back; the side doorway`);
 }
+/* 26 November: timed switches, ledges and falling blocks off at the start, powerups: the fixture read and written back; the reader
+ * refusing what the game would; a ledge off with nothing to lay it warned of */
+{
+    const SC = require('./side.js'), ids = DATA.kinds.map(k => k.id);
+    const txt = fs.readFileSync(path.join(__dirname, 'fixtures', 'side_works2.txt'), 'utf8'), r = SC.parse(txt, ids);
+    if (r.error) fail(`side_works2: line ${r.line}: ${r.error}`);
+    else {
+        if (SC.exportText(r.map) !== txt) fail('side_works2 does not read back letter for letter');
+        const cs = SC.check(r.map); if (cs.length) fail('side_works2: ' + cs[0].msg);
+        const sw = r.map.things.find(t => t.k === 'switch'), lg = r.map.things.find(t => t.k === 'ledge'), fl = r.map.things.find(t => t.k === 'fall');
+        if (!sw || sw.timer !== 8) fail("side_works2: the lever's timer was not read");
+        if (!lg || lg.w !== 6 || !lg.stopped || !fl || !fl.stopped) fail('side_works2: the ledge or the block was not read as off');
+        if (r.map.things.filter(t => t.k === 'power').map(t => t.kind + t.secs).join() !== 'RAPID10,MIGHT12,WARD8') fail('side_works2: the powerups were not read');
+        const lone = Object.assign({}, r.map, { trigs: [] });
+        if (!SC.check(lone).some(c => /never there/.test(c.msg))) fail('a ledge off with no trigger should be warned of');
+    }
+    const head = 'SIDE 1\nNAME "X"\nSIZE 20 10\n' + Array.from({ length: 10 }, (_, y) => `ROW "${(y === 0 || y === 9 ? '#' : '#' + ','.repeat(18) + '#').padEnd(20, '#')}"`).join('\n') + '\nDOOR 1 8 0\n';
+    [['POWER 4 8 HASTE', /RAPID, MIGHT or WARD/], ['POWER 4 8 WARD 200', /120 seconds/], ['LEDGE 15 4 9', /off the map/], ['SWITCH 4 8 -1 TIMER 500', /0 to 120/]].forEach(([l, re]) => {
+        const q = SC.parse(head + l + '\n', ids); if (!q.error || !re.test(q.error)) fail(`"${l}" should be refused: ${q.error || 'it was read'}`);
+    });
+    console.log('side passages: timed switches, ledges and blocks off at the start, powerups');
+}
 /* run I's traps in a passage (docs/PLAN-side.md, 2e): the fixture read and written back; every emitter option; the censer's clearance;
  * the PREVIEW's run: wax settling, the bowl swinging, the haze kept to its reach */
 {

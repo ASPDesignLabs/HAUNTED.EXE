@@ -98,6 +98,7 @@ static void sd_act(int target, int verb, int arg, int back) {
         int k = SD.L->th[target].kind;
         if (k == SDT_GATE) snd_sfx_ex(SFX_CREAK, 0.7f, 0.5f);
         else if (k == SDT_CURRENT || k == SDT_FLOW) snd_sfx_ex(SFX_SPLASH, now ? 0.7f : 0.4f, 0.5f);
+        else if (k == SDT_LEDGE || k == SDT_FALL) snd_sfx_ex(now ? SFX_KNOCK : SFX_CREAK, 0.6f, 0.5f);
         else if (k == SDT_HAZ && !now && SD.hz_ph[SD.L->th[target].a] == 3) SD.hz_ph[SD.L->th[target].a] = 4;   /* a spread drains */
         else if (k == SDT_HAZ && now) SD.hz_t[SD.L->th[target].a] = 0.0f;   /* a trap woken goes off at once if nothing else sets it off */
 #ifdef CRAWL_DEBUG
@@ -106,9 +107,43 @@ static void sd_act(int target, int verb, int arg, int back) {
 #endif
     }
 }
+/* ---- a switch on a timer (the owner, 26 November): thrown, it goes back by itself; while it runs, a metronome that quickens toward
+ * the end, the beat struck each time and two chords, a minor and the one a half step over it, taking turns and climbing ---- */
+static float SWT[SD_THINGS], SWB[SD_THINGS]; static int SWN[SD_THINGS];
+static void sd_switch_timer(int i, float secs) { SWT[i] = secs; SWB[i] = 0.0f; SWN[i] = 0; }
+static void sd_switches(float dt) {
+    const SdLevel *L = SD.L;
+    for (int i = 0; i < L->nth; i++) {
+        if (SWT[i] <= 0.0f) continue;
+        const SdThing *t = &L->th[i];
+        float total = fmaxf(t->f[0], 0.1f), frac = clampf(SWT[i] / total, 0.0f, 1.0f), urg = 1.0f - frac;
+        float pan = 0.5f + clampf(((float)(t->x * SD_TILE) + 8.0f - SD.x) / 320.0f, -0.4f, 0.4f);
+        if ((SWT[i] -= dt) <= 0.0f) {                              /* run out: it falls back */
+            SWT[i] = 0.0f; SD.thrown[i] = 0; SDP.thrown[SD.side][i] = 0;
+            snd_sfx_ex(SFX_KNOCK, 0.9f, pan); snd_tone(0, 45, 0.5f, pan);
+#ifdef CRAWL_DEBUG
+            fprintf(stderr, "EVENT side_switch %d back, its time out t=%.2f\n", i, SD.t);
+#endif
+            continue;
+        }
+        if ((SWB[i] -= dt) > 0.0f) continue;
+        SWB[i] += 0.12f + 0.53f * frac;                            /* a beat: two thirds of a second at first, an eighth at the end */
+        int n = SWN[i]++, up = (int)(urg * 7.0f);                  /* the chords climb a half step at a time */
+        snd_sfx_pitch(SFX_TICK, 0.55f + 0.35f * urg, pan, 1.0f + 0.6f * urg);
+#ifdef CRAWL_DEBUG
+        if (getenv("CRAWL_SIDEMETRO")) fprintf(stderr, "METRO %d beat %d%s up %d t=%.2f\n", i, n, n % 2 == 0 ? ((n / 2) & 1 ? " chord B" : " chord A") : "", up, SD.t);
+#endif
+        if (n % 2 == 0) {
+            static const int CA[3] = { 57, 60, 64 }, CB[3] = { 58, 62, 65 };   /* A minor, B flat over it */
+            const int *ch = ((n / 2) & 1) ? CB : CA;
+            for (int k = 0; k < 3; k++) snd_tone(0, ch[k] + up, 0.16f + 0.14f * urg, pan);
+        }
+    }
+}
 static void sd_trig_do(const SdTrig *g, int back) { for (int a = 0; a < g->nact; a++) sd_act(g->target[a], g->verb[a], g->arg[a], back); }
 static void sd_trigs(float dt) {
     const SdLevel *L = SD.L;
+    sd_switches(dt);
     for (int k = 0; k < L->ntr; k++) {
         const SdTrig *g = &L->tr[k];
         int p = sd_pressed(g->src), rose = p && !SD.tr_was[k];
@@ -289,5 +324,8 @@ static void sd_works_build(void) {
         if (t->kind == SDT_HAZ) { const SdHaz *z = &L->hz[t->a]; SD.hz_t[t->a] = (z->how & HH_CLOCK) ? z->first : 0.0f; }
         SD.ix[i] = (float)(t->x * SD_TILE) + 8.0f; SD.iy[i] = (float)((t->y + 1) * SD_TILE) - 5.0f; SD.ivx[i] = SD.ivy[i] = 0.0f;
     }
+    memset(SDLG, 0, sizeof SDLG); memset(SWT, 0, sizeof SWT);       /* the ledges things lay, and no switch's timer running */
+    for (int i = 0; i < L->nth; i++)
+        if (L->th[i].kind == SDT_LEDGE) for (int k = 0; k < L->th[i].w; k++) if (L->th[i].x + k < SD_W && L->th[i].y < SD_H) SDLG[L->th[i].y][L->th[i].x + k] = (uint8_t)(i + 1);
     sd_fx_build();
 }
