@@ -1476,7 +1476,8 @@ $('bPlay').addEventListener('click', () => {
   }
   if (S.map.things.some(t => t.t === 'relic' && t.look) && !PLAY_RELOOK) {
     ask('Play it with the bone key?', 'The game inside the editor cannot draw the relics\' twelve looks yet: their side is being built (docs/PLAN-events.md, 2d). This play draws every relic as the bone key; your choices stay in the map.', 'PLAY WITH THE BONE KEY',
-      () => { const m = JSON.parse(JSON.stringify(S.map)); m.things.forEach(t => { if (t.t === 'relic') delete t.look; }); playOpen(C.exportDrawn(DATA, m, m.slot || 3).text); }, 'KEEP EDITING');
+      () => { const m = JSON.parse(JSON.stringify(S.map)); m.things.forEach(t => { if (t.t === 'relic') delete t.look; }); const text = C.exportDrawn(DATA, m, m.slot || 3).text;
+        SideUI.sidesFor(S.map).then(sides => playOpen(text, sides.length ? { sides } : null)); }, 'KEEP EDITING');   /* with its side passages, as below */
     return;
   }
   if ((S.map.lights || []).length && !PLAY_LIGHTS) {
