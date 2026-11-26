@@ -22,6 +22,7 @@ static struct {
     DrawnHaz haz[MAXSITE]; int nhaz;
     DrawnCell hzcell[DH_CELLS]; int nhzcell;
     DrawnLight light[DXT_LIGHTS]; int nlight;
+    int relook[DXT_RELICS]; int nrelook;                            /* the relics' looks (docs/PLAN-events.md, 2d) */
     char pool[DXT_POOL]; int npool;                                 /* the strings: relics' names, lines */
 } DXT;
 
@@ -53,6 +54,8 @@ static const struct { const char *n; int v; } DXT_NAMES[] = {
     DXN(IT_COINS), DXN(IT_CHALICE), DXN(IT_GEMS), DXN(IT_CROWN), DXN(IT_CHEST),
     DXN(EL_FIRE), DXN(EL_FROST), DXN(EL_LIGHT), DXN(EL_POISON), DXN(EL_SPIRIT), DXN(EL_PHYS),
     DXN(SFX_DEEPCHIME), DXN(SFX_SHIMMER), DXN(SFX_KNOCK), DXN(SFX_KEYGET), DXN(SFX_BONES), DXN(SFX_WAIL),
+    DXN(RL_BONEKEY), DXN(RL_FINGER), DXN(RL_HEART), DXN(RL_SKULL), DXN(RL_ROSARY), DXN(RL_AMPULLA),   /* the relics' looks (2d) */
+    DXN(RL_NAIL), DXN(RL_HILT), DXN(RL_SEAL), DXN(RL_PSALTER), DXN(RL_MASK), DXN(RL_EYE),
 };
 
 /* the text in tokens: names, numbers (1, -1, 0.50f, 0x7D1A0003u), strings, and single marks; comments and # lines passed over */
@@ -272,6 +275,20 @@ static void dxt_part(Xp *P, const char *part) {                    /* DRAWNn_PAR
     for (Xt t = dxt_next(P); !(t.t == XT_MARK && t.c == ']'); t = dxt_next(P))
         if (t.t == XT_END) { dxt_fail(P, "a '[' that never closes", NULL); return; }
     if (!dxt_mark(P, '=') || !dxt_mark(P, '{')) return;
+    if (!strcmp(name, "RELOOK")) {                                 /* the relics' looks: names (RL_*), one a relic, not groups */
+        for (;;) {
+            Xt t = dxt_peek(P);
+            if (t.t == XT_MARK && t.c == '}') { dxt_next(P); return; }
+            Xv e = dxt_value(P);
+            if (P->bad) return;
+            if (e.k != XV_NUM || e.v != (double)(int)e.v || e.v < 0.0 || e.v >= (double)NRL) { dxt_fail(P, "a relic's look this game does not have (RL_BONEKEY ... RL_EYE)", NULL); return; }
+            if (DXT.nrelook >= DXT_RELICS) { dxt_fail(P, "more relics' looks than the game holds", NULL); return; }
+            DXT.relook[DXT.nrelook++] = (int)e.v;
+            t = dxt_next(P);
+            if (t.t == XT_MARK && t.c == '}') return;
+            if (!(t.t == XT_MARK && t.c == ',')) { dxt_fail(P, "expected ',' or '}' in", name); return; }
+        }
+    }
     for (;;) {
         Xt t = dxt_next(P);
         if (t.t == XT_MARK && t.c == '}') return;
@@ -341,7 +358,8 @@ int crawl_drawn_text(const char *text, char *err, int nerr) {
     if (DXT.nhaz) { g_dtext.haz = DXT.haz; g_dtext.nhaz = DXT.nhaz; }
     if (DXT.nhzcell) { g_dtext.hzcell = DXT.hzcell; g_dtext.nhzcell = DXT.nhzcell; }
     if (nrow > 27) {                                               /* the row's hazards, as many as were read */
-        if (nrow != 31 && nrow != 33) BAD(nrow > 31 ? "the row's lights are not two values (the lights, how many)" : "the row's hazards are not four values (the hazards, how many, their cells, how many)");
+        if (nrow != 31 && nrow != 33 && nrow != 34) BAD(nrow > 34 ? "the row has more values than this game reads: it ends with the relics' looks"
+                                                       : nrow > 31 ? "the row's lights are not two values (the lights, how many)" : "the row's hazards are not four values (the hazards, how many, their cells, how many)");
         if ((v[27].k != XV_PART && v[27].k != XV_NULL) || (v[29].k != XV_PART && v[29].k != XV_NULL)) BAD("the row's hazards are not named parts");
         if (XI(28) != DXT.nhaz || XI(30) != DXT.nhzcell) BAD("the row's count of hazards or of their cells is not what was read");
         if (P->bad) return 1;
@@ -353,6 +371,13 @@ int crawl_drawn_text(const char *text, char *err, int nerr) {
         if (P->bad) return 1;
     } else if (DXT.nlight) BAD("lights (DRAWNn_LIGHT) the row does not name: it ends with them, after the hazards");
     if (DXT.nlight) { g_dtext.light = DXT.light; g_dtext.nlight = DXT.nlight; }
+    if (nrow > 33) {                                               /* the relics' looks, after the lights (docs/PLAN-events.md, 2d) */
+        if (v[33].k != XV_PART && v[33].k != XV_NULL) BAD("the row's relics' looks are not a named part");
+        if (v[33].k == XV_NULL && DXT.nrelook) BAD("relics' looks (DRAWNn_RELOOK) that the row gives as NULL");
+        if (v[33].k == XV_PART && !DXT.nrelook) BAD("the row names relics' looks (DRAWNn_RELOOK) that are not there");
+    } else if (DXT.nrelook) BAD("relics' looks (DRAWNn_RELOOK) the row does not name: it ends with them, after the lights");
+    if (DXT.nrelook && DXT.nrelook != DXT.nrelic) BAD("the relics' looks are not one for each relic (DRAWNn_RELIC)");
+    if (DXT.nrelook) g_dtext.relook = DXT.relook;
     /* what the compiled drawings are trusted with, checked: every index in range */
     for (int i = 0; i < DXT.nroom; i++) { const DrawnRoom *r = &DXT.room[i];
         if (r->x < 0 || r->y < 0 || r->w < 1 || r->h < 1 || r->x + r->w > w || r->y + r->h > h || r->rtype < 0 || r->rtype >= NRT) BAD("a room outside the map, or of no type"); }
@@ -471,6 +496,7 @@ int crawl_drawn_same(int n, char *why, int nwhy) {
     if (a->nhaz != b->nhaz || (a->nhaz && memcmp(a->haz, b->haz, sizeof *a->haz * (size_t)a->nhaz))) DIFF("the hazards");
     if (a->nhzcell != b->nhzcell || (a->nhzcell && memcmp(a->hzcell, b->hzcell, sizeof *a->hzcell * (size_t)a->nhzcell))) DIFF("the hazards' cells");
     if (a->nlight != b->nlight || (a->nlight && memcmp(a->light, b->light, sizeof *a->light * (size_t)a->nlight))) DIFF("the lights");
+    if (!a->relook != !b->relook || (a->relook && memcmp(a->relook, b->relook, sizeof *a->relook * (size_t)a->nrelic))) DIFF("the relics' looks");
     #undef DIFF
     why[0] = 0;
     return 0;

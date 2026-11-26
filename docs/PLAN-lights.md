@@ -243,3 +243,6 @@ looks and 1.92 to 1.95 without (the debug build).
 
 *Left:* the owner's look at the dapple's sheet and at the four lights and the things in play, and their hand on all of it; the light
 powers and the red; twelve relic looks (PLAN-events); the browser's and Windows builds compiled by CI.
+
+**The owner on the dapple and the lights (25 November 2026):** "Looks good!" The cage lantern's dappled light, the new lights' powers and
+the sanctuary lamp's red tinge stand as built. Still harness only: on main (a76f4d2), not released, not played by hand.

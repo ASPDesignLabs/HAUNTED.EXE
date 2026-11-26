@@ -873,6 +873,7 @@ function paneThing(t) {
       <p class="note">A creature chosen here comes whenever its chance falls, budget or not. The budget's choice comes only while the level's budget can pay for it (at rank I).</p>`;
   }
   if (t.t === 'relic') h += `<div class="field"><label for="tN">Name</label><input type="text" id="tN" value="${esc(t.name || '')}"></div>
+    <div class="field"><label for="tLk">Look</label><select id="tLk">${C.RELIC_LOOKS.map(([k, n]) => opt(k, n, t.look || 'RL_BONEKEY')).join('')}</select></div>
     <p class="note">Something to carry, one at a time. Its name is what the game calls it ("A BONE KEY"). Bind it to a socket to say where it goes.</p>`;
   if (t.t === 'socket') { const rel = S.map.things.filter(x => x.t === 'relic');
     h += `<div class="field"><label for="tN">Name</label><input type="text" id="tN" value="${esc(t.name || '')}"></div>
@@ -1058,6 +1059,7 @@ function wirePane() {
     on('tX', 'change', e => change(() => { o.x = Math.max(0.125, Math.min(N - 0.125, +e.target.value)); }));
     on('tY', 'change', e => change(() => { o.y = Math.max(0.125, Math.min(N - 0.125, +e.target.value)); }));
     on('tK', 'change', e => change(() => { o.k = o.t === 'key' || o.t === 'mark' ? +e.target.value : e.target.value; }));
+    on('tLk', 'change', e => change(() => { if (e.target.value === 'RL_BONEKEY') delete o.look; else o.look = e.target.value; }));
     on('tToSpawn', 'click', () => change(() => { o.t = 'spawn'; o.chance = 100; }));
     on('tToDead', 'click', () => change(() => { o.t = 'dead'; ['chance', 'rank', 'echance', 'el', 'wake', 'spotTag'].forEach(k => delete o[k]); }));
     on('tCh', 'input', e => { $('tChV').textContent = e.target.value + '%'; });
@@ -1459,6 +1461,7 @@ document.addEventListener('click', e => { const d = $('layersBox'); if (d.open &
 /* ---------- PLAY: the game's browser build in play/, over the editor, given this level as its export (docs/PLAN-mapedit.md, part 3).
    The game reads the same text EXPORT C gives, and a new run there begins on this level. ---------- */
 let playText = null;
+const PLAY_RELOOK = true;                                /* the game in play/ draws the relics' looks (docs/PLAN-events.md, 2d): true once it does */
 const PLAY_LIGHTS = true;                                /* the game in play/ reads lights (docs/PLAN-lights.md): true once it does */
 const PLAY_HAZARDS = true;                               /* the game in play/ lays hazards (docs/PLAN-events.md, 2c): true once it does */
 const sameOrigin = () => (location.origin && location.origin !== 'null' ? location.origin : '*');
@@ -1469,6 +1472,12 @@ $('bPlay').addEventListener('click', () => {
   if (errs.length) {
     ask('Mend it first?', `${errs.length} check${errs.length > 1 ? 's are errors' : ' is an error'}, and the game would refuse the level or lay it wrong. The first: ${errs[0].msg}`, 'SHOW THE CHECKS',
       () => { const t = document.querySelector('[data-tab="checks"]'); if (t) t.click(); }, 'KEEP EDITING');
+    return;
+  }
+  if (S.map.things.some(t => t.t === 'relic' && t.look) && !PLAY_RELOOK) {
+    ask('Play it with the bone key?', 'The game inside the editor cannot draw the relics\' twelve looks yet: their side is being built (docs/PLAN-events.md, 2d). This play draws every relic as the bone key; your choices stay in the map.', 'PLAY WITH THE BONE KEY',
+      () => { const m = JSON.parse(JSON.stringify(S.map)); m.things.forEach(t => { if (t.t === 'relic') delete t.look; }); const text = C.exportDrawn(DATA, m, m.slot || 3).text;
+        SideUI.sidesFor(S.map).then(sides => playOpen(text, sides.length ? { sides } : null)); }, 'KEEP EDITING');   /* with its side passages, as below */
     return;
   }
   if ((S.map.lights || []).length && !PLAY_LIGHTS) {

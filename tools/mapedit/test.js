@@ -175,6 +175,19 @@ DATA.hazards.fixed.flat().concat(DATA.hazards.arise.flat(), DATA.hazards.sapper)
     const ed = C.LIGHT_STYLES.map(s => s[0]);
     if (ed.length !== DATA.lights.length || DATA.lights.some(k => !ed.includes(k))) fail(`the light styles differ: the game's ${DATA.lights.join(' ')}`);
 }
+/* the relics' looks (docs/PLAN-events.md, 2d): none written while every relic is the bone key; else an array in _RELIC's order, after the
+ * lights' place; and the game's order, once it has one (extract.py's relics) */
+{
+    const m = C.sampleEvents();
+    if (C.exportDrawn(DATA, m, 3).text.includes('RELOOK')) fail('the bone key alone should write no looks');
+    const relic = m.things.find(t => t.t === 'relic'); relic.look = 'RL_SKULL';
+    m.things.push(Object.assign({}, relic, { id: m.next++, name: 'A seal', look: 'RL_SEAL', x: relic.x + 1 }));
+    const x = C.exportDrawn(DATA, m, 3).text;
+    ['static const int DRAWN3_RELOOK[] = { RL_SKULL, RL_SEAL };', 'NULL, 0, NULL, 0, NULL, 0, DRAWN3_RELOOK }'].forEach(k => { if (!x.includes(k)) fail('the relics\' looks export lacks ' + k); });
+    if (DATA.relics && DATA.relics.join() !== C.RELIC_LOOKS.map(r => r[0]).join()) fail(`the relics' looks differ from the game's: ${DATA.relics.join(' ')}`);
+    fs.writeFileSync(path.join(__dirname, 'fixtures', 'relics.c'), x);
+    console.log(`relics' looks: ${C.RELIC_LOOKS.length}; the sample with a crowned skull and a seal written; the game's order ${DATA.relics ? 'checked' : 'not yet in the game'}`);
+}
 /* every room type the game has is in one group of the editor's list, by run or any run's */
 {
     const grouped = C.ROOM_RUNS.flat().concat(C.ROOM_ANY);

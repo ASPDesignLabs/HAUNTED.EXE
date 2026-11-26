@@ -47,6 +47,10 @@ enum { HH_CLOCK = 1, HH_ENTER = 2 };
 typedef struct { int kind, ax, ay, cell, ncell, zone, how; float every, give, first; int x0, y0, x1, y1, on, harm, chance, kills;
                  float warn; } DrawnHaz;
 typedef struct { int x, y; } DrawnCell;
+/* The relics' looks (section 2d): a look for each relic, in _RELIC's order; none (NULL), each the bone key. The art draws each lying,
+ * held in its socket and cut unlit in a socket bound to it (SP_RL1 ..., lights_events.c, in this order) */
+enum { RL_BONEKEY, RL_FINGER, RL_HEART, RL_SKULL, RL_ROSARY, RL_AMPULLA, RL_NAIL, RL_HILT, RL_SEAL, RL_PSALTER, RL_MASK, RL_EYE, NRL };
+_Static_assert(NRL == NRLOOK, "the relics' looks: crawl.h's NRLOOK and the art's order are these");
 typedef struct {
     const char *const *map; int w, h, ox, oy, face;                 /* face: the heading at the start, as G.h */
     const DrawnRoom *room; int nroom, vault[NKEYS];                /* vault: the room each colour's doors keep, -1 none */
@@ -64,6 +68,7 @@ typedef struct {
     const DrawnCell *hzcell; int nhzcell;
     const DrawnLight *light; int nlight;                           /* its lights (docs/PLAN-lights.md; DrawnLight in generate.c): any, and
                                                                       none of the generator's light props */
+    const int *relook;                                             /* each relic's look (RL_*), as many as nrelic; NULL: the bone key */
 } Drawn;
 /* What a drawn level's events hold while it is played (events.c runs them); laid with the level, never saved */
 #define EV_THINGS 256                       /* a drawing's things, for where this play lays each */
@@ -845,6 +850,17 @@ static void drawn_marks(void) {                                    /* level 2's 
 #endif
 }
 static int thing_new(int role, float x, float y, int spr);         /* things.c */
+/* the relics' looks (section 2d): a relic's, by its number in _RELIC; and each look's sprites, lying, held in its socket and cut unlit in a
+ * socket bound to it. The bone key's are the events' things' own (SP_EV_RELIC, SP_EV_SOCKET1, SP_EV_SOCKET0) */
+static int relic_look(const Drawn *D, int relic) {
+    int k = D->relook && relic >= 0 && relic < D->nrelic ? D->relook[relic] : RL_BONEKEY;
+    return k > RL_BONEKEY && k < NRL ? k : RL_BONEKEY;
+}
+static int rl_lying(int k) { return k > RL_BONEKEY ? SP_RL1 + k - 1 : SP_EV_RELIC; }
+static int rl_held(int k) { return k > RL_BONEKEY ? SP_RLH1 + k - 1 : SP_EV_SOCKET1; }
+static int rl_bound(int k) { return k > RL_BONEKEY ? SP_RLB1 + k - 1 : SP_EV_SOCKET0; }
+static int rl_of(int spr) { return spr >= SP_RL1 && spr <= SP_RL11 ? spr - SP_RL1 + 1 : RL_BONEKEY; }   /* a relic's look, from its sprite */
+static int ev_socket(int spr) { return spr == SP_EV_SOCKET0 || (spr >= SP_RLB1 && spr <= SP_RLB11); }   /* an event's socket, empty */
 /* the events' things (docs/PLAN-events.md), after the puzzles' are cleared: relics carried as a puzzle's things are, the sockets
  * that take them, levers and plates; each in its own look, the owner's (media/sheets/events/event_things.png: the socket holding is
  * drawn as it holds, the plate as a mark on the floor, draw/sprites.c and floor.c). The compass is an item (drawn_items); a spot is nothing */
@@ -856,11 +872,11 @@ static void drawn_events(void) {
         int k = -1;
         switch (t->what) {
         case DT_RELIC:
-            k = thing_new(TR_ITEM, x, y, SP_EV_RELIC);
+            k = thing_new(TR_ITEM, x, y, rl_lying(relic_look(D, t->kind)));   /* in its look */
             if (k >= 0) { snprintf(G.thing[k].name, sizeof G.thing[k].name, "%s", t->kind >= 0 && t->kind < D->nrelic && D->relic[t->kind] ? D->relic[t->kind] : "A RELIC"); G.thing[k].val = t->kind; }
             break;
         case DT_SOCKET:
-            k = thing_new(TR_PLACE, x, y, SP_EV_SOCKET0);
+            k = thing_new(TR_PLACE, x, y, rl_bound(relic_look(D, t->kind)));   /* bound to one: its shape cut; any: the bone key's */
             if (k >= 0) { snprintf(G.thing[k].name, sizeof G.thing[k].name, "A PLINTH"); G.thing[k].hold = 0.18f; G.thing[k].want = t->kind; }
             break;
         case DT_LEVER:

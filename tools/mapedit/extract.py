@@ -84,5 +84,8 @@ tune_src = read(src + "game/side_text.c")
 tune = [{"name": a, "def": float(b), "lo": float(c), "hi": float(d), "step": float(e), "what": f} for a, b, c, d, e, f in
         re.findall(r'\{ "(\w+)", ([\d.]+)f, ([\d.]+)f, ([\d.]+)f, ([\d.]+)f, "([^"]*)" \}', tune_src[tune_src.index("TUNE[NTU]"):])]
 if len(tune) < 30: sys.exit("the tuning table was not read")
-json.dump({"drawn": drawn, "sides": sides, "tune": tune, "elems": elems, "hazards": hazards, "lights": dl, "stamps": stamps, "kinds": kinds, "budget": runb, "items": dict(zip(items, vals)), "rooms": rts,
+# the relics' looks in the game's order (docs/PLAN-events.md, 2d), once the game has them
+_rl = re.search(r"enum \{ (RL_BONEKEY.*?)NRL \}", read(src + "game/drawn.c"), re.S)
+relics = [t.strip() for t in _rl.group(1).split(",") if t.strip()] if _rl else None
+json.dump({"drawn": drawn, "relics": relics, "sides": sides, "tune": tune, "elems": elems, "hazards": hazards, "lights": dl, "stamps": stamps, "kinds": kinds, "budget": runb, "items": dict(zip(items, vals)), "rooms": rts,
            "mapn": int(re.search(r"#define MAPN (\d+)", defs).group(1))}, sys.stdout, indent=None, separators=(",", ":"))

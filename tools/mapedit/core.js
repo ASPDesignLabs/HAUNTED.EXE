@@ -266,8 +266,10 @@ function exportDrawn(DATA, m, n) {
         for (let i = 0; i < ll.length; i += 6) out.push('    ' + ll.slice(i, i + 6).join(', ') + ',');
         out.push('};');
     }
+    const looks = relicList.map(r => r.look || 'RL_BONEKEY'), relook = looks.some(l => l !== 'RL_BONEKEY');
+    if (relook) out.push(`/* the relics' looks (docs/PLAN-events.md, 2d), in ${P}_RELIC's order */`, `static const int ${P}_RELOOK[] = { ${looks.join(', ')} };`);
     const evTail = trigs.length || tor.length || relicList.length || pk.length || fl.length || tags.length || hzs.length || lts.length
-        ? `, ${tor.length ? P + '_TORCH' : 'NULL'}, ${tor.length}, ${trigs.length ? P + '_TRIG' : 'NULL'}, ${trigs.length}, ${trigs.length ? P + '_ACT' : 'NULL'}, ${trigs.length ? Math.max(1, acts.length) : 0}, ${relicList.length ? P + '_RELIC' : 'NULL'}, ${relicList.length}, ${pk.length ? P + '_PICK' : 'NULL'}, ${pk.length}, ${fl.length ? P + '_FIELD' : 'NULL'}, ${fl.length}${hzs.length || lts.length ? (hzs.length ? `, ${P}_HAZ, ${hzs.length}, ${P}_HZCELL, ${Math.max(1, hzCells.length)}` : ', NULL, 0, NULL, 0') : ''}${lts.length ? `, ${P}_LIGHT, ${lts.length}` : ''}` : '';
+        ? `, ${tor.length ? P + '_TORCH' : 'NULL'}, ${tor.length}, ${trigs.length ? P + '_TRIG' : 'NULL'}, ${trigs.length}, ${trigs.length ? P + '_ACT' : 'NULL'}, ${trigs.length ? Math.max(1, acts.length) : 0}, ${relicList.length ? P + '_RELIC' : 'NULL'}, ${relicList.length}, ${pk.length ? P + '_PICK' : 'NULL'}, ${pk.length}, ${fl.length ? P + '_FIELD' : 'NULL'}, ${fl.length}${hzs.length || lts.length || relook ? (hzs.length ? `, ${P}_HAZ, ${hzs.length}, ${P}_HZCELL, ${Math.max(1, hzCells.length)}` : ', NULL, 0, NULL, 0') : ''}${lts.length ? `, ${P}_LIGHT, ${lts.length}` : relook ? ', NULL, 0' : ''}${relook ? `, ${P}_RELOOK` : ''}` : '';
     out.push(`/* its row in DRAWN[] */`);
     out.push(`    { ${P}_MAP, ${b.w}, ${b.h}, ${b.x0}, ${b.y0}, ${m.face}, ${P}_ROOM, (int)(sizeof ${P}_ROOM / sizeof ${P}_ROOM[0]), { ${vault.join(', ')} },`);
     out.push(`      ${P}_THING, (int)(sizeof ${P}_THING / sizeof ${P}_THING[0]), ${seed}u, ${m.level}, ${spawns.length ? P + '_SPAWN' : 'NULL'}, ${spawns.length ? `(int)(sizeof ${P}_SPAWN / sizeof ${P}_SPAWN[0])` : 0}${evTail} },`);
@@ -353,6 +355,10 @@ const LIGHT_STYLES = [
     ['DL_CRYSTALS', 'Crystals', 0, 'A cluster of crystals, a steady glow: the Deep.'],
     ['DL_MAGMA', 'Magma', 0, 'Magma welling in the floor: the Deep.'],
 ];
+/* the relics' looks (docs/PLAN-events.md, 2d): the twelve of the approved sheet, in the game's order (RL_*) */
+const RELIC_LOOKS = [['RL_BONEKEY', 'The bone key'], ['RL_FINGER', 'The saint\'s finger'], ['RL_HEART', 'The heart'], ['RL_SKULL', 'The crowned skull'],
+    ['RL_ROSARY', 'The rosary'], ['RL_AMPULLA', 'The ampulla'], ['RL_NAIL', 'The nail'], ['RL_HILT', 'The broken hilt'], ['RL_SEAL', 'The abbot\'s seal'],
+    ['RL_PSALTER', 'The psalter'], ['RL_MASK', 'The mask'], ['RL_EYE', 'The weeping eye']];
 const HZ_DEF = { zone: false, clock: true, enter: false, every: 8, give: 2, first: 3, on: true, harm: -1, chance: -1, warn: -1, kills: false };
 /* the level's run's hazards: fixed (sites), its sapper, and those that arise */
 function hazardsOf(DATA, level) {
@@ -1152,7 +1158,7 @@ function sampleEvents() {
     return m;
 }
 
-const API = { LIGHT_STYLES, rolls, rollCreatures, rollGold, typeWeights, HAZ_INFO, EL_COL, HZ_DEF, hazardsOf, hzRunOf, hzName, ROOM_RUNS, ROOM_ANY, fieldLive, spotTags, pickOptions, fields, fieldByName, FIELD_DEF, canWatch, TRIG_TYPES, UNDO, roomSpot, picks, layouts, dreamAll, TRIGGERS, ACTIONS, SOUNDS, SOUND_NAMES, torchGroups, wakeGroups, torchLit, sampleEvents, N, DIRS, DOORS, WALLS, LANE_OF, BASE_OF, RUNS, RANKS, ELEM_FAV, GOLD_KINDS, KEY_NAMES, MARK_NAMES, MAX, idx, inMap, isOpen,
+const API = { RELIC_LOOKS, LIGHT_STYLES, rolls, rollCreatures, rollGold, typeWeights, HAZ_INFO, EL_COL, HZ_DEF, hazardsOf, hzRunOf, hzName, ROOM_RUNS, ROOM_ANY, fieldLive, spotTags, pickOptions, fields, fieldByName, FIELD_DEF, canWatch, TRIG_TYPES, UNDO, roomSpot, picks, layouts, dreamAll, TRIGGERS, ACTIONS, SOUNDS, SOUND_NAMES, torchGroups, wakeGroups, torchLit, sampleEvents, N, DIRS, DOORS, WALLS, LANE_OF, BASE_OF, RUNS, RANKS, ELEM_FAV, GOLD_KINDS, KEY_NAMES, MARK_NAMES, MAX, idx, inMap, isOpen,
               blank, clone, xformRows, stampRows, stampDef, compose, laneAt, lanes, importDrawn, exportDrawn, bounds, frontOf, dream,
               levelInfo, rankCost, budget, elemDefault, check, label, thingCell };
 if (typeof module !== 'undefined' && module.exports) module.exports = API; else root.MapCore = API;

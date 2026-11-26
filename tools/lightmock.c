@@ -5,6 +5,10 @@
  *
  *   build/lightmock lights media/sheets/lights/hanging_lights.png
  *   build/lightmock things media/sheets/events/event_things.png
+ *   build/lightmock relics media/sheets/events/relics.png
+ *
+ * The twelve relics' looks were approved too, and are the art's in the same way (lights_events.c: relic_draw, RELIC_CUT, SP_RL1 ...
+ * SP_RLB11); their sheet is drawn from those slots, byte for byte as approved.
  */
 #include "crawl_art.c"
 #include <stdio.h>
@@ -27,6 +31,14 @@ static void today_plate(uint8_t *t, const uint8_t *floor, int pressed) {
             else if (pressed) { int ramp = (c - 1) / 16 * 16 + 1; c = (uint8_t)(ramp + clampi((int)((float)(c - ramp) * 0.65f), 1, 15)); }
             t[x * TS + y] = c;
         }
+}
+
+/* a relic's look from the game's slots (2d): lying, and held in its socket. The bone key's are the events' things' own, but for one
+ * cell: the sheet drew the key held as it drew the other eleven (spr_socket_k: the panel filled again, the relic outlined over the
+ * hands), 76 pixels from the game's SP_EV_SOCKET1, which stays as it was; so that cell is drawn by the art's own hand, not its slot */
+static void relic_from(uint8_t *out, int k, int held) {
+    if (held && k == RL_BONEKEY) { spr_socket_k(out, RL_BONEKEY); return; }
+    memcpy(out, crawl_spr[held ? (k ? SP_RLH1 + k - 1 : SP_EV_SOCKET1) : (k ? SP_RL1 + k - 1 : SP_EV_RELIC)], TS * TS);
 }
 
 /* ================================================================== */
@@ -330,11 +342,78 @@ static int sheet_things(const char *path) {
     return 0;
 }
 
+/* ---- sheet 3: the twelve relics ---- */
+#define RLAB 200
+#define RV 128
+static int sheet_relics(const char *path) {
+    static const char *const NAME[NRLOOK] = { "THE BONE KEY", "THE SAINT'S FINGER", "THE HEART", "THE CROWNED SKULL", "THE ROSARY", "THE AMPULLA",
+                                              "THE NAIL", "THE BROKEN HILT", "THE ABBOT'S SEAL", "THE PSALTER", "THE MASK", "THE WEEPING EYE" };
+    static const char *const SAY[NRLOOK][3] = {
+        { "A BONE BOUND IN GOLD", "WIRE, A KEY'S TEETH,", "A RED SEAL. TODAY'S." },
+        { "IN A CRYSTAL TUBE ON A", "GILT FOOT, A RING ON IT,", "A SPIRE AND A CROSS." },
+        { "DRIED, IN A SILVER", "CASKET, ITS LID BACK,", "A BAND OF GILT THORNS." },
+        { "A GOLD CROWN OF FIVE", "POINTS, A RUBY AND TWO", "AMETHYSTS IN ITS BAND." },
+        { "BONE BEADS IN A LOOP,", "A BIGGER ONE EACH", "DECADE, A BONE CROSS." },
+        { "A PILGRIM'S FLASK OF", "LEAD, A SCALLOP SHELL", "ON IT, LOOPS, A CORD." },
+        { "SQUARE IRON, RUSTED,", "BOUND IN FADED VELVET", "AND GILT THREAD." },
+        { "WHEEL POMMEL, WIRED", "GRIP, KNOBBED GUARD, A", "HAND OF SNAPPED BLADE." },
+        { "A POINTED OVAL OF", "BRONZE, THE ABBOT CUT", "IN IT, ITS LUG ON TOP." },
+        { "RED LEATHER, BRASS", "CORNERS AND CLASP, A", "CHAIN FROM ITS BOARD." },
+        { "FUNERARY, OF BRONZE,", "EYES SHUT, VERDIGRIS", "IN ITS HOLLOWS." },
+        { "CRYSTAL, LIT WITHIN, IN", "A RAYED GILT MOUNT; A", "RED TEAR DOWN ITS STEM." },
+    };
+    static const char *const COL[10] = { "THE CRYPTS", "THE CATACOMBS", "THE HOLLOWS", "THE DEEP", "DARKER", "IN THE SOCKET",
+                                         "1X: FLOOR", "1X: SOCKET", "1X: FLOOR", "1X: SOCKET" };
+    int rowh = CW + 10, x1x = PAD + RLAB + 6 * (CW + PAD);
+    iw = x1x + 4 * (RV + 6) + PAD; ih = 132 + NRLOOK * rowh + 8;
+    img = calloc((size_t)iw * ih * 3, 1);
+    rect(0, 0, iw, ih, 16, 14, 20);
+    text(PAD, 12, 2, "TWELVE RELICS, FOR THE OWNER'S LOOK (PLAN-EVENTS)", GOLDINK);
+    static const char *const HEAD[] = {
+        "NOTHING HERE IS IN THE GAME. A LOOK FOR EACH RELIC, TO BE CHOSEN FOR IT IN THE EDITOR ONE DAY; THE FIRST IS TODAY'S. EACH LIES ON THE FLOOR IN EACH",
+        "RUN'S PALETTE, TWICE ITS SIZE IN A TORCH'S LIGHT, THEN DARKER; THEN HELD IN THE SOCKET, WHOSE PANEL CUTS EACH ONE'S OWN SHAPE AND LIGHTS IT; THEN",
+        "AT THE GAME'S OWN SIZE, A CROP OF ITS 320X200 VIEW: ON THE FLOOR TWO CELLS OFF AND IN THE SOCKET TWO AND A HALF, IN THE CRYPTS AND IN THE DEEP.",
+    };
+    text_lines(PAD, 40, 1, HEAD, 3);
+    int y = 84;
+    for (int c = 0; c < 10; c++) {
+        int ox = c < 6 ? PAD + RLAB + c * (CW + PAD) : x1x + (c - 6) * (RV + 6);
+        text(ox, y, 1, COL[c], c == 4 ? 150 : 216, c == 4 ? 140 : 208, c == 4 ? 128 : 189);
+        if (c >= 6) text(ox, y + 10, 1, c < 8 ? "THE CRYPTS" : "THE DEEP", 150, 140, 128);
+    }
+    y += 32;
+    static uint8_t R[TS * TS], S[TS * TS];
+    for (int k = 0; k < NRLOOK; k++, y += rowh) {
+        char num[4]; snprintf(num, sizeof num, "%d", k + 1);
+        text(PAD, y + 6, 2, num, GOLDINK);
+        text(PAD + 36, y + 10, 1, NAME[k], GOLDINK);
+        for (int l = 0; l < 3; l++) text(PAD, y + 36 + l * 12, 1, SAY[k][l], INK);
+        for (int c = 0; c < 6; c++) {
+            int r = c < 4 ? c : 0;
+            run_art(r);
+            relic_from(R, k, 0);
+            const uint8_t *wall = crawl_tex[T_MATV(0, 0)], *floor = crawl_tex[T_FLOORS];
+            if (c == 5) relic_from(S, k, 1);
+            cell(PAD + RLAB + c * (CW + PAD), y, SC, wall, floor, c == 5 ? S : R, NULL, c == 4 ? DARK : LIT);
+        }
+        for (int c = 0; c < 4; c++) {
+            run_art(c < 2 ? 0 : 3);
+            relic_from(R, k, 0); relic_from(S, k, 1);
+            View v = { crawl_tex[T_MATV(0, 0)], crawl_tex[T_FLOORS], crawl_tex[T_CEILS], (c & 1) ? S : R, NULL, NULL, 4.0f, (c & 1) ? 2.5f : 2.0f, 0.45f, 0.6f, 1.2f, 0.6f, 0.75f, 2.6f, 0 };
+            view(x1x + c * (RV + 6), y, RV, RV, &v);
+        }
+    }
+    if (!write_png(path)) { fprintf(stderr, "cannot write %s\n", path); return 1; }
+    printf("%s: %dx%d\n", path, iw, ih);
+    return 0;
+}
+
 int main(int argc, char **argv) {
-    if (argc < 3) { fprintf(stderr, "usage: %s lights|things out.png\n", argv[0]); return 1; }
+    if (argc < 3) { fprintf(stderr, "usage: %s lights|things|relics out.png\n", argv[0]); return 1; }
     crawl_art_init();
     if (!strcmp(argv[1], "lights")) return sheet_lights(argv[2]);
     if (!strcmp(argv[1], "things")) return sheet_things(argv[2]);
-    fprintf(stderr, "lights or things\n");
+    if (!strcmp(argv[1], "relics")) return sheet_relics(argv[2]);
+    fprintf(stderr, "lights, things or relics\n");
     return 1;
 }
