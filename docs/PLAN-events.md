@@ -386,3 +386,14 @@ holding: the relic then drawn as part of it), the lever up and pulled and the pl
 timed trigger it set off holds. `B`, and a door an event shuts, is the run's own door barred (`T_BARRED`), and from an unlock or an open
 unbarred (`T_UNBARRED`), the bar gone and a chain hung loose, before it slides. The puzzles' things on generated levels keep their looks.
 Harness only.
+
+**Twelve relics, a sheet for the owner (26 November 2026).** `media/sheets/events/relics.png`, drawn by `build/lightmock relics`
+(`tools/lightmock.c`, `relic_*` and `RELIC_CUT`, in the art's style to move into `src/art/parts/` once chosen). Nothing in the game.
+Each lies on the floor in each run's palette and darker, sits in the socket (whose panel cuts and lights that relic's own shape), and
+is shown at 1x on the floor and in the socket in the Crypts and the Deep. The twelve: 1 the bone key (today's); 2 a saint's finger in
+a crystal tube on a gilt foot, a spire and cross; 3 a dried heart in a silver casket, its lid back, a band of gilt thorns; 4 a
+crowned skull; 5 a rosary of bone beads in a loop with a bone cross; 6 a pilgrim's lead ampulla with a scallop shell; 7 a rusted
+nail bound in faded velvet and gilt thread; 8 a broken sword's hilt; 9 an abbot's bronze seal-matrix, a pointed oval with the abbot
+cut in it; 10 a chained psalter in red leather and brass; 11 a funerary mask of bronze, verdigris in its hollows; 12 a weeping eye
+of crystal, lit within, in a rayed gilt mount, a red tear down its stem. *For the owner:* the twelve and their names; the lead
+ampulla is the dimmest of them in the Deep; the seal and the mask are both bronze ovals, told apart by their shapes.
