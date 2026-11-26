@@ -418,3 +418,61 @@ ampulla is the dimmest of them in the Deep; the seal and the mask are both bronz
 
 **The twelve relics approved (26 November 2026)** with their sheet, `media/sheets/events/relics.png`; the looks chosen per relic in the
 editor (2d). The socket cutting each relic's own shape, as the sheet shows, taken as approved with it ("They look great!").
+
+**The twelve relics in the game (26 November 2026; its own worktree branch, for the work branch).** Built to 2d as written; nothing in the
+format changed. Harness only: nobody has played it, nothing ran under Wine, the Windows and browser builds were not compiled here (no
+MinGW or Emscripten in the session; `clang -fsyntax-only` on `scene_crawl.c` and `crawl_art.c`, with and without the debug switches,
+gives what it gave before, and nothing new).
+
+*The art.* `relic_draw`, its eleven drawings and their helpers, `RELIC_CUT` and the sheet's two makers (`spr_relic_k`, `spr_socket_k`)
+moved from `tools/lightmock.c` into `src/art/parts/lights_events.c` as they stood, the enum renamed to 2d's (`RL_KEY` and `RL_CROWN` were
+the tool's names). The socket takes the shape it cuts (`spr_socket(id, holding, k)`; the bone key's cut is `RELIC_CUT[0]`, the same
+rows). New sprites only at the end of the list, after the side passages' `SP_LIFEWARE`: the eleven after the bone key lying
+(`SP_RL1`-`SP_RL11`), held in their socket (`SP_RLH1`-`11`, the sheet's: the panel filled again, the relic's shape cut and alight, the
+relic across the hands) and cut unlit in a socket bound to them (`SP_RLB1`-`11`), made each level by `crawl_art_lights` after the socket.
+The bone key keeps the events' things' own, `SP_EV_RELIC`, `SP_EV_SOCKET0` and `1`, untouched. `crawl.h`'s `NRLOOK` (12) is checked
+against the art's order and drawn.c's alike. `build/lightmock relics` draws its sheet from these slots, byte for byte the approved
+`relics.png` (`cmp`), but for one cell: the sheet drew the bone key held as it drew the other eleven, 76 pixels from today's
+`SP_EV_SOCKET1` (the relic outlined over the hands, the panel's lip filled), and since the key stays as it was, that cell is drawn by the
+art's own hand (`spr_socket_k`) and not from a slot. `lightmock lights` and `things` and `build/torchmock`: byte for byte as before.
+A relic's slot is stored with no eyes (a skull or a mask on a plinth is no creature). The new feet, in texels: lying 20 to 32, held 30.
+
+*The format and the game.* drawn.c has 2d's `RL_*` enum, and `Drawn` ends with `const int *relook`. `drawn_text.c` reads
+`DRAWNn_RELOOK` (names or numbers, not groups) and the row's thirty-fourth value, and refuses by name: a look it does not have, a name it
+does not know, as many looks as relics or not, looks the row does not name, gives as NULL, or names but are not there, a row longer than
+that. `crawl_drawn_same` compares them. `extract.py` already reads the enum: run, it gives the editor the game's order, and `test.js`
+passes with "the game's order checked" (run on a scratch copy of `tools/mapedit`; the repository's `data.json` was left as it was, its
+`relics` still null, and the editor's `PLAY_RELOOK` still false: both the editor's to change). In play, a relic lies in its look
+(`relic_look`, `rl_lying`); a socket bound to one relic shows that relic's shape unlit (`rl_bound`), one that takes any the bone key's; set
+in its socket, the socket shows the held look of the relic in it, whatever it was cut for (`rl_held`, by the relic's own sprite), and
+what is carried shows in the hand's corner in its look. A drawing with no `relook` lays and draws as before. Nothing is saved.
+
+*Read where 2d left room.* An any socket holding a relic shows that relic's own held look (its shape lit in the panel), not the key's. A
+socket bound to a relic whose look is the bone key looks as an any socket does (the key's cut is the key's). A look out of range in a
+compiled row draws as the bone key; the reader refuses it before it gets there.
+
+*The proof.* (a) The dream, `apl crawl 3000`, `CRAWL_RUNID=7`, seeds 1, 3, 5, 7, 11, 13, 15 and 17, against `e6dc08d` built in a
+worktree: line for line the same but the one `PORTRAITS ... kept in` line each; 6 to 8 levels a run, the tutorial's and the Compass among
+them. Every existing sprite, texture, foot, glint and eye, the palette and the colormap, hashed after `crawl_art_level` for each of the
+levels 1 to 40 against `e6dc08d`: the same. (b) `tools/mapedit/fixtures/relics.c` (a crowned skull, the socket bound to it, a seal) and
+three exports of my own, not committed: the fixture with all twelve looks (ten more relics in the north room, and a socket taking any in
+the south room); a gallery of the twelve, each with a socket bound to it in the chapter, the barred door a door; and the gallery with
+relics and sockets changed about, for frames of them lying in the chapter. Each as level 3 and as level 33. Frames, each looked at
+(`CRAWL_TPAT`, taking over at 22 s for lying and empty, at 307 s once the dream had set all twelve for held): all twelve lying at two and a
+half cells, empty and bound at a cell and a half, and held, in the Crypts and the Deep; the any socket empty (the key's cut) and holding
+the psalter the dream set in it; the bound socket empty (the crown's shape, unlit) and holding the skull. In the Deep the ampulla is the
+dimmest, as the sheet said; a dressing prop stands before one or two in some frames. The dream, 500 s: the fixture, seeds 1, 3, 5 and 7,
+its triggers in order (the compass, the south room, the skull set) and level 4; my all-twelve export, the same triggers each time, the
+psalter set in the any socket first, the skull in its own, level 4; as level 33, seeds 1 and 3 finished (three and four deaths, all to the
+dead), 5 and 7 did not in 500 s (nine and eight deaths), and the same export with no looks gives the same log line for line on this build
+and on `e6dc08d`, seeds 1, 5 and 7, as 3 and as 33 (but the APL line, a time taken): the looks move nothing. The gallery: all twelve set by
+the dream, level 3 by 298 s, level 33 by 306 s, no death. `drawncheck`: the fixture against a scratch copy with it pasted as `DRAWN[2]`,
+and my all-twelve export the same way: "the same, field for field"; the fixture with the skull's look changed, and with no looks: "the
+relics' looks". (c) `make asan`, `ASAN_OPTIONS=detect_leaks=0`, 600 s, seeds 1 and 4: the fixture, the all-twelve export as 3 and as 33,
+and the gallery as 3 and as 33: clean, no report (in every one of the gallery's runs the dream set all twelve, so each look was drawn lying, empty and held). `build/host_asan drawncheck` on the fixture cut short every 7 bytes and at every byte of its last
+500 (1,274 cuts: 1,270 refused, 4 read whole), and on my all-twelve export at every byte of its last 800 (802 cuts: 799 refused, 3 read):
+no crash. Thirteen broken texts refused by name. `make smoke` passes. (d) Saves untouched: `save.c` and `ledger.c` did not change;
+the looks are the drawing's and the art's, never saved.
+
+*Left:* the owner's look at the twelve in play, and their hand on all of it; the editor's `data.json` and `PLAY_RELOOK`, so that PLAY
+offers the looks; the browser's and Windows builds compiled by CI.

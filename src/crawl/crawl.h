@@ -114,6 +114,7 @@ enum { F4_GEODE, F4_SEAM, F4_GOLD, F4_FUSED, F4_FRIEZE, F4_FISSURE };
 enum { FL4_GLASS, FL4_THRONE, FL4_ASH, FL4_CINDER, FL4_SHARDS };
 enum { CE4_CRYSTAL, CE4_ROCK, CE4_SOOT };
 
+#define NRLOOK 12                           /* the relics' looks (docs/PLAN-events.md, 2d): drawn.c's RL_*, the art's the same */
 enum {
     SP_BONES1, SP_BONES2, SP_SKULLPILE, SP_COBWEB, SP_CHAINS, SP_URN, SP_PILLAR, SP_CANDLES,
     SP_SKEL_A, SP_SKEL_B, SP_SKEL_D1, SP_SKEL_D2, SP_SKEL_D3,
@@ -340,6 +341,10 @@ enum {
     SP_CORONA0, SP_CORONA2 = SP_CORONA0 + 2, SP_SANCT0, SP_SANCT1, SP_BONELAB0, SP_BONELAB2 = SP_BONELAB0 + 2, SP_CAGE0, SP_CAGE2 = SP_CAGE0 + 2,
     SP_EV_RELIC, SP_EV_SOCKET0, SP_EV_SOCKET1, SP_EV_LEVER0, SP_EV_LEVER1,
     SP_LIFEWARE,                                /* side (PLAN-side): a life for the side passages, a votive lamp floating in her room */
+    /* the relics' looks (docs/PLAN-events.md, 2d), made each level in the run's look: the eleven after the bone key (whose are
+     * SP_EV_RELIC and SP_EV_SOCKET0, 1), each lying on the floor, held in its socket (its shape cut in the panel and alight), and
+     * cut unlit in the panel of a socket bound to it; by drawn.c's RL_* less one */
+    SP_RL1, SP_RL11 = SP_RL1 + NRLOOK - 2, SP_RLH1, SP_RLH11 = SP_RLH1 + NRLOOK - 2, SP_RLB1, SP_RLB11 = SP_RLB1 + NRLOOK - 2,
     NSPR
 };
 
