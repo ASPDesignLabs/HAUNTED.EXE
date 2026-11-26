@@ -424,6 +424,6 @@ smoke` passed; the crypt's dream, seeds 1, 4 and 7, 3,000 s, line for line the b
 tools/mapedit/test.js`: *The Timed Lever* read back letter for letter, four bad lines refused. Playwright on the built editor: a switched
 ledge, a timed switch at 12 s, the three powerups (one changed to Might, 15 s) and a block off at the start placed and exported as the
 game reads them, no page errors.
-Not played by hand; nothing under Wine. Open: the owner's art for the powerups; the numbers (the metronome, the flask's aim, the
+The World Editor was republished from this branch before the squash, at the owner's asking (version 5), its PLAY with this branch's game. Not played by hand; nothing under Wine. Open: the owner's art for the powerups; the numbers (the metronome, the flask's aim, the
 powerups' seconds) theirs to tune.
 
