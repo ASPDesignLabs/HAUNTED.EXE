@@ -42,6 +42,11 @@ const ICON = {
   erase: icon(g => { g.strokeStyle = '#d2473b'; g.lineWidth = 3; g.beginPath(); g.moveTo(3, 3); g.lineTo(13, 13); g.moveTo(13, 3); g.lineTo(3, 13); g.stroke(); }),
 };
 ['#e9c24c', '#c9ccd4', '#d2473b'].forEach((c, k) => { ICON['key' + k] = icon(g => { g.fillStyle = c; g.beginPath(); g.arc(5, 8, 3.5, 0, 7); g.fill(); g.fillRect(8, 7, 7, 2); g.fillRect(12, 9, 2, 3); g.fillStyle = '#17141b'; g.beginPath(); g.arc(5, 8, 1.5, 0, 7); g.fill(); }); });
+/* 26 November: the ledge laid by a trigger, and the three powerups (placeholders, as the game's sd_draw_power) */
+ICON.ledge = icon(g => { g.fillStyle = '#8a8f99'; g.fillRect(0, 6, 16, 3); g.fillStyle = '#c4c8d0'; g.fillRect(0, 6, 16, 1); g.fillStyle = '#4a4e56'; g.fillRect(2, 9, 2, 2); g.fillRect(12, 9, 2, 2); });
+ICON.power_RAPID = icon(g => { g.fillStyle = '#3a6fb0'; g.beginPath(); g.arc(8, 8, 7, 0, 7); g.fill(); g.fillStyle = '#c8f6ff'; g.beginPath(); g.moveTo(9, 2); g.lineTo(4, 9); g.lineTo(8, 9); g.lineTo(7, 14); g.lineTo(12, 7); g.lineTo(8, 7); g.closePath(); g.fill(); });
+ICON.power_MIGHT = icon(g => { g.fillStyle = '#9c2a22'; g.beginPath(); g.arc(8, 8, 7, 0, 7); g.fill(); g.fillStyle = '#ffd34d'; g.fillRect(7, 3, 2, 8); g.fillRect(5, 9, 6, 2); g.fillRect(7, 11, 2, 3); });
+ICON.power_WARD = icon(g => { g.fillStyle = '#c9ccd4'; g.beginPath(); g.moveTo(3, 2); g.lineTo(13, 2); g.lineTo(13, 8); g.lineTo(8, 15); g.lineTo(3, 8); g.closePath(); g.fill(); g.fillStyle = '#5a5e66'; g.fillRect(7, 4, 2, 8); g.fillRect(5, 6, 6, 2); });
 const GOLD_NAMES = { IT_COINS: 'Coins', IT_CHALICE: 'Chalice', IT_GEMS: 'Gems', IT_CROWN: 'Crown', IT_CHEST: 'Chest' };
 ICON.gate = icon(g => { g.fillStyle = '#6a6e76'; g.fillRect(0, 1, 16, 2); for (let x = 1; x < 16; x += 4) { g.fillStyle = '#b8bcc4'; g.fillRect(x, 1, 1, 14); g.fillStyle = '#5a5e66'; g.fillRect(x + 1, 1, 1, 14); } g.fillStyle = '#8a8f99'; g.fillRect(0, 8, 16, 1); });
 ICON.plate = icon(g => { g.fillStyle = '#736c7c'; g.fillRect(2, 11, 12, 3); g.fillStyle = '#a49cb0'; g.fillRect(2, 11, 12, 1); g.fillStyle = '#e9c24c'; g.fillRect(6, 9, 4, 1); });
@@ -55,7 +60,8 @@ const PROTO = {
   plat: { k: 'plat', w: 3, dx: 1, dy: 0, dist: 6, speed: 2, loop: false, wait: 0.5, at: 0 },
   lift: { k: 'plat', w: 2, dx: 0, dy: -1, dist: 6, speed: 1.5, loop: false, wait: 1, at: 0 },
   fall: { k: 'fall', delay: SC.FALL_DELAY, back: SC.FALL_BACK }, flow: { k: 'flow', w: 4, h: 1, on: 3, off: 5, at: 0 },
-  torch: { k: 'torch' }, mob: { k: 'mob', kind: 'ANY', rank: -1 }, life: { k: 'life' }, switch: { k: 'switch', thing: -1, toggle: false },
+  torch: { k: 'torch' }, mob: { k: 'mob', kind: 'ANY', rank: -1 }, life: { k: 'life' }, switch: { k: 'switch', thing: -1, toggle: false, timer: 0 }, tswitch: { k: 'switch', thing: -1, toggle: false, timer: 8 },
+  ledge: { k: 'ledge', w: 3, stopped: true }, power: { k: 'power', kind: 'RAPID', secs: 10 },
   gate: { k: 'gate', w: 1, h: 2, open: false }, plate: { k: 'plate' }, zone: { k: 'zone', w: 2, h: 2 },
   current: { k: 'current', w: 4, h: 1, dx: 1, dy: 0, speed: 3 }, pcurrent: { k: 'current', w: 4, h: 1, dx: 1, dy: 0, speed: 3, poison: true },
 };
@@ -129,6 +135,7 @@ function build() {
   tb('sdWays', 'Goal doorway', ICON.goal, { kind: 'thing', p: 'goal' }, 'Leaving by the goal finishes the passage: a life back.');
   tb('sdWays', 'Platform', ICON.plat, { kind: 'thing', p: 'plat' }, 'A platform that goes back and forth. Its way, distance and speed are in CHOSEN.');
   tb('sdWays', 'Lift', ICON.plat, { kind: 'thing', p: 'lift' }, 'A platform that goes up and down.');
+  tb('sdWays', 'Switched ledge', ICON.ledge, { kind: 'thing', p: 'ledge' }, 'A ledge a trigger lays and takes up: OFF at the start leaves it out till an ON.');
   tb('sdWays', 'Falling block', ICON.fall, { kind: 'thing', p: 'fall' }, 'It shakes when stood on, falls, and comes back.');
   tb('sdWays', 'Poison flow', ICON.flow, { kind: 'thing', p: 'flow' }, 'A box the poison fills and drains on a clock. Click its top left tile.');
   tb('sdWays', 'Torch', ICON.torch, { kind: 'thing', p: 'torch' }, 'A light on the back wall.');
@@ -137,6 +144,9 @@ function build() {
   [0, 2, 1].forEach(c => tb('sdThings', SC.KEYS[c] + ' key', ICON['key' + c], { kind: 'thing', p: 'key', c }, 'The crypt\'s own key: it opens that colour\'s doors there.'));
   tb('sdThings', 'A life', ICON.life, { kind: 'thing', p: 'life' }, 'A life, never more than three.');
   tb('sdThings', 'Switch', ICON.switch, { kind: 'thing', p: 'switch' }, "Thrown with Up; a trigger can listen to it, and it can fire the crypt's own triggers.");
+  tb('sdThings', 'Timed switch', ICON.switch, { kind: 'thing', p: 'tswitch' }, 'Thrown with Up, it goes back by itself after its seconds, a metronome quickening the while. Bind it in TRIGGERS with FLIP or ON and OFF.');
+  SC.POWERS.forEach(k => tb('sdThings', SC.POWER_NAMES[k], ICON['power_' + k], { kind: 'thing', p: 'power', pw: k }, {
+    RAPID: 'Taken in passing: casting twice as quick for its seconds.', MIGHT: 'Taken in passing: harm doubled for its seconds; the caster glows red.', WARD: 'Taken in passing: nothing harms the caster for its seconds.' }[k]));
   tb('sdWorks', 'Gate', ICON.gate, { kind: 'thing', p: 'gate' }, 'Bars across a box, shut till a trigger opens them. Its size is in CHOSEN.');
   tb('sdWorks', 'Pressure plate', ICON.plate, { kind: 'thing', p: 'plate' }, 'Pressed while the caster, or something loose, stands on it. Bind it in TRIGGERS.');
   tb('sdWorks', 'Unseen zone', ICON.zone, { kind: 'thing', p: 'zone' }, 'A box never seen: pressed while the caster is in it. Bind it in TRIGGERS.');
@@ -168,7 +178,7 @@ function zoom(d) { const i = Math.max(0, Math.min(ZOOMS.length - 1, ZOOMS.indexO
 function bounds(t) {                              /* the tiles a thing covers: x, y, w, h */
   switch (t.k) {
   case 'door': return [t.x, t.y - 1, 1, 2];
-  case 'plat': return [t.x, t.y, t.w, 1];
+  case 'plat': case 'ledge': return [t.x, t.y, t.w, 1];
   case 'flow': case 'gate': case 'zone': case 'current': return [t.x, t.y, t.w, t.h];
   default: return [t.x, t.y, 1, 1];
   }
@@ -214,7 +224,7 @@ function draw() {
       g.drawImage(ICON['haz_' + (SC.HAZ_FAMILY[t.kind] || 'fall')], x, y, z * 0.8, z * 0.8);
       drawFxMarks(t, z);
     }
-    if (t.tag && z >= 16 && ['gate', 'plate', 'zone', 'current', 'switch', 'haz'].includes(t.k)) { g.fillStyle = '#e9c24c'; g.font = Math.max(9, z * 0.4) + 'px VT323, monospace'; g.fillText(t.tag, x + 2, y + (t.k === 'plate' || t.k === 'switch' ? -2 : t.h ? t.h * z - 3 : z - 2)); }
+    if (t.tag && z >= 16 && ['gate', 'plate', 'zone', 'current', 'switch', 'haz', 'fall'].includes(t.k)) { g.fillStyle = '#e9c24c'; g.font = Math.max(9, z * 0.4) + 'px VT323, monospace'; g.fillText(t.tag, x + 2, y + (t.k === 'plate' || t.k === 'switch' ? -2 : t.h ? t.h * z - 3 : z - 2)); }
   });
   const ts = selected();                           /* a chosen source's triggers: lines to what they move */
   if (ts && ts.tag) (m.trigs || []).forEach(gr => {
@@ -238,8 +248,19 @@ function draw() {
       for (let k = 0; k < t.w; k++) g.drawImage(ICON.plat, (t.x + k) * z, t.y * z, z, z);
       return;
     }
+    if (t.k === 'ledge') {
+      g.globalAlpha = t.stopped ? 0.35 : 1; for (let k = 0; k < t.w; k++) g.drawImage(ICON.ledge, (t.x + k) * z, t.y * z, z, z); g.globalAlpha = 1;
+      if (t.stopped && z >= 12) { g.setLineDash([3, 3]); g.strokeStyle = '#c4c8d0'; g.lineWidth = 1; g.strokeRect(t.x * z + 0.5, t.y * z + 0.5, t.w * z - 1, z - 1); g.setLineDash([]); }
+      if (z >= 16) { g.fillStyle = '#e9c24c'; g.font = Math.max(9, z * 0.4) + 'px VT323, monospace'; g.fillText((t.stopped ? 'OFF ' : '') + (t.tag || ''), t.x * z + 2, t.y * z - 2); }
+      return;
+    }
+    if (t.k === 'power') { g.drawImage(ICON['power_' + t.kind] || ICON.power_RAPID, bx * z, by * z, z, z); if (z >= 16) { g.fillStyle = '#d8d0bd'; g.font = Math.max(9, z * 0.4) + 'px VT323, monospace'; g.fillText(t.secs + 's', bx * z + 1, by * z + z - 1); } return; }
+    if (t.k === 'fall' && t.stopped) g.globalAlpha = 0.35;
     const ic = t.k === 'gold' ? ICON.gold : t.k === 'key' ? ICON['key' + t.c] : ICON[t.k];
     if (ic) g.drawImage(ic, bx * z, by * z, z, z);
+    g.globalAlpha = 1;
+    if (t.k === 'fall' && t.stopped && z >= 16) { g.fillStyle = '#d8d0bd'; g.font = Math.max(9, z * 0.4) + 'px VT323, monospace'; g.fillText('OFF', bx * z + 2, by * z + z * 0.6); }
+    if (t.k === 'switch' && +t.timer > 0 && z >= 16) { g.fillStyle = '#e89a3a'; g.font = Math.max(9, z * 0.4) + 'px VT323, monospace'; g.fillText(t.timer + 's', bx * z + z * 0.55, by * z + z * 0.45); }
     if (t.loose && z >= 12) { g.strokeStyle = '#8fc6dc'; g.lineWidth = 1; g.beginPath(); g.moveTo(bx * z + z / 2, by * z + z); g.lineTo(bx * z + z / 2, by * z + z + z * 0.4); g.stroke(); }   /* loose: it will fall */
     if (t.k === 'mob' && z >= 16) { g.fillStyle = '#d2473b'; g.font = Math.max(10, z * 0.45) + 'px VT323, monospace'; g.fillText(t.kind === 'ANY' ? '?' : t.kind.slice(4, 6), bx * z + 1, by * z + z - 1); }
   });
@@ -285,12 +306,12 @@ function down(e) {
   }
   if (tl.kind === 'thing') {
     if (tl.p === 'door' && y < 1) { E.toast('A DOORWAY STANDS TWO TILES HIGH: NOT ON THE TOP ROW'); return; }
-    const proto = Object.assign(JSON.parse(JSON.stringify(PROTO[tl.p] || { k: tl.p })), tl.it ? { it: tl.it } : {}, tl.c != null ? { c: tl.c } : {});
+    const proto = Object.assign(JSON.parse(JSON.stringify(PROTO[tl.p] || { k: tl.p })), tl.it ? { it: tl.it } : {}, tl.c != null ? { c: tl.c } : {}, tl.pw ? { kind: tl.pw } : {});
     if (proto.k === 'door') { const used = new Set(T.map.things.filter(t => t.k === 'door').map(t => t.link)); let l = proto.goal ? proto.link : 0; while (used.has(l) && l < 15) l++; proto.link = l; }
     if (proto.k === 'flow') { proto.w = Math.min(proto.w, T.map.w - x); proto.h = Math.min(proto.h, T.map.h - y); }
-    if (proto.k === 'plat') proto.w = Math.min(proto.w, T.map.w - x);
+    if (proto.k === 'plat' || proto.k === 'ledge') proto.w = Math.min(proto.w, T.map.w - x);
     if (['gate', 'zone', 'current'].includes(proto.k)) { proto.w = Math.min(proto.w, T.map.w - x); proto.h = Math.min(proto.h, T.map.h - y); }
-    if (['gate', 'plate', 'zone', 'current', 'switch'].includes(proto.k)) proto.tag = SC.newTag(T.map, proto.k === 'current' ? 'water' : proto.k);
+    if (['gate', 'plate', 'zone', 'current', 'switch', 'ledge'].includes(proto.k)) proto.tag = SC.newTag(T.map, proto.k === 'current' ? 'water' : proto.k);
     change(() => { const o = SC.add(T.map, Object.assign(proto, { x, y })); T.sel = o.id; });
     setTab('inspect'); return;
   }
@@ -403,8 +424,15 @@ function paneThing(t) {
   case 'switch':
     h += `<div class="field"><label for="tTh">Crypt thing</label>${numIn('tTh', t.thing, -1, SC.LIM.evThings - 1)}</div>
       <div class="row"><label><input type="checkbox" id="tTog"${t.toggle ? ' checked' : ''}> Thrown back and forth</label></div>
+      <div class="field"><label for="tTimer">Back after</label>${numIn('tTimer', t.timer || 0, 0, 120, 0.5)}</div>
+      <p class="note">Seconds, 0 for never: thrown, it goes back by itself after them, and a metronome ticks the while, quickening and rising to the end. Its going back is a throw like any other: a trigger with FLIP, or ON at the throw and OFF at the going back, undoes what it did.</p>
       <p class="note">Up throws it. It fires the crypt level's triggers of the kind "Pulled or pressed" on the thing numbered here (its place in that level's export: a lever, say). -1 names none. A life lost puts it back.</p>`;
     break;
+  case 'ledge': h += `<div class="field"><label for="tW">Wide</label>${numIn('tW', t.w, 1, T.map.w - t.x)}</div>
+      <p class="note">A ledge, as the tile: stood on, jumped up through. A trigger's ON lays it and OFF takes it up; FLIP either. OFF at the start leaves it out till then.</p>`; break;
+  case 'power': h += `<div class="field"><label for="tPw">Kind</label><select id="tPw">${SC.POWERS.map(k => opt(k, SC.POWER_NAMES[k].toLowerCase(), t.kind)).join('')}</select></div>
+      <div class="field"><label for="tSecs">Lasts</label>${numIn('tSecs', t.secs, 0.5, 120, 0.5)}</div>
+      <p class="note">Taken in passing, once. Quickened hands: casting twice as quick. Might: harm doubled, the caster glowing red. Ward: nothing harms the caster. Its time shows by the lives; another of the same kind starts it again.</p>`; break;
   case 'life': h += '<p class="note">Picked up, a life, never more than three; with three already, five souls.</p>'; break;
   case 'torch': h += '<p class="note">Light on the back wall, and on all about it.</p>'; break;
   case 'gate': h += `<div class="row"><label>Across</label>${numIn('tFw', t.w, 1, T.map.w)}<label>Down</label>${numIn('tFh', t.h, 1, T.map.h)}</div>
@@ -442,6 +470,7 @@ function paneThing(t) {
   }
   }
   if (['plat', 'flow', 'current', 'haz'].includes(t.k)) h += `<div class="row"><label><input type="checkbox" id="tStop"${t.stopped ? ' checked' : ''}> OFF at the start: still till a trigger's ON</label></div>`;
+  if (['ledge', 'fall'].includes(t.k)) h += `<div class="row"><label><input type="checkbox" id="tStop"${t.stopped ? ' checked' : ''}> OFF at the start: not there till a trigger's ON</label></div>`;
   if (['gold', 'key', 'life'].includes(t.k)) h += `<div class="row"><label><input type="checkbox" id="tLoose"${t.loose ? ' checked' : ''}> Loose: it falls, and water carries it</label></div>`;
   h += `<div class="field"><label for="tTag">Name</label><input type="text" id="tTag" maxlength="15" value="${esc(t.tag || '')}" placeholder="for the triggers"></div>`;
   return h + `<div class="row"><button class="btn" id="tDup">COPY</button><button class="btn warn" id="tDel">REMOVE</button></div>`;
@@ -457,6 +486,9 @@ function fxPane(t) {
       <div class="field"><label for="fHang">Hang s</label>${numIn('fHang', own(t.hang, d.hang), 0, 30, 0.1)}</div>
       <div class="field"><label for="fSwing">Swing s</label>${numIn('fSwing', own(t.swing, d.swing), 0.2, 30, 0.05)}</div>
       <p class="note">Paint its two ends: the first cell and the second (PAINT ITS CELLS). Chain in tiles, -1 to reach its ends (now ${(c.r / 16).toFixed(1)}); three at the least, and the room clear along its arc (CHECKS says where it is not). Hang: still at each end; swing: a pass from one to the other. Crouched, the caster goes under a bowl at head height.</p>`;
+  } else if (!SC.FX_EMITS.has(t.kind)) {
+    h += t.kind === 'HZ_SNARE' ? `<p class="note">Holds %: CHANCE above (-1: always). Torn, it is spun again after STAYS seconds. The dream walks into it as a person might.</p>` : '';
+    if (t.kind === 'HZ_SNARE') return h;
   } else {
     const rate = t.kind === 'HZ_VOTIVE' ? (e.rate != null && e.rate >= 0 ? e.rate : -1) : own(e.rate, d.rate);
     h += `<div class="field"><label for="fRate">Rate /s</label>${numIn('fRate', rate, -1, 400, 1)}</div>
@@ -496,12 +528,18 @@ function previewStart(t) {
 function previewStop() { if (T.pv) cancelAnimationFrame(T.pv.raf); T.pv = null; }
 function drawPreview(z) {                          /* the particles, the chain and the bowl, in the editor's pixels */
   const S = T.pv && T.pv.sim; if (!S) return;
-  const k = z / 16, C = { wax: p => p.heat > 0.6 ? '#ffd27a' : p.heat > 0.3 ? '#e89a3a' : '#cbbf9e', vapour: () => 'rgba(160,200,120,0.7)', rime: () => '#d8f4ff', haze: () => 'rgba(199,155,240,0.85)', smoke: () => 'rgba(190,186,196,0.6)' };
+  const k = z / 16, C = { wax: p => p.heat > 0.6 ? '#ffd27a' : p.heat > 0.3 ? '#e89a3a' : '#cbbf9e', vapour: () => 'rgba(160,200,120,0.7)', rime: () => '#d8f4ff', haze: () => 'rgba(199,155,240,0.85)', smoke: () => 'rgba(190,186,196,0.6)',
+    bile: () => '#79c15a', water: () => '#9fd6ec', gas: () => 'rgba(214,180,80,0.8)', tear: p => (p.rest ? '#b08ad8' : '#eef6ff'), spark: () => '#fff3a0' };
   S.parts.forEach(p => { g.fillStyle = (C[p.kind] || C.smoke)(p); const s = Math.max(1.5, (p.kind === 'wax' ? 2 : p.kind === 'vapour' ? 3 : 1.5) * k); g.fillRect(p.x * k - s / 2, p.y * k - s / 2, s, s); });
   if (S.cen) {
     g.strokeStyle = '#b8bcc4'; g.lineWidth = Math.max(1, k); g.beginPath(); S.links.forEach((l, i) => (i ? g.lineTo(l.x * k, l.y * k) : g.moveTo(l.x * k, l.y * k))); g.stroke();
     g.fillStyle = '#5c5a66'; g.beginPath(); g.ellipse(S.ball[0] * k, (S.ball[1] + 2.5) * k, 6 * k, 3.5 * k, 0, 0, Math.PI * 2); g.fill();
     g.fillStyle = '#f0742a'; g.fillRect((S.ball[0] - 4) * k, (S.ball[1] - 1) * k, 8 * k, Math.max(1, k));
+  }
+  if (S.bolt > 0) {                                /* the galvanic bolt, down into the first cell */
+    const t = T.map.things.find(o => o.id === T.pv.id);
+    if (t && (t.cells || []).length) { const [cx, cy] = t.cells[0]; g.strokeStyle = '#ffffff'; g.lineWidth = 2; g.beginPath(); g.moveTo((cx + 0.5) * z, (cy - 5) * z);
+      for (let i = 1; i <= 8; i++) g.lineTo((cx + 0.5 + (Math.random() - 0.5) * 0.6) * z, (cy - 5 + i * 5.6 / 8) * z); g.stroke(); }
   }
   if (S.kind === 'wax') {                          /* the candle, as far over as it is */
     const t = T.map.things.find(o => o.id === T.pv.id); if (!t) return;
@@ -520,6 +558,13 @@ function drawFxMarks(t, z) {                       /* what a trap that pours or 
   } else if (t.kind === 'HZ_RELIQ') {
     const r = (t.radial != null && t.radial >= 0 ? t.radial : 1) + 0.5;
     g.strokeStyle = 'rgba(199,155,240,0.8)'; g.setLineDash([3, 3]); g.lineWidth = 1.5; g.beginPath(); g.arc((t.x + 0.5) * z, (t.y + 1 - 10 / 16) * z, r * z, 0, Math.PI * 2); g.stroke(); g.setLineDash([]);
+  } else if (t.kind === 'HZ_SLUICE') {          /* its surge's way */
+    const sides = (t.cells || []).reduce((a, [x]) => (x < t.x ? [a[0] + 1, a[1]] : x > t.x ? [a[0], a[1] + 1] : a), [0, 0]), d = sides[1] >= sides[0] ? 1 : -1;
+    g.strokeStyle = '#9fd6ec'; g.lineWidth = 2; g.beginPath(); g.moveTo((t.x + 0.5) * z, (t.y + 0.7) * z); g.lineTo((t.x + 0.5 + d * 2) * z, (t.y + 0.7) * z); g.stroke();
+    g.fillStyle = '#9fd6ec'; g.fillRect((t.x + 0.5 + d * 2) * z - 3, (t.y + 0.7) * z - 3, 6, 6);
+  } else if (t.kind === 'HZ_SNARE') {            /* the web over its cells */
+    g.strokeStyle = 'rgba(216,208,189,0.7)'; g.lineWidth = 1;
+    (t.cells || []).forEach(([cx, cy]) => { g.beginPath(); g.moveTo(cx * z, cy * z); g.lineTo((cx + 1) * z, (cy + 1) * z); g.moveTo((cx + 1) * z, cy * z); g.lineTo(cx * z, (cy + 1) * z); g.stroke(); });
   } else if (t.kind === 'HZ_VOTIVE') {
     const sides = (t.cells || []).reduce((a, [x]) => (x < t.x ? [a[0] + 1, a[1]] : x > t.x ? [a[0], a[1] + 1] : a), [0, 0]), d = sides[1] >= sides[0] ? 1 : -1;
     g.strokeStyle = '#f0742a'; g.lineWidth = 2; g.beginPath(); g.moveTo((t.x + 0.5) * z, (t.y + 0.3) * z); g.quadraticCurveTo((t.x + 0.5 + d) * z, (t.y + 0.1) * z, (t.x + 0.5 + d * 1.4) * z, (t.y + 1) * z); g.stroke();
@@ -530,7 +575,7 @@ function wireThing(t) {
   const n = (id, f) => on(id, 'change', e => change(() => f(+e.target.value)));
   n('tX', v => { t.x = Math.max(0, Math.min(T.map.w - 1, v | 0)); }); n('tY', v => { t.y = Math.max(t.k === 'door' ? 1 : 0, Math.min(T.map.h - 1, v | 0)); });
   n('tLink', v => { t.link = Math.max(0, Math.min(15, v | 0)); }); on('tGoal', 'change', e => change(() => { t.goal = e.target.checked; }));
-  n('tW', v => { t.w = Math.max(1, Math.min(8, v | 0)); });
+  n('tW', v => { t.w = Math.max(1, Math.min(t.k === 'ledge' ? T.map.w - t.x : 8, v | 0)); });
   on('tWay', 'change', e => change(() => { const [dx, dy] = e.target.value.split(',').map(Number); t.dx = dx; t.dy = dy; }));
   n('tDist', v => { t.dist = Math.max(0.5, v); }); n('tSpd', v => { t.speed = Math.max(0.1, v); }); n('tWait', v => { t.wait = Math.max(0, v); });
   n('tAt', v => { t.at = Math.max(0, t.k === 'plat' ? Math.min(1, v) : v); }); on('tLoop', 'change', e => change(() => { t.loop = e.target.checked; }));
@@ -541,6 +586,7 @@ function wireThing(t) {
   on('tRank', 'change', e => change(() => { t.rank = e.target.value === '-1' ? -1 : e.target.value; }));
   on('tIt', 'change', e => change(() => { t.it = e.target.value; })); n('tC', v => { t.c = v; });
   n('tTh', v => { t.thing = Math.max(-1, Math.min(SC.LIM.evThings - 1, v | 0)); }); on('tTog', 'change', e => change(() => { t.toggle = e.target.checked; }));
+  n('tTimer', v => { t.timer = Math.max(0, Math.min(120, v)); }); on('tPw', 'change', e => change(() => { t.kind = e.target.value; })); n('tSecs', v => { t.secs = Math.max(0.5, Math.min(120, v)); });
   on('tOpen', 'change', e => change(() => { t.open = e.target.checked; }));
   on('tPois', 'change', e => change(() => { t.poison = e.target.checked; }));
   on('tStop', 'change', e => change(() => { t.stopped = e.target.checked; }));

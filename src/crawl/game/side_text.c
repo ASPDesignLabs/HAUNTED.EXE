@@ -7,7 +7,11 @@
 #define SD_THINGS 160
 #define SD_TILE 16                                                 /* STS: a tile, in pixels */
 enum { SDT_DOOR, SDT_PLAT, SDT_FALL, SDT_FLOW, SDT_MOB, SDT_GOLD, SDT_KEY, SDT_LIFE, SDT_SWITCH, SDT_TORCH,
-       SDT_GATE, SDT_PLATE, SDT_ZONE, SDT_CURRENT, SDT_HAZ, NSDT };   /* the last five: 26 November, the owner's puzzles and the crypt's traps */
+       SDT_GATE, SDT_PLATE, SDT_ZONE, SDT_CURRENT, SDT_HAZ, SDT_LEDGE, SDT_POWER, NSDT };   /* LEDGE, POWER: 26 November */
+/* LEDGE x y w: a ledge w tiles wide (as '='), off at the start with OFF, a trigger's ON laying it. POWER x y RAPID|MIGHT|WARD [secs]: a
+ * powerup, taken in passing, a: 0 casting twice as quick, 1 harm doubled, 2 untouchable; f0 seconds (10). SWITCH ... TIMER s: thrown,
+ * it goes back by itself after f0 seconds, a metronome quickening the while. FALL ... OFF: no block there till a trigger's ON. */
+enum { PW_RAPID, PW_MIGHT, PW_WARD, NPW };   /* the last five: 26 November, the owner's puzzles and the crypt's traps */
 enum { SDF_GOAL = 1, SDF_LOOP = 2, SDF_TOGGLE = 4, SDF_OFF = 8, SDF_LOOSE = 16, SDF_POISON = 32, SDF_OPEN = 64, SDF_ZONE = 128, SDF_SAFE = 256 };
 /* A thing, at a tile (x, y). DOOR: a its link, GOAL; it stands on the tile below, two tiles high. PLAT: w tiles wide, (a, b) its
  * way, f0 how far (tiles), f1 how fast (tiles a second), f2 the wait at each end (s), f3 where it begins (0 to 1); LOOP: on round
@@ -40,7 +44,8 @@ typedef struct { int src, mode, nact, target[SD_ACTS], verb[SD_ACTS], arg[SD_ACT
 enum { TU_WALK, TU_RUN, TU_CREEP, TU_ACCEL, TU_BRAKE, TU_AIR, TU_JUMP, TU_GRAV_HELD, TU_GRAV, TU_FALL_MAX, TU_COYOTE, TU_JUMP_BUF,
        TU_HURT_SAFE, TU_KNOCK_X, TU_KNOCK_Y, TU_SPIKES, TU_BITE, TU_BITE_EVERY, TU_WADE, TU_CURRENT, TU_GATE_TIME,
        TU_FIRE_REACH, TU_FROST_REACH, TU_LIGHT_REACH, TU_SPIRIT_REACH, TU_FIRE_SPEED, TU_FROST_SPEED, TU_SPIRIT_SPEED, TU_BOLT_SPEED,
-       TU_FLASK_NEAR, TU_FLASK_FAR, TU_FLASK_LIFT, TU_FLASK_HOLD, TU_DEAD_PACE, TU_DEAD_SIGHT, TU_CAM_LEAD, NTU };
+       TU_FLASK_NEAR, TU_FLASK_FAR, TU_FLASK_LIFT, TU_FLASK_HOLD, TU_DEAD_PACE, TU_DEAD_SIGHT, TU_CAM_LEAD,
+       TU_CAST_EVERY, TU_FLASK_AIM, TU_JUMP_SND, TU_DEATH_SND, NTU };   /* the last two: 26 November, the owner's (fire rate doubled; the flask aimed while held) */
 static const struct { const char *name; float def, lo, hi, step; const char *what; } TUNE[NTU] = {
     { "walk", 72.0f, 20.0f, 200.0f, 1.0f, "walking pace, pixels a second" },
     { "run", 128.0f, 40.0f, 300.0f, 1.0f, "running pace (Shift, B, or the stick pushed hard)" },
@@ -78,6 +83,10 @@ static const struct { const char *name; float def, lo, hi, step; const char *wha
     { "dead_pace", 26.0f, 5.0f, 80.0f, 1.0f, "the dead's pace: their crypt pace times this" },
     { "dead_sight", 150.0f, 30.0f, 400.0f, 5.0f, "how far the dead see you, in pixels" },
     { "cam_lead", 24.0f, 0.0f, 100.0f, 1.0f, "how far ahead the view looks" },
+    { "cast_every", 0.5f, 0.1f, 2.0f, 0.05f, "the time between casts, of the crypt's (0.5: twice as quick)" },
+    { "flask_aim", 140.0f, 20.0f, 400.0f, 5.0f, "the flask held: how fast left and right move where it lands, pixels a second" },
+    { "jump_sound", 4.0f, 0.0f, 4.0f, 1.0f, "the jump's sound: 4 the bone pipe (the owner's); 0 the whoosh, 1 a cloak, 2 a hop, 3 a boot and a breath" },
+    { "death_sound", 1.0f, 0.0f, 3.0f, 1.0f, "a life lost: 1 the toll (the owner's); 0 the groan, 2 the music box, 3 the choir's sigh" },
 };
 static int sd_tune_of(const char *name) { for (int k = 0; k < NTU; k++) if (!strcmp(TUNE[k].name, name)) return k; return -1; }
 typedef struct { char name[40]; int w, h; uint8_t t[SD_H][SD_W]; SdThing th[SD_THINGS]; int nth; float tune[NTU]; uint64_t tuned;
@@ -204,8 +213,8 @@ static int sd_read(const char *text, SdLevel *L, char *err, int nerr) {
             continue;
         }
         static const char *const OPS[NSDT] = { "DOOR", "PLAT", "FALL", "FLOW", "MOB", "GOLD", "KEY", "LIFE", "SWITCH", "TORCH",
-                                               "GATE", "PLATE", "ZONE", "CURRENT", "HAZ" };
-        static const int NEED[NSDT] = { 4, 8, 3, 7, 4, 4, 4, 3, 4, 3, 5, 3, 5, 8, 4 };
+                                               "GATE", "PLATE", "ZONE", "CURRENT", "HAZ", "LEDGE", "POWER" };
+        static const int NEED[NSDT] = { 4, 8, 3, 7, 4, 4, 4, 3, 4, 3, 5, 3, 5, 8, 4, 4, 4 };
         int k = 0;
         while (k < NSDT && strcmp(op, OPS[k])) k++;
         if (k == NSDT) SDBAD("a word the game doesn't know: %.40s", op);
@@ -268,8 +277,25 @@ static int sd_read(const char *text, SdLevel *L, char *err, int nerr) {
         case SDT_SWITCH:
             t.a = iv[3];
             if (t.a < -1 || t.a >= EV_THINGS) SDBAD("a switch's thing is -1 or 0 to %d", EV_THINGS - 1);
-            for (int i = 4; i < n; i++) if (!strcmp(w[i], "TOGGLE")) t.flags |= SDF_TOGGLE;
+            for (int i = 4; i < n; i++) {
+                if (!strcmp(w[i], "TOGGLE")) t.flags |= SDF_TOGGLE;
+                else if (!strcmp(w[i], "TIMER") && i + 1 < n) t.f[0] = (float)atof(w[++i]);
+            }
+            if (t.f[0] < 0.0f || t.f[0] > 120.0f) SDBAD("a switch's timer is 0 to 120 seconds");
             break;
+        case SDT_LEDGE:
+            t.w = iv[3];
+            if (t.w < 1 || t.x + t.w > L->w) SDBAD("a ledge runs off the map");
+            break;
+        case SDT_POWER: {
+            static const char *const PW[NPW] = { "RAPID", "MIGHT", "WARD" };
+            t.a = -1;
+            for (int k2 = 0; k2 < NPW; k2++) if (!strcmp(w[3], PW[k2])) t.a = k2;
+            if (t.a < 0) SDBAD("a powerup is RAPID, MIGHT or WARD: %.20s", w[3]);
+            t.f[0] = n > 4 && fv[4] > 0.0f ? fv[4] : 10.0f;
+            if (t.f[0] > 120.0f) SDBAD("a powerup lasts 120 seconds at the most");
+            break;
+        }
         case SDT_GATE: case SDT_ZONE:
             t.w = iv[3]; t.h = iv[4];
             if (t.w < 1 || t.h < 1 || t.x + t.w > L->w || t.y + t.h > L->h) SDBAD("%.10s's box is outside the map", op);

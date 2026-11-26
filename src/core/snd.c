@@ -1004,6 +1004,41 @@ static float sfx_sample(Sfx *s) {
         x = groan + thud;
         break;
     }
+    case SFX_SJUMP1: {                              /* a cloak's swish: noise through a band sweeping up, gone quick */
+        float u = t / s->dur, a = fminf(t / 0.012f, 1.0f) * (1.0f - u) * (1.0f - u);
+        float b = svf_band(nz(&s->rng), 700.0f * expf(u * 1.8f), 0.65f, &s->lo1, &s->bp1);
+        float c = svf_band(nz(&s->rng), 2600.0f * expf(u * 0.9f), 0.9f, &s->lo2, &s->bp2);
+        x = (b * 0.75f + c * 0.2f) * a;
+        break;
+    }
+    case SFX_SJUMP2: {                              /* a hop: a round tone sweeping up a twelfth, a little square in it */
+        float f = 230.0f * expf(fminf(t / 0.11f, 1.0f) * 1.1f);
+        s->ph[0] += f / SR; if (s->ph[0] >= 1.0f) s->ph[0] -= 1.0f;
+        s->ph[1] += 2.0f * f / SR; if (s->ph[1] >= 1.0f) s->ph[1] -= 1.0f;
+        float a = fminf(t / 0.004f, 1.0f) * expf(-t * 16.0f);
+        x = (sin_cyc(s->ph[0] + 0.12f * sin_cyc(s->ph[1])) * 0.65f + (s->ph[0] < 0.5f ? 0.08f : -0.08f)) * a;
+        break;
+    }
+    case SFX_SJUMP3: {                              /* a boot and a breath: a scuff of grit and a thump, then "hup" */
+        s->lp1 += 0.2f * (nz(&s->rng) - s->lp1);
+        float n = nz(&s->rng), hp = n - s->lp2; s->lp2 = n;
+        x = s->lp1 * expf(-t * 45.0f) * 0.9f + hp * expf(-t * 70.0f) * 0.25f + sin_cyc(85.0f * t) * expf(-t * 40.0f) * 0.35f;
+        float v = t - 0.03f;
+        if (v > 0.0f && v < 0.14f) {
+            float w = sinf(PI_F * v / 0.14f), br = nz(&s->rng);
+            float f1 = svf_band(br, 650.0f + 500.0f * v / 0.14f, 0.35f, &s->lo1, &s->bp1), f2 = svf_band(br, 1250.0f, 0.5f, &s->lo2, &s->bp2);
+            x += (f1 * 0.9f + f2 * 0.35f) * w * w * 0.6f;
+        }
+        break;
+    }
+    case SFX_SJUMP4: {                              /* a bone pipe: G then C above, breath in each */
+        float f = t < 0.06f ? 784.0f : 1046.5f, v = t < 0.06f ? t : t - 0.06f;
+        s->ph[0] += f / SR; if (s->ph[0] >= 1.0f) s->ph[0] -= 1.0f;
+        float a = fminf(v / 0.008f, 1.0f) * (t < 0.06f ? 1.0f : expf(-v * 22.0f));
+        float br = svf_band(nz(&s->rng), f, 0.12f, &s->lo1, &s->bp1);
+        x = (sin_cyc(s->ph[0]) * 0.5f + sin_cyc(s->ph[0] * 3.0f) * 0.06f + br * 0.5f) * a;
+        break;
+    }
     case SFX_POTION: {                              /* three glugs and a rising shimmer */
         for (int i = 0; i < 3; i++) {
             float u = t - i * 0.13f;
@@ -3417,6 +3452,13 @@ static const SfxDef SFXDEF[SFX_COUNT] = {
     [SFX_MTELL]      = { 0.48f, 0.55f,  0.50f, 0.30f },
     [SFX_RAT_HISS]   = { 0.60f, 0.70f,  0.50f, 0.25f },
     [SFX_RAT_SQUEAL] = { 0.45f, 0.75f,  0.50f, 0.30f },
+    [SFX_SJUMP1]     = { 0.22f, 1.30f,  0.50f, 0.20f },
+    [SFX_SJUMP2]     = { 0.17f, 0.75f,  0.50f, 0.20f },
+    [SFX_SJUMP3]     = { 0.22f, 0.72f,  0.50f, 0.15f },
+    [SFX_SJUMP4]     = { 0.17f, 0.58f,  0.50f, 0.30f },
+    [SFX_SDEATH1]    = { 0.00f, 1.00f,  0.50f, 0.00f },
+    [SFX_SDEATH2]    = { 0.00f, 1.00f,  0.50f, 0.00f },
+    [SFX_SDEATH3]    = { 0.00f, 1.00f,  0.50f, 0.00f },
 };
 
 void snd_tone(int glass, int midi, float gain, float pan) {      /* a struck bell or a singing crystal, at its own note */
@@ -3461,6 +3503,26 @@ void snd_sfx_ex(int id, float gain, float pan) {
         sched_note_g(650 * SND_RATE / 1000, PAT_BELL, 74, gain * 0.45f, (int)(1.6f * SND_RATE));
         sched_note_g(950 * SND_RATE / 1000, PAT_BELL, 69, gain * 0.3f, (int)(1.8f * SND_RATE));
         sfx_start(SFX_WHISPER, 2.4f, 0.5f * gain, 0.5f, 0.75f);
+    } else if (id == SFX_SDEATH1) {               /* the toll: D, B flat, G, D an octave down, each later than the last */
+        static const short T[][4] = { { 0, 74, 85, 1100 }, { 300, 70, 75, 1100 }, { 680, 67, 70, 1300 }, { 1180, 62, 80, 2600 } };
+        for (int i = 0; i < 4; i++) sched_note_g(T[i][0] * SND_RATE / 1000 + 1, PAT_BELL, T[i][1], gain * T[i][2] / 100.0f, T[i][3] * SND_RATE / 1000);
+        static const short O[] = { 50, 53, 57, 62 };
+        for (int i = 0; i < 4; i++) sched_note_g(1180 * SND_RATE / 1000, PAT_ORGAN, O[i], gain * 0.32f, 2200 * SND_RATE / 1000);
+        sched_note_g(1180 * SND_RATE / 1000, PAT_BELL, 38, gain * 0.9f, 3000 * SND_RATE / 1000);
+    } else if (id == SFX_SDEATH2) {               /* the music box: its turn slowing, the last note sagging a whole tone */
+        static const short M[][2] = { { 0, 76 }, { 170, 74 }, { 360, 72 }, { 580, 71 }, { 840, 69 }, { 1160, 67 } };
+        for (int i = 0; i < 6; i++) sched_v(M[i][0] * SND_RATE / 1000 + 1, PAT_MBOX, M[i][1], gain * (1.15f - 0.07f * i), 0.5f, 700 * SND_RATE / 1000, 0.0f, 0.0f);
+        sched_v(1560 * SND_RATE / 1000, PAT_MBOX, 62, gain * 0.95f, 0.5f, 1800 * SND_RATE / 1000, 2.0f, -1.1f);
+        sched_v(1560 * SND_RATE / 1000, PAT_MBOX, 50, gain * 0.55f, 0.5f, 1800 * SND_RATE / 1000, 2.0f, -1.1f);
+    } else if (id == SFX_SDEATH3) {               /* the choir's sigh: a harp falling, three chords sinking, a low D minor over the floor */
+        static const short H[] = { 86, 83, 81, 77, 74, 71, 69, 65, 62 };
+        for (int i = 0; i < 9; i++) sched_v(i * 45 * SND_RATE / 1000 + 1, PAT_HARP, H[i], gain * 0.4f, 0.3f + 0.05f * i, 900 * SND_RATE / 1000, 0.0f, 0.0f);
+        static const short C[][4] = { { 0, 62, 65, 69 }, { 550, 61, 64, 67 }, { 1100, 58, 62, 65 }, { 1700, 50, 57, 62 } };
+        for (int i = 0; i < 4; i++)
+            for (int k = 1; k < 4; k++) sched_note_g(C[i][0] * SND_RATE / 1000 + 1, PAT_VOICE, C[i][k], gain * (i == 3 ? 0.5f : 0.4f), (i == 3 ? 1900 : 650) * SND_RATE / 1000);
+        sched_note_g(1700 * SND_RATE / 1000, PAT_VOICE, 53, gain * 0.45f, 1900 * SND_RATE / 1000);
+        sched_note_g(1700 * SND_RATE / 1000, PAT_BASS, 38, gain * 0.7f, 1600 * SND_RATE / 1000);
+        sched_note_g(1700 * SND_RATE / 1000, PAT_BASS, 26, gain * 0.6f, 500 * SND_RATE / 1000);   /* the floor under it */
     } else if (id == SFX_STINGER) {
         int notes[4] = { 38, 44, 45, 50 };
         for (int i = 0; i < 4; i++) {

@@ -10,6 +10,7 @@ static struct {
     int path[256], npath, at;
     float plan_t, stuck_t, wait_t, best_x, give_t, hold_t;
     int goal, last_node, jumping, jdir, target_node;
+    float still_t; int sw; uint8_t tried[SD_THINGS];   /* still: waiting with no way; sw: a lever it goes to throw */
 } SDD;
 
 static int sdd_hazard_floor(int tx, int ty) { int b = sd_tile(tx, ty + 1); return b == '^' || b == '~'; }
@@ -99,6 +100,20 @@ static void sdd_plan(void) {
         fprintf(stderr, "SIDE plan from %d,%d to %d,%d: %d reached, the furthest %d,%d, %s\n", sx, sy, gx, gy, qt, far % SD_W, far / SD_W, SDD.from[goal] == -2 ? "no way" : "a way");
     }
 #endif
+    SDD.sw = -1;
+    if (SDD.from[goal] == -2 && SDD.still_t > 2.0f) {              /* no way a while: a lever it can reach that a trigger listens to, not yet
+                                                                      tried (a timed one again once it is back) */
+        int bd = 1 << 30;
+        for (int i = 0; i < L->nth; i++) {
+            const SdThing *t = &L->th[i];
+            if (t->kind != SDT_SWITCH || SD.thrown[i] || (SDD.tried[i] && t->f[0] <= 0.0f) || SDD.from[sdd_node(t->x, t->y)] == -2) continue;
+            int heard = 0;
+            for (int k = 0; k < L->ntr; k++) heard |= L->tr[k].src == i;
+            int d = abs(t->x - sx) + abs(t->y - sy);
+            if (heard && d < bd) { bd = d; SDD.sw = i; }
+        }
+        if (SDD.sw >= 0) { goal = sdd_node(L->th[SDD.sw].x, L->th[SDD.sw].y); if (goal == start) return; }
+    }
     if (SDD.from[goal] == -2) {                                    /* no whole way now: the nearest it can reach to the goal, to wait there */
         int best = start, bd = abs(gx - sx) * 2 + abs(gy - sy);
         for (int i = 1; i < qt; i++) { int d = abs(gx - q[i] % SD_W) * 2 + abs(gy - q[i] / SD_W); if (d < bd) { bd = d; best = q[i]; } }
@@ -132,6 +147,9 @@ static void sdd_fight(void) {                                      /* the neares
     int sp = G.spell >= 0 && G.spell < NATK && RUN.gear.atk[G.spell] >= 0 ? G.spell : own_spell();
     if (sp < 0) return;
     if (sp == AT_BFS || sp == AT_FLASK) { int o = own_missile(); if (o >= 0) sp = o; }   /* the dream keeps to what flies straight */
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_SIDEFIRE")) { if (RUN.gear.atk[AT_FIRE] < 0) RUN.gear.atk[AT_FIRE] = 0; sp = AT_FIRE; }   /* testing: the fire bolt, for silt gas */
+#endif
     G.spell = sp;
     float reach = sd_reach(ATK_ELEM[sp]) * SD_TILE, best = 1e9f;
     const SdMob *t = NULL;
@@ -145,6 +163,11 @@ static void sdd_fight(void) {                                      /* the neares
     }
     if (!t) return;
     int dir = t->x > SD.x ? 1 : -1;
+    if (sp == AT_FLASK && !SD.dying) {                             /* the flask: a tap, aimed at the nearest ahead (sd_flask_aim0) */
+        if (SD.face != dir && !SD.holding) { in->left = dir < 0; in->right = dir > 0; return; }
+        if (!SD.holding && SD.cd <= 0.0f) { in->cast = 1; in->cast_hit = 1; }
+        return;
+    }
     if (SD.face != dir) { in->left = dir < 0; in->right = dir > 0; }
     else if (SD.cd <= 0.0f) { in->cast = 1; in->cast_hit = 1; }
 }
@@ -162,7 +185,7 @@ static void sd_dream(float dt) {
     if (SD.dying) return;
     const SdLevel *L = SD.L;
     SDD.give_t += dt;
-    if (SD.in_t < 0.05f) { memset(&SDD, 0, sizeof SDD); SDD.goal = -1; }
+    if (SD.in_t < 0.05f) { memset(&SDD, 0, sizeof SDD); SDD.goal = -1; SDD.sw = -1; }
     if (SDD.goal < 0 || SDD.goal >= L->nth || L->th[SDD.goal].kind != SDT_DOOR) {   /* the goal doorway, else the furthest other way */
         SDD.goal = -1;
         for (int i = 0; i < L->nth; i++) if (L->th[i].kind == SDT_DOOR && (L->th[i].flags & SDF_GOAL)) SDD.goal = i;
@@ -182,8 +205,10 @@ static void sd_dream(float dt) {
     }
     if (sd_door_here() == SDD.goal && SD.ground) { in->up_hit = 1; return; }
     int fy = sd_floor_px(SD.y - 1.0f);                             /* (any of it inside a flow's box: keep going) */
-    int in_flow = sdd_flow_soon(sd_floor_px(SD.x - SD_HW), fy, 1e9f) || sdd_flow_soon(sd_floor_px(SD.x + SD_HW - 0.01f), fy, 1e9f);
+    int in_flow = sdd_flow_soon(sd_floor_px(SD.x - SD_HW), fy, 1e9f) || sdd_flow_soon(sd_floor_px(SD.x + SD_HW - 0.01f), fy, 1e9f)
+                  || sd_fx_harm(sd_floor_px(SD.x), fy) || sd_fx_harm(sd_floor_px(SD.x), fy - 1);   /* or a trap's harm about it: out first, then fight */
     if (!in_flow) sdd_fight();
+    else if (SD.holding) in->cast = 0;                             /* a flask drawn back as harm comes: let it go now */
     if (in->cast || in->left || in->right) return;                 /* turning to cast, or casting: a moment */
     if ((SDD.plan_t -= dt) <= 0.0f || SDD.at >= SDD.npath) {
         if (SD.ground) { sdd_plan(); SDD.plan_t = 0.25f; }
@@ -192,15 +217,20 @@ static void sd_dream(float dt) {
     if (SD.ground && !sdd_stand(cx, cy) && SD.on_plat < 0) {       /* somewhere it shouldn't be (the poison): out, to the nearest place to stand */
         int bx = -1, by = -1, bd = 99;
         for (int y = cy - 4; y <= cy + 1; y++) for (int x = cx - 6; x <= cx + 6; x++) if (sdd_stand(x, y) && abs(x - cx) + abs(y - cy) < bd) { bd = abs(x - cx) + abs(y - cy); bx = x; by = y; }
-        if (bx >= 0) { in->left = bx < cx; in->right = bx > cx; in->jump = in->jump_hit = 1; in->run = 1; SDD.jumping = 1; SDD.jdir = bx < cx ? -1 : 1; (void)by; }
-        return;
+        if (bx >= 0 && bx != cx) { in->left = bx < cx; in->right = bx > cx; in->jump = in->jump_hit = 1; in->run = 1; SDD.jumping = 1; SDD.jdir = bx < cx ? -1 : 1; (void)by; return; }
+        /* (nowhere dry beside it: on along its way, through it, rather than hop where it stands) */
     }
     if (SD.ground) while (SDD.at < SDD.npath && SDD.path[SDD.at] == sdd_node(cx, cy)) SDD.at++;
+    if (SDD.sw >= 0 && SD.ground && sd_at_thing(SDD.sw, 8.0f, 10.0f)) {   /* at the lever: thrown, and a fresh look */
+        in->up_hit = 1; SDD.tried[SDD.sw] = 1; SDD.sw = -1; SDD.still_t = 0.0f; SDD.plan_t = 0.0f;
+        return;
+    }
     if (SDD.at >= SDD.npath) {                                     /* no way now: wait where it stands (a platform, a block coming back) */
-        SDD.wait_t += dt; SDD.stuck_t = 0.0f; SDD.best_x = SD.x;
+        SDD.wait_t += dt; SDD.still_t += dt; SDD.stuck_t = 0.0f; SDD.best_x = SD.x;
         if (!SD.ground && SDD.target_node > 0) { in->jump = SD.vy < 0.0f && SDD.jumping; sdd_steer(in, (float)((SDD.target_node % SD_W) * SD_TILE) + 8.0f); }
         return;
     }
+    if (SDD.sw < 0) SDD.still_t = 0.0f;                            /* on its way: not waiting */
     int n = SDD.path[SDD.at], nx = n % SD_W, ny = n / SD_W;
     float tx = (float)(nx * SD_TILE) + 8.0f;
     if (SD.ground && !sdd_stand(nx, ny)) {                         /* gone since the plan (a platform moved on, a block fell): wait, look again */

@@ -195,6 +195,59 @@ cools and fades; a crack in the roof that stays, with rubble after that is walke
 - **The editor**: on a trap's CHOSEN, THE EMITTER (rate, speed, spread, life, its way, the reliquary's reach; -1 or *its own* for the game's)
   or THE SWING (chain, hang, swing); ITS OWN puts them back; PREVIEW runs `SideCore.fxSim`, the game's rules over again, on the map, round
   and round, and follows each change. The map shows the censer's arc, the sconce's way and the reliquary's reach.
+- **Run II's** (session 6, the owner having approved run I's sheet; my defaults, the sheet `media/sheets/side/traps_run2.png` to approve):
+  **bile**, the crypt's `T_GRATE` as a tile, a green fluid from its open side (up and slow from a grate in the floor) that runs and pools,
+  poison and a fifth slower, dripping while idle; **the sluice**, `T_HZ_SLUICE` shut and open, a surge of water toward the side more cells
+  are painted on, carrying the caster along and chilling; **the galvanic pool**, standing water over its painted cells always shown,
+  crackling in its warning, then a bolt from the roof and all in the water struck once; **silt**, mud over its cells, bubbling, a sallow
+  gas that rises a little and hangs and poisons, set alight by a fire spell through it (`sd_fx_ignite` from `sd_shots`), burning out in a
+  second; **the weeping saint**, `T_HZ_SAINT` and lit, tears falling from her alcove to a pool that drinks a soul with each bite; **the
+  snare**, a web across its cells: walked into, it holds a second and a half (CHANCE), tears, sends the dead within eight tiles toward
+  the caster, and is spun again after STAYS seconds. `SIDE_TEXT[3]`, *Run II's Traps*, one of each (`fixtures/side_traps2.txt`).
+- **The dream and the traps** (session 6): it keeps out only of what burns (hot wax, flames, a galvanic pool in its warning, the censer's
+  way) and walks through the rest as a person would, taking a few bites; it does not stop to fight while any harm is on it, and lets a
+  drawn flask go when harm comes. It now holds the flask as long as the distance wants (`sdd_fight`).
+- **A fault found and mended** (session 6): the flask's hold and the poison's bite shared one clock (`SD.held`), which the poison set back
+  to four tenths every step, so every flask, a person's too, flew as if barely held. The poison has its own clock now (`SD.pois_t`), and
+  the flask's throw follows how long it is held, as TUNING's flask_near, flask_far and flask_hold say. Throws held long now go further
+  than they did: numbers tuned by hand since may want looking at again.
+
+### 2f. Quicker hands, the flask aimed, powerups, timed switches, and things laid by a trigger (session 7)
+
+The owner's asks of 26 November, before the squash; my defaults where they left the numbers open.
+- **Casting twice as quick** in a passage: every spell's time between casts is the crypt's times TUNING's `cast_every` (0.5).
+- **The flask**: a tap throws it at once to where it is aimed when pressed, the nearest of the dead ahead within its reach (about 227 px,
+  `SD_FLASK_KMAX`), else halfway between near and far. Held past 0.15 s, left and right (the keys, the pad's d-pad or stick) carry the
+  mark further or nearer, the way the caster faces being further, at TUNING's `flask_aim` (140 px a second); the caster stands still
+  while it is held; let go, it flies. `flask_hold` no longer sets the throw. The dream only taps.
+- **Powerups**: `POWER x y RAPID|MIGHT|WARD [secs]` (10 unless told; 120 at the most), taken in passing, once, and given back with a life
+  lost as the gold is. *Quickened hands* halves the time between casts again; *Might* doubles all harm the caster's spells do and hangs a
+  red glow about the caster; *Ward* lets nothing harm the caster (a blue glow). Each is said on taking, with a shimmer and a tone; its time
+  is a bar under the lives; another of its kind starts it again. Their pictures are placeholders until the owner's art.
+- **A timed switch**: `SWITCH ... TIMER s` (0 to 120). Thrown, it goes back by itself after its seconds, and that going back is a throw like
+  any other to the triggers (FLIP undoes, HOLD lets go). The while, a metronome: a tick every two thirds of a second at first, an eighth at
+  the end, louder and higher as it nears; on every other beat a chord, A minor and B flat by turns, both climbing a half step at a time
+  to seven; at the end a knock and a low bell. A dial on the lever empties as the time runs.
+- **Laid by a trigger**: `LEDGE x y w [OFF]`, a ledge of `=` w tiles wide a trigger's ON lays and OFF takes up (a dotted outline while it is
+  up), and `FALL ... OFF`, a falling block not there till an ON (a faint outline). Each lays with a knock and goes with a creak.
+- **Sound where it happens** (the owner: far creatures were heard): what the dead, the traps, the works and a flask's splash make is
+  placed (`sd_sfx_at`): whole within 140 px of the caster, fading to nothing by 260 px (about 100 past the screen's edge; up and down
+  count half again), panned to its side. The caster's own sounds and a timed switch's metronome stay whole.
+- **The dream** goes to a lever and throws it when it has stood two seconds with no way on (only a lever a trigger listens to).
+- **The editor**: *Switched ledge* among the ways, *Timed switch* and the three powerups among the things; the switch's BACK AFTER, the ledge's
+  width, the powerup's kind and seconds, OFF on ledges and falling blocks; ledges and blocks may be a trigger's target; CHECKS warns of
+  something off with nothing to lay it, and a timed switch without a name. `tools/mapedit/fixtures/side_works2.txt`, *The Timed Lever*,
+  has one of each (for `HOST_SIDE`; not built in).
+
+### 2g. The jump's sound and a life lost (session 7)
+
+The owner asked to hear a few jumps and three death jingles, and chose. All are in `snd.c` at the end of the list, drawn in its own
+synth: `SFX_SJUMP1` a cloak's swish, `SFX_SJUMP2` a hop, `SFX_SJUMP3` a boot and a breath, **`SFX_SJUMP4` the bone pipe (chosen)**;
+**`SFX_SDEATH1` the toll (chosen)**, bells stepping down D, B flat, G, D and slowing, an organ's D minor and a deep bell under the last;
+`SFX_SDEATH2` the music box running down, its last note sagging a whole tone; `SFX_SDEATH3` the choir's sigh, a harp falling and voices
+sinking to a low D minor. The rest are kept, at the owner's word, for other things to do. TUNING's `jump_sound` (4) and `death_sound` (1)
+choose among them, 0 being what was there before (the whoosh; the groan, and nothing for the drop); the toll plays for the drop too.
+`host music none secs out.wav sfxN:gain@t` renders an effect alone.
 
 ## 3. Steps
 
@@ -361,3 +414,36 @@ was republished with that game before this began, so the other agent on the edit
 Not played by hand; nothing under Wine. Open: the owner's word on the art; runs II to IV's traps the same way; the editor's PREVIEW is the
 game's rules written again in JavaScript, near but not the same frame for frame.
 
+**Session 6 (26 November 2026): the owner's Map 3, run II's traps (2e).** The owner approved run I's sheet. Their level *Storage* went
+into `game/drawn.c` as the Compass, `DRAWN[2]` (docs/PLAN-mapedit.md's log). Run II's six built as 2e says; the dream's ways round the traps
+and the flask's clock mended. Tested: every built-in passage (the Ossuary Stair, the Cistern Key, run I's, run II's) by the dream on eight
+seeds, thirty-two of thirty-two at the goal with no life lost (before the dream's change run II's took all three lives each time, and the
+first two failed for a while as it was mended); a fire bolt through silt gas lit 48 of its particles (a small passage, `CRAWL_SIDEFIRE`);
+`make asan` clean on two passages for 300 s and the silt's; `make smoke` passed; the crypt's dream, seeds 1, 4 and 7, 1,500 s, line for
+line the build before's (the Compass already in it). `node tools/mapedit/test.js`: run II's passage read back, each PREVIEW making its
+own, a web, a pool and a mud with no cells refused. Playwright: run II's example opened and each emitter's PREVIEW run, no page errors.
+Harness and Playwright only; nothing by hand, nothing under Wine. Open: the owner's word on run II's sheet; runs III and IV's traps.
+
+**Session 7 (26 November 2026): the owner's asks before the squash (2f).** Built as 2f says. Tested in the harness: the four built-in
+passages by the dream on eight seeds after the quicker casting and the tapped flask, thirty-two of thirty-two at the goal with no life
+lost; a scripted person through *The Timed Lever*: the lever thrown, the ledge and block laid at 6.7 s and taken up at 14.7 s, eight
+seconds on; the metronome's beats from 0.65 s to 0.14 s apart and its chords by turns, climbing from 0 to 6 (`CRAWL_SIDEMETRO`); the
+flask tapped 219 px to a creature, held with right 227 px, held with left 124 px (`EVENT side_flask`); each powerup taken (`EVENT
+side_power`). The dream, stopped with no way on for two seconds, now goes to a lever it can reach that a trigger listens to, throws it and looks again
+(`sdd_plan`; a timed one again once it is back): *The Timed Lever* on eight seeds, eight of eight at the goal, the lever thrown each
+time, no life lost; the four built in again after that change, thirty-two of thirty-two, no life lost. A timed lever left while it ran
+is back when you come in again. `make asan` clean on the lever, run II's and a scripted person's flasks (400 s, 400 s, 120 s); `make
+smoke` passed; the crypt's dream, seeds 1, 4 and 7, 3,000 s, line for line the build before's but the time-taken line. `node
+tools/mapedit/test.js`: *The Timed Lever* read back letter for letter, four bad lines refused. Playwright on the built editor: a switched
+ledge, a timed switch at 12 s, the three powerups (one changed to Might, 15 s) and a block off at the start placed and exported as the
+game reads them, no page errors.
+The World Editor was republished from this branch before the squash, at the owner's asking (version 5), its PLAY with this branch's game. Not played by hand; nothing under Wine. Open: the owner's art for the powerups; the numbers (the metronome, the flask's aim, the
+powerups' seconds) theirs to tune.
+
+Later the same day the owner, playing the republished editor, heard creatures far off the screen; every sound a passage makes away from
+the caster is now placed as 2f says (`CRAWL_SIDESND=1` logs each, its distance and its gain). Checked by that log on run I's and run
+II's passages with a person standing at the door; under the sanitizers on run I's. Harness only.
+
+Then four jumps and three jingles to hear (2g), rendered with `host music` and sent; the owner chose the bone pipe and the toll. Each death
+sounds once (`EVENT side_death_sound`), the drop included; the sanitizers clean on three passages' worth of each; `make smoke` passed.
+Harness only, but for the owner's ear on the rendered files.

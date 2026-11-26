@@ -222,6 +222,59 @@ static void sd_draw_fx(Frame *f, int camx, int camy) {
                 sd_px(f, sx + 8 + d, sy + SD_TILE - 1, (uint8_t)(R_PURPLE + (open ? 13 : 8)), open ? 31 : 20);
             break;
         }
+        case HZ_BILE:                                              /* run II's: the crypt's grate, as a tile */
+            sd_draw_tile(f, side_tile[ST_HZ_GRATE], sx, sy, 21, 1.0f, 0); break;
+        case HZ_SLUICE:                                            /* the sluice gate, shut; thrown up in its turn */
+            sd_draw_tile(f, side_tile[ph == 2 ? ST_HZ_SLUICE_OPEN : ST_HZ_SLUICE], sx, sy, 21, 1.0f, 0); break;
+        case HZ_SAINT:                                             /* the saint in her alcove; her eyes alight as she weeps */
+            sd_draw_tile(f, side_tile[ph ? ST_HZ_SAINT_LIT : ST_HZ_SAINT], sx, sy, 21, 1.0f, 0); break;
+        case HZ_GALV: {                                            /* standing water over its cells, always; aglow in its warning; the bolt */
+            for (int c = 0; c < z->nc; c++) {
+                int x, y; sd_hz_cell(z, c, &x, &y);
+                int bx = x * SD_TILE - camx, by = y * SD_TILE - camy;
+                for (int yy = 9; yy < SD_TILE; yy++) for (int xx = 0; xx < SD_TILE; xx++) {
+                    if (((xx + yy) & 1) && yy > 9) continue;       /* half the pixels, the wall behind showing through */
+                    uint32_t hh = sd_hash(xx + (int)(SD.t * 6.0f), yy, c);
+                    int top = yy == 9, glow = ph == 1 ? (hh % 3 == 0) : ph == 2;
+                    sd_px(f, bx + xx, by + yy, glow ? (uint8_t)(R_GLOW + 11 + (int)(hh % 5)) : (uint8_t)(R_GHOST + (top ? 12 : 6 + (int)(hh % 3))), glow ? 31 : 22);
+                }
+                if (!ph && sd_hash(c, (int)(SD.t * 2.0f), h) % 7 == 0) sd_px(f, bx + 3 + (int)(sd_hash(c, h, 1) % 10), by + 9, (uint8_t)(R_GLOW + 14), 31);   /* a glint now and then */
+            }
+            if (FX.bolt[h] > 0.0f && z->nc) {                      /* a jagged bolt down from the roof into the first cell */
+                int x = 0, y = 0; sd_hz_cell(z, 0, &x, &y);
+                int top = y; while (top > 0 && !sd_solid(x, top - 1) && y - top < 12) top--;
+                int px = x * SD_TILE + 8 - camx;
+                for (int yy = top * SD_TILE; yy < y * SD_TILE + 10; yy++) {
+                    px += (int)(sd_hash(yy / 3, (int)(SD.t * 30.0f), h) % 3) - 1;
+                    sd_px(f, px, yy - camy, (uint8_t)C_WHITE, 31); sd_px(f, px + 1, yy - camy, (uint8_t)(R_GLOW + 13), 31);
+                }
+            }
+            break;
+        }
+        case HZ_SILT:                                              /* a mud floor over its cells, always; bubbling as it wakes */
+            for (int c = 0; c < z->nc; c++) {
+                int x, y; sd_hz_cell(z, c, &x, &y);
+                int bx = x * SD_TILE - camx, by = y * SD_TILE - camy;
+                for (int yy = 12; yy < SD_TILE; yy++) for (int xx = 0; xx < SD_TILE; xx++)
+                    sd_px(f, bx + xx, by + yy, (uint8_t)(R_WOOD + 4 + (int)(sd_hash(xx, yy, c) % 3) + (yy == 12 ? 3 : 0)), sd_lit(wx, wy, 20, 1.0f));
+                if (sd_hash(c, (int)(SD.t * (ph ? 6.0f : 1.5f)), h) % 3 == 0) {
+                    int bxx = bx + 3 + (int)(sd_hash(c, (int)(SD.t * 2.0f), 5) % 10);
+                    sd_px(f, bxx, by + 11, (uint8_t)(R_GOLD + 7), 22); sd_px(f, bxx + 1, by + 11, (uint8_t)(R_GOLD + 9), 22);
+                }
+            }
+            break;
+        case HZ_SNARE:                                             /* a web across its cells, just to be made out; gone a while once torn */
+            if (FX.web[h] > 0.0f) break;
+            for (int c = 0; c < z->nc; c++) {
+                int x, y; sd_hz_cell(z, c, &x, &y);
+                int bx = x * SD_TILE - camx, by = y * SD_TILE - camy;
+                for (int k = 0; k < 16; k++) {                     /* strands corner to corner and across, a hub in the middle */
+                    sd_px(f, bx + k, by + k, (uint8_t)(R_BONE + 8), 18); sd_px(f, bx + 15 - k, by + k, (uint8_t)(R_BONE + 8), 18);
+                    if (k % 2 == 0) { sd_px(f, bx + 8, by + k, (uint8_t)(R_BONE + 7), 16); sd_px(f, bx + k, by + 8, (uint8_t)(R_BONE + 7), 16); }
+                }
+                for (int a = 0; a < 24; a++) { float r = 5.0f, an = (float)a * 0.2618f; sd_px(f, bx + 8 + (int)lroundf(cosf(an) * r), by + 8 + (int)lroundf(sinf(an) * r), (uint8_t)(R_BONE + 9), 18); }
+            }
+            break;
         default: break;
         }
     }
@@ -258,10 +311,40 @@ static void sd_draw_fx(Frame *f, int camx, int camy) {
         case PK_HAZE: sd_px(f, px, py, (uint8_t)(R_PURPLE + (p->harm ? 11 : 8) + (int)(hh % 4)), p->harm ? 31 : 24); if (p->harm && hh % 2) sd_px(f, px + 1, py, (uint8_t)(R_PURPLE + 9), 24); break;
         case PK_SMOKE: if (hh % 4) sd_px(f, px, py, (uint8_t)(R_STONE + 10 + (int)(hh % 3)), 24); if (p->age > 0.3f && hh % 3 == 0) sd_px(f, px + 1, py - 1, (uint8_t)(R_STONE + 9), 22); break;
         case PK_GRIT: sd_px(f, px, py, (uint8_t)(R_STONE + 10), 18); break;
+        case PK_BILE: { int lt = sd_lit(p->x, p->y, 24, 1.0f); uint8_t c = (uint8_t)(R_MOSS + (p->harm ? 9 : 7) + (int)(hh % 3));
+            sd_px(f, px - 1, py - 1, c, lt); sd_px(f, px, py - 1, c, lt); sd_px(f, px - 1, py, c, lt); sd_px(f, px, py, c, lt); break; }
+        case PK_WATER: { int lt = sd_lit(p->x, p->y, 24, 1.0f); uint8_t c = p->rest ? (uint8_t)(R_GHOST + 8 + (int)(hh % 3)) : (uint8_t)(R_GHOST + 12 + (int)(hh % 4));
+            sd_px(f, px - 1, py - 1, c, lt); sd_px(f, px, py - 1, (uint8_t)(R_GHOST + 14), lt); sd_px(f, px - 1, py, c, lt); sd_px(f, px, py, c, lt); break; }
+        case PK_GAS:
+            for (int q = 0; q < 5; q++) { static const int O[5][2] = { { 0, 0 }, { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } }; if (q && (hh >> q) % 3) continue;
+                sd_px(f, px + O[q][0], py + O[q][1], (uint8_t)(p->harm ? R_GOLD + 6 + (int)(hh % 3) : R_WOOD + 8), 24); }
+            break;
+        case PK_FLAME: sd_px(f, px, py, (uint8_t)(R_FLAME + 9 + (int)(hh % 7)), 31); sd_px(f, px, py - 1, (uint8_t)(R_FLAME + 12), 31); if (hh % 2) sd_px(f, px + 1, py, (uint8_t)(R_FLAME + 10), 31); break;
+        case PK_TEAR: { int lt = sd_lit(p->x, p->y, 26, 1.0f);
+            if (p->rest) { sd_px(f, px - 1, py, (uint8_t)(R_PURPLE + 9 + (int)(hh % 2)), lt); sd_px(f, px, py, (uint8_t)(R_GHOST + 13), lt); sd_px(f, px, py - 1, (uint8_t)(R_PURPLE + 10), lt); }
+            else sd_px(f, px, py, (uint8_t)(R_GHOST + 15), 31);
+            break; }
+        case PK_SPARK: sd_px(f, px, py, (uint8_t)(R_GLOW + 12 + (int)(hh % 4)), 31); break;
+        case PK_STRAND: if (hh % 2) sd_px(f, px, py, (uint8_t)(R_BONE + 9), 20); break;
         }
     }
 }
 
+/* ---- the powerups (placeholders till the owner's art): quickened hands a gold double arrow, might a red fist of flame, a ward a pale
+ * shield; on the caster while they last; their time left in the corner ---- */
+static void sd_draw_power(Frame *f, int kind, int cx, int cy, float k) {
+    static const char *const ICON[NPW][9] = {
+        { "..#...#..", "...#...#.", "....#...#", ".....#...", "....#...#", "...#...#.", "..#...#..", ".........", "........." },
+        { "...###...", "..#####..", ".###.###.", ".#######.", ".#######.", "..#####..", "...###...", "....#....", "........." },
+        { ".#######.", ".#.....#.", ".#.###.#.", ".#.###.#.", ".#..#..#.", "..#...#..", "...#.#...", "....#....", "........." } };
+    static const int RAMP[NPW] = { R_GOLD, R_FLAME, R_GHOST };
+    for (int r = -6; r <= 6; r++) for (int c = -6; c <= 6; c++) {   /* a ring of its colour about it */
+        int d2 = r * r + c * c;
+        if (d2 >= 30 && d2 <= 38 && ((r + c + (int)(SD.t * 8.0f)) & 1)) sd_px(f, cx + c, cy + r, (uint8_t)(RAMP[kind] + (int)(10.0f * k)), 31);
+    }
+    for (int r = 0; r < 9; r++) for (int c = 0; c < 9; c++)
+        if (ICON[kind][r][c] == '#') sd_px(f, cx - 4 + c, cy - 4 + r, (uint8_t)(RAMP[kind] + 13 + ((r + c) & 1) * 2), 31);
+}
 static void sd_render(Frame *f) {
     const SdLevel *L = SD.L;
     int camx = (int)floorf(SD.camx), camy = (int)floorf(SD.camy);
@@ -309,7 +392,20 @@ static void sd_render(Frame *f) {
             break;
         }
         case SDT_TORCH: sd_draw_tile(f, side_tile[ST_TORCH0 + (int)(SD.t * 9.0f + (float)i) % 3], sx, sy, 24, 0.0f, 0); break;
-        case SDT_SWITCH: sd_draw_tile(f, side_tile[SD.thrown[i] ? ST_SWITCH1 : ST_SWITCH0], sx, sy, 18, 1.0f, 0); break;
+        case SDT_SWITCH:
+            sd_draw_tile(f, side_tile[SD.thrown[i] ? ST_SWITCH1 : ST_SWITCH0], sx, sy, 18, 1.0f, 0);
+            if (t->f[0] > 0.0f) {                                  /* a timed one: its dial, a ring of marks going out as it runs */
+                float frac = SWT[i] > 0.0f ? SWT[i] / t->f[0] : 1.0f;
+                for (int a = 0; a < 16; a++) {
+                    float an = (float)a / 16.0f * TAU_F - PI_F * 0.5f;
+                    int lit = (float)a / 16.0f < frac;
+                    sd_px(f, sx + 8 + (int)lroundf(cosf(an) * 6.0f), sy - 4 + (int)lroundf(sinf(an) * 3.0f), lit ? (uint8_t)(SWT[i] > 0.0f ? R_FLAME + 12 : R_GOLD + 9) : (uint8_t)(R_STONE + 6), lit ? 31 : 16);
+                }
+            }
+            break;
+        case SDT_LEDGE:                                            /* off: its length marked faintly (on, the tiles draw it) */
+            if (!SD.st[i]) for (int k = 0; k < t->w * SD_TILE; k += 2) sd_px(f, sx + k, sy, (uint8_t)(R_WOOD + 9), 16);
+            break;
         default: break;
         }
     }
@@ -348,6 +444,12 @@ static void sd_render(Frame *f) {
     for (int i = 0; i < L->nth; i++) {
         const SdThing *t = &L->th[i];
         if (t->kind != SDT_FALL || SD.fall[i].state == 3) continue;
+        if (!SD.st[i]) {                                           /* off: only its outline, faint, where it will come */
+            int bx = t->x * SD_TILE - camx, by = t->y * SD_TILE - camy;
+            for (int k = 0; k < SD_TILE; k += 2) { sd_px(f, bx + k, by, (uint8_t)(R_STONE + 8), 16); sd_px(f, bx + k, by + SD_TILE - 1, (uint8_t)(R_STONE + 8), 16);
+                sd_px(f, bx, by + k, (uint8_t)(R_STONE + 8), 16); sd_px(f, bx + SD_TILE - 1, by + k, (uint8_t)(R_STONE + 8), 16); }
+            continue;
+        }
         const SdFall *fl = &SD.fall[i];
         int shake = fl->state == 1 ? ((int)(fl->t * 40.0f) & 1 ? 1 : -1) : 0;
         sd_draw_tile(f, side_tile[fl->state >= 1 ? ST_FALL_CRACK : ST_FALL], t->x * SD_TILE - camx + shake, t->y * SD_TILE - camy + (int)fl->dy, 17, 1.0f, 0);
@@ -376,6 +478,7 @@ static void sd_render(Frame *f) {
         switch (t->kind) {
         case SDT_KEY: sd_draw_tile(f, side_tile[ST_KEY0 + t->a], sx, sy, 24, 1.0f, 0); break;
         case SDT_LIFE: sd_draw_tile(f, side_tile[ST_LIFE], sx, sy - bob, 24, 1.0f, 0); break;
+        case SDT_POWER: sd_draw_power(f, t->a, sx + 8, sy + 8 - bob, 1.0f); break;
         case SDT_GOLD: {
             static const int SPR[] = { SP_COINS_A, SP_CHALICE, SP_GEMS, SP_CROWN, SP_CHEST };
             sd_draw_spr(f, SPR[clampi(t->a, 0, 4)], sx + 8, sy + 16, 0, 24, 0);   /* its foot on the tile's foot (it was drawn a tile low) */
@@ -435,6 +538,36 @@ static void sd_render(Frame *f) {
                 uint8_t c = fr[y * SF_W + (SD.face < 0 ? SF_W - 1 - x : x)];
                 if (c != C_CLEAR) sd_px(f, sx + x, sy + y, SD.pois_k > 0.0f && c != R_STONE && ((x + y) & 3) == 0 ? (uint8_t)(R_MOSS + 9) : c, light);
             }
+        for (int k = 0; k < NPW; k++) {                            /* a powerup on the caster: an edge of its colour, flickering; sparks at
+                                                                      the hand for quickened hands */
+            if (FX.pw[k] <= 0.0f) continue;
+            float left = FX.pw[k];
+            if (left < 2.0f && ((int)(SD.t * 10.0f) & 1)) continue; /* (running out: it blinks) */
+            static const int RAMP[NPW] = { R_GOLD, R_FLAME, R_GHOST };
+            for (int y = -1; y <= SF_H; y++) for (int x = -1; x <= SF_W; x++) {
+                int inside = x >= 0 && y >= 0 && x < SF_W && y < SF_H && fr[y * SF_W + (SD.face < 0 ? SF_W - 1 - x : x)] != C_CLEAR;
+                if (inside) continue;
+                int near = 0;
+                for (int d = 0; d < 4 && !near; d++) {
+                    int nx = x + (d == 0) - (d == 1), ny = y + (d == 2) - (d == 3);
+                    near = nx >= 0 && ny >= 0 && nx < SF_W && ny < SF_H && fr[ny * SF_W + (SD.face < 0 ? SF_W - 1 - nx : nx)] != C_CLEAR;
+                }
+                if (!near || (k == PW_RAPID) || ((x * 3 + y + (int)(SD.t * 12.0f)) % (k == PW_WARD ? 2 : 3)) == 0) continue;
+                sd_px(f, sx + x, sy + y, (uint8_t)(RAMP[k] + 10 + (int)(sd_hash(x, y, (int)(SD.t * 10.0f)) % 5)), 31);
+            }
+            if (k == PW_RAPID) for (int s = 0; s < 3; s++) {
+                float a = SD.t * 9.0f + (float)s * 2.1f;
+                sd_px(f, (int)floorf(SD.x) - camx + SD.face * 6 + (int)lroundf(cosf(a) * 3.0f), (int)floorf(SD.y - SD_HAND) - camy + (int)lroundf(sinf(a) * 3.0f), (uint8_t)(R_GOLD + 14), 31);
+            }
+        }
+    }
+    for (int k = 0, n = 0; k < NPW; k++) {                         /* their time left, top right: the icon and a bar running down */
+        if (FX.pw[k] <= 0.0f) continue;
+        int cx = W - 14 - n * 26, cy = 10;
+        sd_draw_power(f, k, cx, cy, 1.0f);
+        int bw = (int)(18.0f * FX.pw[k] / fmaxf(FX.pw_full[k], 0.1f));
+        for (int x = 0; x < 18; x++) f->pix[(cy + 9) * W + cx - 9 + x] = x < bw ? (uint8_t)(k == PW_RAPID ? R_GOLD + 13 : k == PW_MIGHT ? R_FLAME + 12 : R_GHOST + 13) : (uint8_t)(R_STONE + 4);
+        n++;
     }
     /* the lives, top left: a lamp each, the lost ones cold */
     for (int k = 0; k < SD_LIVES; k++) {

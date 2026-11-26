@@ -152,3 +152,10 @@ LIGHTS* asks the game (the browser build in `play/`, loaded once in the editor's
 stand lights on the drawing (`web_drawn_load`, `web_drawn_lights`) and gives them to the owner as lights of their own (`gen`); the styles'
 order is read from the game (`extract.py`'s `lights`, held to the editor's by `test.js`). In Playwright's Chromium on the owner's
 Storage: the five it lists are the harness's `drawnlights` five, cell for cell; PLAY boots with them; no page errors.
+
+**The owner's Map 3, the Compass (26 November 2026, on `claude/eloquent-johnson-sjuioa`).** The owner's level drawn as *Storage* is now
+`DRAWN[2]` in `game/drawn.c`, laid on level 3 in every run: its export word for word (`NDRAWN` 3), kept as
+`tools/mapedit/fixtures/drawn3_compass.c`. `build/host_debug drawncheck` reads that export against the compiled drawing: the same, field for
+field. The dream on it (`CRAWL_LEVEL=3`, seeds 1 to 8, 900 s): level 4 reached on all eight, the compass taken on all eight. Level 3 is no
+longer the generator's, so the dream's logs differ from the build before's from level 3 on: that is the drawing, not a fault. Harness only;
+not yet played by hand in the game's own build (the owner has played it through PLAY). The playtest branch stays unmerged as it was.

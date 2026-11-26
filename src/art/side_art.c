@@ -473,6 +473,8 @@ static void from_tex(uint8_t *t, int tex) {
 }
 void side_art_traps(void) {
     from_tex(side_tile[ST_HZ_SLAB], T_HZ_SLAB); from_tex(side_tile[ST_HZ_SLAB_OPEN], T_HZ_SLAB_OPEN); from_tex(side_tile[ST_HZ_COLD], T_HZ_COLD);
+    from_tex(side_tile[ST_HZ_GRATE], T_GRATE); from_tex(side_tile[ST_HZ_SLUICE], T_HZ_SLUICE); from_tex(side_tile[ST_HZ_SLUICE_OPEN], T_HZ_SLUICE_OPEN);
+    from_tex(side_tile[ST_HZ_SAINT], T_HZ_SAINT); from_tex(side_tile[ST_HZ_SAINT_LIT], T_HZ_SAINT_LIT);
 }
 void side_art_init(void) {
     static int done;

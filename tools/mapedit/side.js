@@ -7,10 +7,12 @@ const LIM = { minW: 20, maxW: 256, minH: 10, maxH: 64, things: 160, platW: 8, li
 const TILES = '#%,.=^~';                          /* F is a falling block: a thing, laid with the dark behind it */
 const SOLID = new Set(['#', '%']);
 const TILE_NAMES = { '#': 'Stone', '%': 'Brick', ',': 'Back wall', '.': 'The dark', '=': 'Ledge', '^': 'Spikes', '~': 'Standing poison' };
-const KINDS = ['door', 'plat', 'fall', 'flow', 'mob', 'gold', 'key', 'life', 'switch', 'torch', 'gate', 'plate', 'zone', 'current', 'haz'];
+const KINDS = ['door', 'plat', 'fall', 'flow', 'mob', 'gold', 'key', 'life', 'switch', 'torch', 'gate', 'plate', 'zone', 'current', 'haz', 'ledge', 'power'];
 const OPS = { door: 'DOOR', plat: 'PLAT', fall: 'FALL', flow: 'FLOW', mob: 'MOB', gold: 'GOLD', key: 'KEY', life: 'LIFE', switch: 'SWITCH', torch: 'TORCH',
-              gate: 'GATE', plate: 'PLATE', zone: 'ZONE', current: 'CURRENT', haz: 'HAZ' };
-const NEED = { door: 4, plat: 8, fall: 3, flow: 7, mob: 4, gold: 4, key: 4, life: 3, switch: 4, torch: 3, gate: 5, plate: 3, zone: 5, current: 8, haz: 4 };
+              gate: 'GATE', plate: 'PLATE', zone: 'ZONE', current: 'CURRENT', haz: 'HAZ', ledge: 'LEDGE', power: 'POWER' };
+const NEED = { door: 4, plat: 8, fall: 3, flow: 7, mob: 4, gold: 4, key: 4, life: 3, switch: 4, torch: 3, gate: 5, plate: 3, zone: 5, current: 8, haz: 4, ledge: 4, power: 4 };
+/* 26 November: the powerups (side_fx.c's sd_fx_power) and how long each lasts unless told */
+const POWERS = ['RAPID', 'MIGHT', 'WARD'], POWER_NAMES = { RAPID: 'Quickened hands', MIGHT: 'Might', WARD: 'Ward' }, POWER_SECS = 10;
 /* the crypt's traps in side view, each in the shape of its own (side_text.c's sd_haz_family): their names as the game shows them */
 const HAZ_FAMILY = { HZ_ROCK: 'fall', HZ_TIMBER: 'fall', HZ_GLASS: 'fall', HZ_CRYSTAL: 'fall',
   HZ_BILE: 'creep', HZ_SILT: 'creep', HZ_DAMP: 'creep', HZ_SLUICE: 'creep', HZ_COLD: 'creep', HZ_DCOLD: 'creep', HZ_SAINT: 'creep', HZ_TITHE: 'creep',
@@ -25,17 +27,27 @@ const FAMILY_SAYS = { fall: 'dust and a shadow, then it falls on its cells; rubb
   creep: 'it spreads over its cells in their order, stays, and drains back', cloud: 'it gathers over its cells, hangs a while, and lifts' };
 /* 2e (the owner, 26 November): run I's traps that pour and drift, by particles from an emitter tuned here (side_fx.c), and the censer's
    swing. Each number null for the game's own, as here. The votive sconce's rate: 18 a second for each cell painted on its side. */
-const FX_KINDS = new Set(['HZ_VOTIVE', 'HZ_CENSER', 'HZ_BREATH', 'HZ_COLD', 'HZ_RELIQ']);
+const FX_KINDS = new Set(['HZ_VOTIVE', 'HZ_CENSER', 'HZ_BREATH', 'HZ_COLD', 'HZ_RELIQ', 'HZ_BILE', 'HZ_SLUICE', 'HZ_GALV', 'HZ_SILT', 'HZ_SAINT', 'HZ_SNARE']);
+const FX_CELLS = new Set(['HZ_VOTIVE', 'HZ_CENSER', 'HZ_GALV', 'HZ_SILT', 'HZ_SNARE']);   /* those that want cells painted (the rest: a bound, if any) */
+const FX_EMITS = new Set(['HZ_VOTIVE', 'HZ_BREATH', 'HZ_COLD', 'HZ_RELIQ', 'HZ_BILE', 'HZ_SLUICE', 'HZ_SILT', 'HZ_SAINT']);   /* those with an emitter to tune */
 const FX_DEF = { HZ_VOTIVE: { rate: null, speed: 1.3, spread: 14, life: 7 }, HZ_BREATH: { rate: 26, speed: 0.7, spread: 55, life: 3.5 },
   HZ_COLD: { rate: 20, speed: 0.9, spread: 35, life: 4.5 }, HZ_RELIQ: { rate: 34, speed: 1.6, spread: 180, life: 2, radial: 1 },
-  HZ_CENSER: { len: null, hang: 0.7, swing: 1.5 } };
+  HZ_CENSER: { len: null, hang: 0.7, swing: 1.5 },
+  HZ_BILE: { rate: 22, speed: 0.6, spread: 20, life: 4.5 }, HZ_SLUICE: { rate: 60, speed: 3, spread: 10, life: 3 },
+  HZ_SILT: { rate: 24, speed: 0.5, spread: 20, life: 4 }, HZ_SAINT: { rate: 14, speed: 0.3, spread: 4, life: 6 }, HZ_GALV: {}, HZ_SNARE: {} };
 const FX_SAYS = { HZ_VOTIVE: 'a candle in an iron sconce on the wall: it tips toward the side more of its cells are painted on, further and pouring faster the more there are, and its wax runs, pools and cools',
   HZ_BREATH: "the crypt's burial slab as a tile: its grey-green breath drifts out of its open side, kept to its painted cells if it has any",
   HZ_COLD: "the crypt's cold crack as a tile: rime falls from its open side and creeps along the floor, kept to its painted cells if it has any",
   HZ_RELIQ: "the crypt's reliquary on its plinth: its haze goes out all round it, as far as its reach (1: three tiles by three)",
-  HZ_CENSER: 'an iron bowl on a chain hung here, swinging between the two cells painted for its ends; a thin smoke behind it. The chain three tiles at the least' };
+  HZ_CENSER: 'an iron bowl on a chain hung here, swinging between the two cells painted for its ends; a thin smoke behind it. The chain three tiles at the least',
+  HZ_BILE: "the crypt's grate as a tile: a green bile oozes from its open side (up, from a grate in the floor), runs and pools; poison, and a fifth slower. It drips while idle",
+  HZ_SLUICE: "the crypt's sluice gate as a tile: thrown up, a surge runs toward the side more cells are painted on, carrying the caster along it and chilling; it drips while shut",
+  HZ_GALV: 'standing water over its painted cells, always shown: it crackles in its warning, then a bolt strikes and all in the water are shocked once',
+  HZ_SILT: 'mud over its painted cells, bubbling: a sallow gas rises and hangs and poisons; a fire spell through it sets it alight, and it burns out',
+  HZ_SAINT: "the crypt's weeping saint as a tile, in a wall over open floor: her tears fall and pool, and the pool drinks a soul with each bite",
+  HZ_SNARE: 'a web across its painted cells, just to be made out: walked into, it holds the caster and tears, and the dead near come; spun again after STAYS seconds' };
 const MODES = ['ONCE', 'TOGGLE', 'HOLD', 'TIMED'];
-const SOURCES = ['plate', 'zone', 'switch'], TARGETS = ['gate', 'current', 'flow', 'plat', 'haz'];
+const SOURCES = ['plate', 'zone', 'switch'], TARGETS = ['gate', 'current', 'flow', 'plat', 'haz', 'ledge', 'fall'];
 const TAG_RE = /^[A-Za-z0-9_-]{1,15}$/;
 const GOLD = ['IT_COINS', 'IT_CHALICE', 'IT_GEMS', 'IT_CROWN', 'IT_CHEST'];
 const RANKS = ['RK_I', 'RK_II', 'RK_III', 'RK_IV', 'RK_V', 'RK_GILDED'];
@@ -68,7 +80,7 @@ function resize(m, w, h, fromBottom) {            /* kept against the top, or ag
 /* ---- the text, out: what sd_read reads. Seconds carry a decimal (3.0), tiles none, so a passage written by hand reads back the same ---- */
 const sec = v => { const n = +v || 0; return Number.isInteger(n) ? n.toFixed(1) : String(+n.toFixed(3)); };
 const num = v => String(+(+v || 0).toFixed(3));
-const defaultFall = t => t.k === 'fall' && +t.delay === FALL_DELAY && +t.back === FALL_BACK;
+const defaultFall = t => t.k === 'fall' && !t.stopped && +t.delay === FALL_DELAY && +t.back === FALL_BACK;
 function line(t) {
     const p = t.k === 'haz' ? [OPS[t.k], t.kind, t.x, t.y] : [OPS[t.k], t.x, t.y];
     switch (t.k) {
@@ -79,7 +91,9 @@ function line(t) {
     case 'mob': p.push(t.kind || 'ANY'); if (t.rank && t.rank !== -1 && t.rank !== '-1') p.push(t.rank); break;
     case 'gold': p.push(t.it || 'IT_COINS'); break;
     case 'key': p.push(t.c | 0); break;
-    case 'switch': p.push(t.thing == null ? -1 : t.thing | 0); if (t.toggle) p.push('TOGGLE'); break;
+    case 'switch': p.push(t.thing == null ? -1 : t.thing | 0); if (t.toggle) p.push('TOGGLE'); if (+t.timer > 0) p.push('TIMER', sec(t.timer)); break;
+    case 'ledge': p.push(t.w | 0); break;
+    case 'power': p.push(t.kind || 'RAPID', sec(t.secs || POWER_SECS)); break;
     case 'gate': p.push(t.w | 0, t.h | 0); if (t.open) p.push('OPEN'); break;
     case 'zone': p.push(t.w | 0, t.h | 0); break;
     case 'current': p.push(t.w | 0, t.h | 0, t.dx | 0, t.dy | 0, sec(t.speed)); if (t.poison) p.push('POISON'); break;
@@ -96,7 +110,7 @@ function line(t) {
         break;
     default: break;
     }
-    if (t.stopped && ['plat', 'flow', 'current', 'haz'].includes(t.k)) p.push('OFF');   /* (stopped: flow's own off is its dry seconds) */
+    if (t.stopped && ['plat', 'flow', 'current', 'haz', 'fall', 'ledge'].includes(t.k)) p.push('OFF');   /* (stopped: flow's own off is its dry seconds) */
     if (t.loose && ['gold', 'key', 'life'].includes(t.k)) p.push('LOOSE');
     if (t.tag) p.push('TAG', t.tag);
     let out = p.join(' ');
@@ -240,8 +254,18 @@ function parse(text, kindIds, tuneNames) {
         case 'gold': t.it = w[3]; if (!GOLD.includes(t.it)) return bad('not gold: ' + t.it); break;
         case 'key': t.c = iv[3]; if (!(t.c >= 0 && t.c <= 2)) return bad("a key's colour is 0 to 2"); break;
         case 'switch':
-            t.thing = iv[3]; t.toggle = rest.includes('TOGGLE');
+            t.thing = iv[3]; t.toggle = rest.includes('TOGGLE'); t.timer = 0;
+            for (let i = 0; i + 1 < rest.length; i++) if (rest[i] === 'TIMER') t.timer = parseFloat(rest[++i]) || 0;
+            if (!(t.timer >= 0 && t.timer <= 120)) return bad("a switch's timer is 0 to 120 seconds");
             if (!(t.thing >= -1 && t.thing < LIM.evThings)) return bad(`a switch's thing is -1 or 0 to ${LIM.evThings - 1}`);
+            break;
+        case 'ledge':
+            t.w = iv[3]; if (!(t.w >= 1 && t.x + t.w <= m.w)) return bad('a ledge runs off the map');
+            break;
+        case 'power':
+            t.kind = w[3]; if (!POWERS.includes(t.kind)) return bad('a powerup is RAPID, MIGHT or WARD: ' + t.kind);
+            t.secs = w.length > 4 && parseFloat(w[4]) > 0 ? parseFloat(w[4]) : POWER_SECS;
+            if (t.secs > 120) return bad('a powerup lasts 120 seconds at the most');
             break;
         case 'gate': case 'zone':
             t.w = iv[3]; t.h = iv[4]; if (k === 'gate') t.open = !!t.open;
@@ -321,7 +345,7 @@ function check(m) {
         }
         if (t.k === 'fall' && (!(t.delay >= 0) || !(t.back > 0))) err('A falling block wants its shaking and its time back.', t);
         if (t.k === 'switch' && !(t.thing >= -1 && t.thing < LIM.evThings)) err(`A switch's thing is -1 (none) or 0 to ${LIM.evThings - 1}.`, t);
-        if (t.k === 'switch' && t.thing === -1) warn('A switch that names no crypt thing: it is thrown, and nothing in the crypt moves.', t);
+        if (t.k === 'switch' && t.thing === -1 && !(t.tag && (m.trigs || []).some(g => g.src === t.tag))) warn('A switch that names no crypt thing and no trigger listens to: it is thrown, and nothing moves.', t);
     });
     const tags = {};
     m.things.forEach(t => {
@@ -333,12 +357,17 @@ function check(m) {
     });
     m.things.forEach(t => {
         if (t.k === 'haz') {
-            if (!(t.cells || []).length && !FX_KINDS.has(t.kind)) err('A trap with no cells: paint them (PAINT ITS CELLS).', t);
+            if (!(t.cells || []).length && (!FX_KINDS.has(t.kind) || (FX_CELLS.has(t.kind) && t.kind !== 'HZ_VOTIVE' && t.kind !== 'HZ_CENSER'))) err('A trap with no cells: paint them (PAINT ITS CELLS).', t);
             if (t.kind === 'HZ_VOTIVE' && !(t.cells || []).some(([x]) => x !== t.x)) err('A sconce with no cell painted to either side: it does not know which way to tip.', t);
             if (t.kind === 'HZ_CENSER') censerCheck(m, t).forEach(([sev, msg]) => (sev === 'error' ? err : warn)(msg, t));
             if (!t.clock && !t.enter && !(m.trigs || []).some(g => g.acts.some(a => a.tag && a.tag === t.tag)) && t.stopped) warn('A trap that is off, with no clock, no box and no trigger: it never goes.', t);
             if (t.clock && !(t.clock.every >= 0.5)) err("A trap's clock wants half a second at the least.", t);
         }
+        const bound = t.tag && (m.trigs || []).some(g => g.acts.some(a => a.tag === t.tag));
+        if ((t.k === 'ledge' || t.k === 'fall') && t.stopped && !bound) warn(`A ${t.k === 'ledge' ? 'ledge' : 'falling block'} that is off at the start, with no trigger to lay it: it is never there.`, t);
+        if (t.k === 'ledge' && !(t.w >= 1 && t.x + t.w <= m.w)) err('A ledge runs off the map.', t);
+        if (t.k === 'power' && !(t.secs > 0 && t.secs <= 120)) err('A powerup lasts more than nothing and 120 seconds at the most.', t);
+        if (t.k === 'switch' && +t.timer > 0 && !t.tag) warn('A timed switch with no name: no trigger can listen to it.', t);
         if (t.k === 'current' && (!t.dx && !t.dy)) err('A current with no way to run.', t);
         if (t.k === 'plate' && !SOLID.has(at(m, t.x, t.y + 1)) && at(m, t.x, t.y + 1) !== '=') warn('A plate with nothing under it: it lies in its tile\'s foot.', t);
         if (['plate', 'zone'].includes(t.k) && !(m.trigs || []).some(g => g.src === t.tag)) warn(`A ${t.k} no trigger listens to.`, t);
@@ -347,7 +376,7 @@ function check(m) {
         const s = tags[g.src];
         if (!s || !SOURCES.includes(s.k)) out.push({ sev: 'error', msg: `Trigger ${i + 1}: its source is no plate, zone or switch (${g.src || 'none'}).`, at: null, trig: i });
         if (!(g.acts || []).length) out.push({ sev: 'error', msg: `Trigger ${i + 1} does nothing.`, at: null, trig: i });
-        (g.acts || []).forEach(a => { if (a.crypt == null && (!tags[a.tag] || !TARGETS.includes(tags[a.tag].k))) out.push({ sev: 'error', msg: `Trigger ${i + 1}: ${a.tag || 'nothing'} is no gate, current, flow, platform or trap.`, at: null, trig: i }); });
+        (g.acts || []).forEach(a => { if (a.crypt == null && (!tags[a.tag] || !TARGETS.includes(tags[a.tag].k))) out.push({ sev: 'error', msg: `Trigger ${i + 1}: ${a.tag || 'nothing'} is no gate, current, flow, platform, trap, ledge or falling block.`, at: null, trig: i }); });
         if (g.mode === 'TIMED' && !(g.secs > 0)) out.push({ sev: 'error', msg: `Trigger ${i + 1}: TIMED wants its seconds.`, at: null, trig: i });
     });
     if (!(m.num >= 0 && m.num <= 7)) err("The passage's number is 0 to 7 (the game's SIDE_TEXT).");
@@ -366,7 +395,9 @@ function label(t, kinds) {
     case 'gold': return 'Gold: ' + t.it.slice(3).toLowerCase();
     case 'key': return 'The ' + KEYS[t.c].toLowerCase() + ' key';
     case 'life': return 'A life';
-    case 'switch': return 'A switch' + (t.thing >= 0 ? ', crypt thing ' + t.thing : '');
+    case 'switch': return 'A switch' + (+t.timer > 0 ? `, back after ${t.timer} s` : '') + (t.thing >= 0 ? ', crypt thing ' + t.thing : '');
+    case 'ledge': return `A ledge, ${t.w} wide${t.stopped ? ', off at the start' : ''}`;
+    case 'power': return `${POWER_NAMES[t.kind] || 'A powerup'}, ${t.secs || POWER_SECS} s`;
     case 'torch': return 'A torch';
     case 'gate': return `A gate, ${t.w} by ${t.h}${t.tag ? ': ' + t.tag : ''}`;
     case 'plate': return 'A pressure plate' + (t.tag ? ': ' + t.tag : '');
@@ -421,20 +452,29 @@ function fxSim(m, t, seed) {
         spread = own(e.spread, def.spread || 30), life = own(e.life, def.life || 3), radial = own(t.radial, def.radial || 1);
     const solidPx = (x, y) => { const tx = Math.floor(x / 16), ty = Math.floor(y / 16); if (x < 0 || x >= m.w * 16) return true; if (y >= m.h * 16) return false; const ch = at(m, tx, ty); return SOLID.has(ch) || (ch === '=' && (y & 15) < 2); };
     const occ = new Set(), key = (cx, cy) => cy * 4096 + cx, free = (cx, cy) => !occ.has(key(cx, cy)) && !solidPx(cx * 2, cy * 2) && !solidPx(cx * 2 + 1, cy * 2 + 1);
-    const kind = t.kind === 'HZ_VOTIVE' ? 'wax' : t.kind === 'HZ_BREATH' ? 'vapour' : t.kind === 'HZ_COLD' ? 'rime' : t.kind === 'HZ_RELIQ' ? 'haze' : 'smoke';
-    const warn = t.warn >= 0 ? Math.max(0.9, t.warn) : t.kind === 'HZ_VOTIVE' ? 1.4 : 1.0, on = t.kind === 'HZ_VOTIVE' ? Math.min(t.stays == null ? 6 : t.stays, 2.2) : Math.min(t.stays == null ? 6 : t.stays, 4);
+    const kind = { HZ_VOTIVE: 'wax', HZ_BREATH: 'vapour', HZ_COLD: 'rime', HZ_RELIQ: 'haze', HZ_BILE: 'bile', HZ_SLUICE: 'water', HZ_SILT: 'gas', HZ_SAINT: 'tear', HZ_GALV: 'spark' }[t.kind] || 'smoke';
+    const FLUID = new Set(['wax', 'rime', 'bile', 'water', 'tear']);
+    const st = t.stays == null ? 6 : t.stays, warn = t.warn >= 0 ? Math.max(0.9, t.warn) : t.kind === 'HZ_VOTIVE' || t.kind === 'HZ_GALV' ? 1.4 : t.kind === 'HZ_BILE' || t.kind === 'HZ_SLUICE' || t.kind === 'HZ_SAINT' ? 0.9 : 1.0;
+    const on = t.kind === 'HZ_VOTIVE' ? Math.min(st, 2.2) : t.kind === 'HZ_SLUICE' ? Math.min(st, 2) : t.kind === 'HZ_GALV' ? 0.6 : Math.min(st, 4);
+    const sdir = side[1] >= side[0] ? 1 : -1;
     let openDir = -90;
     if (t.kind !== 'HZ_VOTIVE' && t.kind !== 'HZ_RELIQ') {
         const D = [[1, 0, 0], [-1, 0, 180], [0, 1, -90], [0, -1, 90]], solid = SOLID.has(at(m, t.x, t.y));
         for (const [dx, dy, d] of D) { if (solid ? !SOLID.has(at(m, t.x + dx, t.y + dy)) : SOLID.has(at(m, t.x - dx, t.y - dy))) { openDir = d; break; } }
     }
-    const S = { t: 0, phase: 1, k: 0, tip: 0, acc: 0, parts: [], kind, vdir, vn, radial, cen: t.kind === 'HZ_CENSER' ? censerGeom(t) : null, links: [], ball: null, caT: 0 };
+    const S = { t: 0, phase: 1, k: 0, tip: 0, acc: 0, parts: [], kind, vdir, vn, radial, cen: t.kind === 'HZ_CENSER' ? censerGeom(t) : null, links: [], ball: null, caT: 0, bolt: 0 };
     if (S.cen) { const [bx, by] = censerAt(S.cen, 0); for (let k = 0; k <= 10; k++) S.links.push({ x: S.cen.px + (bx - S.cen.px) * k / 10, y: S.cen.py + (by - S.cen.py) * k / 10, ox: 0, oy: 0 }); S.links.forEach(l => { l.ox = l.x; l.oy = l.y; }); S.ball = [bx, by]; }
     const mouth = () => {
         let x = t.x * 16 + 8, y = t.y * 16 + 8, d = openDir;
         if (t.kind === 'HZ_VOTIVE') { const a = S.tip * (0.6 + 0.25 * Math.min(4, vn)) * vdir; x += Math.sin(a) * 9; y += 2 - Math.cos(a) * 9; d = 90 - a * 57.29578; }
         else if (t.kind === 'HZ_RELIQ') { y = (t.y + 1) * 16 - 10; d = 0; }
-        else if (SOLID.has(at(m, t.x, t.y))) { x += Math.cos(d * Math.PI / 180) * 9; y -= Math.sin(d * Math.PI / 180) * 9; }
+        else if ((t.kind === 'HZ_SILT' || t.kind === 'HZ_GALV') && (t.cells || []).length) { const [cx, cy] = t.cells[Math.floor(rnd() * t.cells.length)]; x = cx * 16 + 2 + rnd() * 12; y = (cy + 1) * 16 - (t.kind === 'HZ_GALV' ? 7 : 2); d = 90; }
+        else {
+            if (SOLID.has(at(m, t.x, t.y))) { x += Math.cos(d * Math.PI / 180) * 9; y -= Math.sin(d * Math.PI / 180) * 9; }
+            if (t.kind === 'HZ_SLUICE') d = sdir > 0 ? -8 : 188;
+            if (t.kind === 'HZ_SAINT') { y += 1; d = -90; }
+            if (t.kind === 'HZ_BILE' && !SOLID.has(at(m, t.x, t.y)) && d > 45 && d < 135) y = (t.y + 1) * 16 - 3;
+        }
         if (t.dir != null) d = t.dir;
         return [x, y, d];
     };
@@ -459,20 +499,23 @@ function fxSim(m, t, seed) {
             if ((S.acc += 6 * dt) >= 1) { S.acc -= 1; spawn(bx, by - 3, 90, 25, 10, 1.4, 'smoke'); }
         } else {                                                   /* warning, on, off, and round again */
             S.k += dt;
-            if (S.phase === 1 && S.k >= warn) { S.phase = 2; S.k = 0; } else if (S.phase === 2 && S.k >= on) { S.phase = 5; S.k = 0; } else if (S.phase === 5 && S.k >= 2.5) { S.phase = 1; S.k = 0; }
+            if (S.phase === 1 && S.k >= warn) { S.phase = 2; S.k = 0; if (t.kind === 'HZ_GALV') S.bolt = 0.3; } else if (S.phase === 2 && S.k >= on) { S.phase = 5; S.k = 0; } else if (S.phase === 5 && S.k >= 2.5) { S.phase = 1; S.k = 0; }
+            S.bolt = Math.max(0, S.bolt - dt);
             S.tip = t.kind !== 'HZ_VOTIVE' ? 0 : S.phase === 1 ? Math.min(1, S.k / warn) : S.phase === 2 ? 1 : Math.max(0, 1 - S.k);
-            const r = S.phase === 2 ? rate : S.phase === 1 && t.kind !== 'HZ_VOTIVE' ? rate * 0.2 : 0;
+            const r = t.kind === 'HZ_GALV' ? (S.phase === 1 ? 18 : S.phase === 2 ? 60 : 0) : t.kind === 'HZ_SNARE' ? 0 : S.phase === 2 ? rate : S.phase === 1 && t.kind !== 'HZ_VOTIVE' ? rate * 0.2 : 0;
             if (r > 0) {
                 const [x, y, d] = mouth();
-                let lf = life, sp = speed;
+                let lf = life, sp = speed, spr = spread;
                 if (kind === 'haze') lf = Math.min(lf, (radial + 0.6) * 16 / Math.max(8, sp) * 1.6);
+                if (kind === 'bile' && d > 45 && d < 135) sp *= 0.35;
+                if (kind === 'spark') { lf = 0.35; sp = 40; spr = 50; }
                 S.acc += r * dt;
-                while (S.acc >= 1) { S.acc -= 1; const j = kind === 'wax' ? 2 : 6; spawn(x + (rnd() - 0.5) * j, y + (rnd() - 0.5) * j, d, spread, sp, lf, kind); }
+                while (S.acc >= 1) { S.acc -= 1; const j = kind === 'wax' || kind === 'tear' ? 2 : 6; let [mx, my, md] = kind === 'gas' || kind === 'spark' ? mouth() : [x, y, d]; spawn(mx + (rnd() - 0.5) * j, my + (rnd() - 0.5) * j, md, spr, sp, lf, kind); }
             }
         }
         if ((S.caT += dt) >= 1 / 60) {                              /* the settled: down if they can, aside while warm */
             S.caT = 0;
-            S.parts.forEach(p => { if (!p.rest) return; if (tryMove(p, 0, 1)) return; const flow = p.kind === 'wax' ? p.heat : p.age < p.life * 0.6 ? 0.45 : 0;
+            S.parts.forEach(p => { if (!p.rest) return; if (tryMove(p, 0, 1)) return; const flow = p.kind === 'wax' ? p.heat : p.kind === 'water' ? 0.95 : p.kind === 'bile' ? (p.age < p.life * 0.7 ? 0.6 : 0.1) : p.kind === 'tear' ? 0.7 : p.age < p.life * 0.6 ? 0.45 : 0;
                 if (flow <= 0.15) return; if (tryMove(p, p.dir, 1) || tryMove(p, -p.dir, 1)) return; if (rnd() < flow * 0.8 && !tryMove(p, p.dir, 0)) p.dir = -p.dir; });
         }
         for (let i = S.parts.length - 1; i >= 0; i--) {
@@ -483,25 +526,28 @@ function fxSim(m, t, seed) {
             let g = 0, drag = 0;
             if (p.kind === 'wax') g = 520; else if (p.kind === 'rime') { g = 260; drag = 1; } else if (p.kind === 'vapour') { g = 14; drag = 1.6; p.vx += (rnd() - 0.5) * 90 * dt; p.vy += (rnd() - 0.5) * 60 * dt; }
             else if (p.kind === 'haze') drag = 1.2; else if (p.kind === 'smoke') { g = -26; drag = 2.2; p.vx += (rnd() - 0.5) * 40 * dt; }
+            else if (p.kind === 'bile') g = 480; else if (p.kind === 'water') g = 520; else if (p.kind === 'tear') g = 400; else if (p.kind === 'spark') g = 200;
+            else if (p.kind === 'gas') { g = p.age < 1.2 ? -34 : -4; drag = 2.2; p.vx += (rnd() - 0.5) * 50 * dt; p.vy += (rnd() - 0.5) * 30 * dt; }
             p.vy += g * dt; p.vx -= p.vx * Math.min(1, drag * dt); p.vy -= p.vy * Math.min(1, drag * 0.5 * dt);
             const nx = p.x + p.vx * dt, ny = p.y + p.vy * dt;
-            if (solidPx(nx, ny) || ((p.kind === 'wax' || p.kind === 'rime') && occ.has(key(Math.floor(nx / 2), Math.floor(ny / 2))))) {
-                if (p.kind === 'wax' || p.kind === 'rime') { settle(p); continue; }
+            if (solidPx(nx, ny) || (FLUID.has(p.kind) && occ.has(key(Math.floor(nx / 2), Math.floor(ny / 2))))) {
+                if (FLUID.has(p.kind)) { settle(p); continue; }
+                if (p.kind === 'spark') { p.age = p.life; continue; }
                 if (!solidPx(nx, p.y)) { p.x = nx; p.vy *= -0.2; } else if (!solidPx(p.x, ny)) { p.y = ny; p.vx *= -0.2; } else { p.vx = p.vy = 0; }
                 continue;
             }
             p.x = nx; p.y = ny;
             if (p.kind === 'haze') { const r = (radial + 0.5) * 16, dx = p.x - (t.x * 16 + 8), dy = p.y - ((t.y + 1) * 16 - 10); if (dx * dx + dy * dy > r * r) p.age = Math.max(p.age, p.life - 0.15); }
-            if ((p.kind === 'vapour' || p.kind === 'rime') && (t.cells || []).length) {
+            if (['vapour', 'rime', 'bile', 'water', 'gas'].includes(p.kind) && (t.cells || []).length) {
                 const tx = Math.floor(p.x / 16), ty = Math.floor(p.y / 16);
-                if (!t.cells.some(([x, y]) => x === tx && Math.abs(y - ty) <= 1)) p.age += dt * 3;
+                if (!t.cells.some(([x, y]) => x === tx && Math.abs(y - ty) <= 1)) p.age += dt * (p.kind === 'gas' ? 6 : 3);
             }
         }
     };
     return S;
 }
 
-const API = { LIM, TILES, TILE_NAMES, SOLID, KINDS, GOLD, RANKS, KEYS, FALL_DELAY, FALL_BACK, HAZ_FAMILY, HAZ_NAMES, FAMILY_SAYS, MODES, SOURCES, TARGETS, TAG_RE,
-              blank, add, newTag, at, resize, exportText, exportC, parse, check, label, FX_KINDS, FX_DEF, FX_SAYS, censerGeom, censerAt, censerCheck, fxSim };
+const API = { POWERS, POWER_NAMES, POWER_SECS, LIM, TILES, TILE_NAMES, SOLID, KINDS, GOLD, RANKS, KEYS, FALL_DELAY, FALL_BACK, HAZ_FAMILY, HAZ_NAMES, FAMILY_SAYS, MODES, SOURCES, TARGETS, TAG_RE,
+              blank, add, newTag, at, resize, exportText, exportC, parse, check, label, FX_KINDS, FX_CELLS, FX_EMITS, FX_DEF, FX_SAYS, censerGeom, censerAt, censerCheck, fxSim };
 if (typeof module !== 'undefined' && module.exports) module.exports = API; else root.SideCore = API;
 })(typeof window !== 'undefined' ? window : globalThis);

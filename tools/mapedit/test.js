@@ -226,6 +226,28 @@ DATA.hazards.fixed.flat().concat(DATA.hazards.arise.flat(), DATA.hazards.sapper)
     if (!C.check(DATA, cm).some(c => c.msg.includes('not in stone'))) fail("a side doorway on the floor was not refused");
     console.log(`side passages: ${DATA.sides.length} built in read and written back; a new one's export read back; the side doorway`);
 }
+/* 26 November: timed switches, ledges and falling blocks off at the start, powerups: the fixture read and written back; the reader
+ * refusing what the game would; a ledge off with nothing to lay it warned of */
+{
+    const SC = require('./side.js'), ids = DATA.kinds.map(k => k.id);
+    const txt = fs.readFileSync(path.join(__dirname, 'fixtures', 'side_works2.txt'), 'utf8'), r = SC.parse(txt, ids);
+    if (r.error) fail(`side_works2: line ${r.line}: ${r.error}`);
+    else {
+        if (SC.exportText(r.map) !== txt) fail('side_works2 does not read back letter for letter');
+        const cs = SC.check(r.map); if (cs.length) fail('side_works2: ' + cs[0].msg);
+        const sw = r.map.things.find(t => t.k === 'switch'), lg = r.map.things.find(t => t.k === 'ledge'), fl = r.map.things.find(t => t.k === 'fall');
+        if (!sw || sw.timer !== 8) fail("side_works2: the lever's timer was not read");
+        if (!lg || lg.w !== 6 || !lg.stopped || !fl || !fl.stopped) fail('side_works2: the ledge or the block was not read as off');
+        if (r.map.things.filter(t => t.k === 'power').map(t => t.kind + t.secs).join() !== 'RAPID10,MIGHT12,WARD8') fail('side_works2: the powerups were not read');
+        const lone = Object.assign({}, r.map, { trigs: [] });
+        if (!SC.check(lone).some(c => /never there/.test(c.msg))) fail('a ledge off with no trigger should be warned of');
+    }
+    const head = 'SIDE 1\nNAME "X"\nSIZE 20 10\n' + Array.from({ length: 10 }, (_, y) => `ROW "${(y === 0 || y === 9 ? '#' : '#' + ','.repeat(18) + '#').padEnd(20, '#')}"`).join('\n') + '\nDOOR 1 8 0\n';
+    [['POWER 4 8 HASTE', /RAPID, MIGHT or WARD/], ['POWER 4 8 WARD 200', /120 seconds/], ['LEDGE 15 4 9', /off the map/], ['SWITCH 4 8 -1 TIMER 500', /0 to 120/]].forEach(([l, re]) => {
+        const q = SC.parse(head + l + '\n', ids); if (!q.error || !re.test(q.error)) fail(`"${l}" should be refused: ${q.error || 'it was read'}`);
+    });
+    console.log('side passages: timed switches, ledges and blocks off at the start, powerups');
+}
 /* run I's traps in a passage (docs/PLAN-side.md, 2e): the fixture read and written back; every emitter option; the censer's clearance;
  * the PREVIEW's run: wax settling, the bowl swinging, the haze kept to its reach */
 {
@@ -254,6 +276,26 @@ DATA.hazards.fixed.flat().concat(DATA.hazards.arise.flat(), DATA.hazards.sapper)
         const far = sq.parts.filter(p => Math.hypot(p.x - (q.x * 16 + 8), p.y - ((q.y + 1) * 16 - 10)) > (2 + 0.5) * 16 + 8);
         if (!sq.parts.length || far.length) fail(`the preview: the haze ${sq.parts.length} with ${far.length} past its reach`);
         console.log(`run I's traps: read back; emitters written and read; the censer's clearance refused short and into stone; preview wax ${sv.parts.filter(p => p.rest).length} settled, haze ${sq.parts.length}`);
+    }
+}
+/* run II's (2e): the fixture read and written back; each one's PREVIEW makes its own; a web or a pool with no cells refused */
+{
+    const SC = require('./side.js'), ids = DATA.kinds.map(k => k.id);
+    const txt = fs.readFileSync(path.join(__dirname, 'fixtures', 'side_traps2.txt'), 'utf8'), r = SC.parse(txt, ids);
+    if (r.error) fail(`side_traps2: line ${r.line}: ${r.error}`);
+    else {
+        if (SC.exportText(r.map) !== txt) fail('side_traps2 does not read back letter for letter');
+        const errs = SC.check(r.map).filter(c => c.sev === 'error'); if (errs.length) fail('side_traps2: ' + errs[0].msg);
+        const want = { HZ_BILE: 'bile', HZ_SLUICE: 'water', HZ_GALV: 'spark', HZ_SILT: 'gas', HZ_SAINT: 'tear' }, got = [];
+        r.map.things.filter(t => t.k === 'haz' && want[t.kind]).forEach(t => {
+            const S = SC.fxSim(r.map, t, 4); let n = 0;
+            for (let i = 0; i < 4 * 120; i++) { S.step(1 / 120); n = Math.max(n, S.parts.filter(p => p.kind === want[t.kind]).length); }
+            got.push(`${want[t.kind]} ${n}`);
+            if (!n) fail(`the preview of ${t.kind} made no ${want[t.kind]}`);
+        });
+        ['HZ_SNARE', 'HZ_GALV', 'HZ_SILT'].forEach(k => { const t = JSON.parse(JSON.stringify(r.map.things.find(o => o.kind === k))); t.cells = [];
+            if (!SC.check(Object.assign({}, r.map, { things: [t] })).some(c => c.sev === 'error' && /no cells/.test(c.msg))) fail(`${k} with no cells should be refused`); });
+        console.log(`run II's traps: read back; previews ${got.join(', ')}; a web, a pool and a mud with no cells refused`);
     }
 }
 console.log(bad ? `${bad} FAILED` : 'all passed');
