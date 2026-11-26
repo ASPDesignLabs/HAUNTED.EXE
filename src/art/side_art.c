@@ -309,52 +309,56 @@ static void poly(const V2 *p, int n, int part, int depth) {        /* a filled s
         }
 }
 
-#define LEG_T 5.0f
-#define LEG_S 5.5f
+/* The figure at half its first height (the owner, 26 November 2026): every length times SK, the limbs and the hood a little
+ * fuller than that (SR) so it still reads at thirteen pixels; the head a touch large, as small figures in old games have it. */
+#define SK 0.5f
+#define SR 0.68f
+#define LEG_T (5.0f * SK)
+#define LEG_S (5.5f * SK)
 static void draw_pose(const Pose *P, uint8_t *out, uint8_t *parts) {
     memset(PART, 0, sizeof PART); memset(DEPTH, 0, sizeof DEPTH);
     V2 foot0 = { SF_W / 2.0f, SF_H - 1.0f };                       /* the pivot for falling over */
-    float drop = P->crouch * 6.0f + P->bob;
-    V2 hip = { SF_W / 2.0f, SF_H - 1.5f - (LEG_T + LEG_S) + drop };
+    float drop = (P->crouch * 6.0f + P->bob) * SK;
+    V2 hip = { SF_W / 2.0f, SF_H - 1.2f - (LEG_T + LEG_S) + drop };
     V2 knee[2], foot[2];
     for (int l = 0; l < 2; l++) { knee[l] = limb(hip, P->th[l], LEG_T); foot[l] = limb(knee[l], P->sh[l], LEG_S); }
-    V2 shoulder = { hip.x + sinf(P->lean) * 8.5f, hip.y - cosf(P->lean) * 8.5f };
-    V2 neck = { hip.x + sinf(P->lean) * 9.5f, hip.y - cosf(P->lean) * 9.5f };
-    V2 head = { neck.x + sinf(P->lean) * 3.2f + 0.6f, neck.y - cosf(P->lean) * 3.2f };
+    V2 shoulder = { hip.x + sinf(P->lean) * 8.5f * SK, hip.y - cosf(P->lean) * 8.5f * SK };
+    V2 neck = { hip.x + sinf(P->lean) * 9.5f * SK, hip.y - cosf(P->lean) * 9.5f * SK };
+    V2 head = { neck.x + sinf(P->lean) * 3.6f * SK + 0.3f, neck.y - cosf(P->lean) * 3.6f * SK };
     V2 elbow[2], hand[2];
-    for (int a = 0; a < 2; a++) { elbow[a] = limb(shoulder, P->ua[a] + P->lean * 0.3f, 4.2f); hand[a] = limb(elbow[a], P->fa[a] + P->lean * 0.3f, 3.8f); }
+    for (int a = 0; a < 2; a++) { elbow[a] = limb(shoulder, P->ua[a] + P->lean * 0.3f, 4.2f * SK); hand[a] = limb(elbow[a], P->fa[a] + P->lean * 0.3f, 3.8f * SK); }
     /* turned about the feet, and dropped as it lies */
     V2 *all[] = { &hip, &knee[0], &knee[1], &foot[0], &foot[1], &shoulder, &neck, &head, &elbow[0], &elbow[1], &hand[0], &hand[1] };
-    for (unsigned i = 0; i < sizeof all / sizeof all[0]; i++) { *all[i] = rot_about(*all[i], foot0, -P->rot); all[i]->y += P->flat - sinf(P->rot) * 3.0f; all[i]->x += sinf(P->rot) * 13.0f; }
+    for (unsigned i = 0; i < sizeof all / sizeof all[0]; i++) { *all[i] = rot_about(*all[i], foot0, -P->rot); all[i]->y += P->flat - sinf(P->rot) * 3.0f * SK; all[i]->x += sinf(P->rot) * 13.0f * SK; }
     /* behind: the far arm and leg, darker */
-    seg(shoulder, elbow[0], 1.3f, FP_ROBE, 1); seg(elbow[0], hand[0], 1.1f, FP_ROBE, 1); disc(hand[0], 1.0f, FP_SKIN, 1);
-    seg(hip, knee[0], 1.4f, FP_ROBE, 1); seg(knee[0], foot[0], 1.1f, FP_BOOT, 1);
-    seg(foot[0], (V2){ foot[0].x + 2.0f * cosf(P->rot), foot[0].y - 2.0f * sinf(P->rot) }, 0.9f, FP_BOOT, 1);
+    seg(shoulder, elbow[0], 1.3f * SR, FP_ROBE, 1); seg(elbow[0], hand[0], 1.1f * SR, FP_ROBE, 1); disc(hand[0], 1.0f * SR, FP_SKIN, 1);
+    seg(hip, knee[0], 1.4f * SR, FP_ROBE, 1); seg(knee[0], foot[0], 1.1f * SR, FP_BOOT, 1);
+    seg(foot[0], (V2){ foot[0].x + 2.0f * SK * cosf(P->rot), foot[0].y - 2.0f * SK * sinf(P->rot) }, 0.9f * SR, FP_BOOT, 1);
     /* the robe: shoulders to a hem that swings with the knees */
     float tilt = -P->rot;
-    V2 hem_b = { fminf(knee[0].x, knee[1].x) - 1.6f, fmaxf(knee[0].y, knee[1].y) + 1.0f };
-    V2 hem_f = { fmaxf(knee[0].x, knee[1].x) + 1.6f, fmaxf(knee[0].y, knee[1].y) + 0.5f };
-    if (P->rot > 0.4f) { hem_b = (V2){ knee[0].x - 1.0f, knee[0].y + 1.5f }; hem_f = (V2){ knee[1].x + 1.0f, knee[1].y + 1.5f }; }
-    V2 sb = rot_about((V2){ shoulder.x - 2.6f, shoulder.y + 0.5f }, shoulder, tilt), sf = rot_about((V2){ shoulder.x + 2.4f, shoulder.y + 0.5f }, shoulder, tilt);
-    V2 wb = rot_about((V2){ hip.x - 3.2f, hip.y }, hip, tilt), wf = rot_about((V2){ hip.x + 3.0f, hip.y }, hip, tilt);
+    V2 hem_b = { fminf(knee[0].x, knee[1].x) - 1.6f * SR, fmaxf(knee[0].y, knee[1].y) + 1.0f * SK };
+    V2 hem_f = { fmaxf(knee[0].x, knee[1].x) + 1.6f * SR, fmaxf(knee[0].y, knee[1].y) + 0.5f * SK };
+    if (P->rot > 0.4f) { hem_b = (V2){ knee[0].x - 1.0f * SR, knee[0].y + 1.5f * SK }; hem_f = (V2){ knee[1].x + 1.0f * SR, knee[1].y + 1.5f * SK }; }
+    V2 sb = rot_about((V2){ shoulder.x - 2.6f * SR, shoulder.y + 0.5f * SK }, shoulder, tilt), sf = rot_about((V2){ shoulder.x + 2.4f * SR, shoulder.y + 0.5f * SK }, shoulder, tilt);
+    V2 wb = rot_about((V2){ hip.x - 3.2f * SR, hip.y }, hip, tilt), wf = rot_about((V2){ hip.x + 3.0f * SR, hip.y }, hip, tilt);
     V2 robe[] = { sb, sf, wf, hem_f, hem_b, wb };
     poly(robe, 6, FP_ROBE, 2);
     for (float k = 0.0f; k <= 1.0f; k += 0.08f) plot(hem_b.x + (hem_f.x - hem_b.x) * k, hem_b.y + (hem_f.y - hem_b.y) * k - 0.5f, FP_TRIM, 3);
-    seg(rot_about((V2){ hip.x - 3.0f, hip.y - 1.0f }, hip, tilt), rot_about((V2){ hip.x + 3.0f, hip.y - 1.0f }, hip, tilt), 0.6f, FP_BELT, 3);
+    seg(rot_about((V2){ hip.x - 3.0f * SR, hip.y - 0.6f }, hip, tilt), rot_about((V2){ hip.x + 3.0f * SR, hip.y - 0.6f }, hip, tilt), 0.45f, FP_BELT, 3);
     /* before: the near leg below the hem */
-    seg(knee[1], foot[1], 1.1f, FP_BOOT, 4);
-    seg(foot[1], (V2){ foot[1].x + 2.2f * cosf(P->rot), foot[1].y - 2.2f * sinf(P->rot) }, 0.9f, FP_BOOT, 4);
+    seg(knee[1], foot[1], 1.1f * SR, FP_BOOT, 4);
+    seg(foot[1], (V2){ foot[1].x + 2.2f * SK * cosf(P->rot), foot[1].y - 2.2f * SK * sinf(P->rot) }, 0.9f * SR, FP_BOOT, 4);
     /* the hood, its face in shadow, a peak behind */
-    disc(head, 3.4f, FP_HOOD, 5);
-    V2 peak = rot_about((V2){ head.x - 3.2f, head.y - 1.6f }, head, tilt);
-    seg(head, peak, 1.4f, FP_HOOD, 5);
-    V2 face = rot_about((V2){ head.x + 1.6f, head.y + 0.6f }, head, tilt);
-    disc(face, 1.5f, FP_FACE, 6);
-    plot(face.x + 0.6f * cosf(tilt), face.y + 0.6f * sinf(tilt) + 1.0f, FP_SKIN, 7);   /* the chin, in what light reaches it */
+    disc(head, 3.4f * 0.72f, FP_HOOD, 5);
+    V2 peak = rot_about((V2){ head.x - 3.2f * 0.62f, head.y - 1.6f * 0.62f }, head, tilt);
+    seg(head, peak, 1.4f * SR, FP_HOOD, 5);
+    V2 face = rot_about((V2){ head.x + 1.2f, head.y + 0.4f }, head, tilt);
+    disc(face, 1.5f * 0.7f, FP_FACE, 6);
+    plot(face.x + 0.5f * cosf(tilt), face.y + 0.5f * sinf(tilt) + 0.7f, FP_SKIN, 7);   /* the chin, in what light reaches it */
     /* the near arm, over all */
-    seg(shoulder, elbow[1], 1.35f, FP_ROBE, 8); seg(elbow[1], hand[1], 1.15f, FP_ROBE, 8);
-    disc(hand[1], 1.05f, P->cast ? FP_GLOW : FP_SKIN, 9);
-    if (P->cast) disc(hand[1], 2.2f, FP_GLOW, 0);
+    seg(shoulder, elbow[1], 1.35f * SR, FP_ROBE, 8); seg(elbow[1], hand[1], 1.15f * SR, FP_ROBE, 8);
+    disc(hand[1], 1.05f * SR, P->cast ? FP_GLOW : FP_SKIN, 9);
+    if (P->cast) disc(hand[1], 1.6f, FP_GLOW, 0);
 
     /* colour: each part its ramp, lit from above and before; the far side darker; an outline round all */
     for (int y = 0; y < SF_H; y++)

@@ -103,16 +103,67 @@ MOB x y kind [rank]            ; kind a MOB_ name or ANY (the run's choice); ran
 GOLD x y IT_COINS              ; IT_COINS, IT_CHALICE, IT_GEMS, IT_CROWN, IT_CHEST
 KEY x y colour                 ; 0 gold, 1 silver, 2 crimson
 LIFE x y
-SWITCH x y thing [TOGGLE]      ; the crypt thing (an index in its _THING) whose USE triggers it fires
+SWITCH x y thing [TOGGLE]      ; the crypt thing (an index in its _THING) whose USE triggers it fires; -1 for none (a lever for TRIG alone)
+TORCH x y
+GATE x y w h [OPEN]            ; bars across the box, shut unless OPEN; ON opens, OFF shuts
+PLATE x y                      ; pressed while the caster, or a loose thing, stands on it
+ZONE x y w h                   ; pressed while the caster is in the box; never seen
+CURRENT x y w h dx dy speed [POISON]   ; water running through the box (dx, dy each -1, 0 or 1; tiles a second); carries what is loose
+HAZ HZ_kind x y [ZONE] [SAFE] [CLOCK every give first] [ENTER x0 y0 x1 y1] [HARM n] [CHANCE n] [WARN s] [STAYS s]
+HZC x y                        ; a cell of the trap last named, in the order painted (where a creep or a line spreads from first)
+TRIG source MODE [secs] tag:ON|OFF|FLIP ... CRYPT:n   ; MODE: ONCE, TOGGLE, HOLD (on while pressed), TIMED secs (on, then off secs after let go)
+TUNE name value                ; this passage's own number for one of the tuned (2d)
 ```
+Any thing takes `TAG name` (what a trigger calls it) and the flags `OFF` (a platform, flow, current or trap still until a trigger),
+`LOOSE` (gold, a key or a life that falls and that water carries), `POISON`, `OPEN`. A source is a switch, a plate or a zone; a target
+any thing with a tag. `CRYPT:n` uses the crypt's thing n, as a switch's own does.
 
 ### 2c. The editor's side (step 9)
 
-A second kind of map in the World Editor: a side passage, drawn in its tiles, its things laid with the same palette and checks,
-and exported as 2b's text; PLAY runs it. The crypt map gets a thing, a side doorway (`DT_SIDEDOOR`, its kind `16 * side + link`),
-laid on a wall cell of a room, a hall or a secret room, and the side passage's switches choose their crypt thing from a list.
-It is built in files of its own (`tools/mapedit/side.js`) and a few marked lines in `editor.html`, to keep out of the other
-agent's way.
+Built (session 2). A second kind of map in the World Editor. NEW asks which: a crypt level or a side passage. OPEN lists both,
+each passage marked with its number, and offers the built-in test passage as an example.
+- `tools/mapedit/side.js` (`window.SideCore`): a passage as the editor keeps it (`kind: 'side'`, `num` its place in `SIDE_TEXT`,
+  `level` the level PLAY begins on, `w`, `h`, `grid`, `things`); `exportText` writes 2b's text (an F in a row for a falling block
+  with the game's own timings over the dark, else a FALL line; seconds with a decimal, tiles without), `exportC` the same as a block
+  for `SIDE_TEXT[]`, `parse` reads text back by `sd_read`'s rules with the same refusals, `check` the errors and warnings.
+- `tools/mapedit/side_ui.js` (`window.SideUI`): its own three columns, shown in place of the crypt's while a passage is open: select,
+  erase, the seven tiles (shift and drag for a box), doorway, goal doorway, platform, lift, falling block, poison flow, torch,
+  creature, the five golds, the three keys, a life, a switch; the canvas (a platform's way and its far end ghosted, a flow's box
+  dashed with its clock, a doorway's link); CHOSEN (the passage's number, level and size, or the thing's fields) and CHECKS; its own
+  undo. It saves to the same store as the crypt maps (`maps/<id>`, `kind: 'side'`), with save points; a draft in the browser.
+- The crypt map's **side doorway** (`t: 'sidedoor'`, `num`, `link`): laid only on stone with floor beside it, at the cell's middle;
+  exported as `{ DT_SIDEDOOR, 16 * num + link, x, y }`; the export's box takes in its wall when it lies just outside the floor's box.
+- **PLAY.** A passage alone: a new run on its level, straight in (`sideNow`); its doorways lead back to where it began. A crypt
+  level: its export, and for each passage number its side doorways name, the newest passage saved with that number (a number none is
+  saved for is the game's own). The play page's shim (`build.py`) takes `sides`, `sideNow` and `level` from the message;
+  `haunted.js` hands each to `web_side_load` and `web_side_now`; the game's `crawl_side_text` and `crawl_side_now` (`side.c`).
+- The hooks in `editor.html`, each marked `side (PLAN-side)`: the script's placeholder, the tool and its picture, its fields, its
+  placing, the header's buttons, the keys, OPEN, NEW, load, PLAY. `core.js`: the export, the label, the checks.
+
+### 2d. The owner's parts for puzzles, the crypt's traps and the tuning (session 3)
+
+Asked for on 26 November: the caster half as tall, moving and jumping as before; sliders to tune; the controller; coins staying where
+they are laid; the crypt's traps painted into passages; triggers, seen and unseen; the parts for a first puzzle (a lever opens a gate,
+a plate set water running, the water carries a key down through the gate). Built:
+- **The caster** 13 pixels tall (`SD_HT`), 8 crouched; its figure drawn at half height (`side_art.c`, `SF_H` 18). Its box is
+  smaller, so a one-tile way is standing room now. The creatures are still drawn at their old height.
+- **Tuning** (`TUNE[]` in `side_text.c`: 37 numbers by name, each with its default, range, step and a line on what it is). A passage's
+  `TUNE` lines set its own; `SDT[]` in `side.c` is what is in force. The editor's TUNING tab sets a passage's numbers (a reset each);
+  during PLAY a drawer of the same sliders moves the game as it runs (`hvs-tune` to `web_side_tune`). `extract.py` reads the table.
+- **The controller**, read as it is: the left stick or the pad to walk, pushed hard or B held to run, A to jump, down to crouch (with A,
+  down through a ledge), up or Y at a doorway or a lever, the right trigger or X to cast, the bumpers through the spells held.
+- **Coins and the rest** drawn where they are laid (they were drawn a tile low). With `LOOSE` they fall until they rest, and water carries
+  them; a plate holds while one rests on it.
+- **Works** (`game/side_works.c`): gates, plates, zones, currents, loose things, triggers (`sd_trigs`, `sd_act`), a thing's on or off
+  (`SD.st`), a flow's clock and fill (`SD.fc`, `SD.fk`).
+- **The crypt's traps** (`sd_traps`): every kind but the arc and the grasp, by family as the crypt has them. Falls (rock, timber, glass,
+  crystal) drop on their cells after a warning; lines (fire, votive, fissure, lode, galvanic, cart, censer, snare) run along their cells;
+  creeps (bile, silt, damp, sluice, cold, deep cold, saint, tithe) spread cell by cell from the first and stay a while (`STAYS`); clouds
+  (void, ash, breath, reliquary, mirror) fill theirs. Each harms by its element; the void silences spells, the snare holds. What sets one
+  off: a clock, a box walked into (`ENTER`), or a trigger; `ZONE` the cells themselves, `SAFE` none at the start. The editor paints them.
+- **The puzzle's parts** shown working in `SIDE_TEXT[1]`, *The Cistern Key*, and `tools/mapedit/fixtures/side_puzzle.txt`: `SWITCH ...
+  TOGGLE TAG lever`, `GATE ... TAG gate`, `PLATE ... TAG plate`, `CURRENT ... OFF TAG water`, `KEY ... LOOSE`; `TRIG lever HOLD
+  gate:ON` and `TRIG plate HOLD water:ON`. The owner draws the real one.
 
 ## 3. Steps
 
@@ -126,8 +177,8 @@ agent's way.
 | 5 | The creatures (the run's kinds, in their bestiary pictures until their own are drawn) | A first version: walkers, fliers, throwers |
 | 6 | Keys, gold, lives to find, switches firing the crypt's triggers | Done; a switch on a drawn level not yet tried |
 | 7 | The dream in a side passage | A first version: finishes the test passage; the crypt's dream does not yet walk into side doorways by itself |
-| 8 | The text format and its reader; `HOST_SIDE=file` and `sidecheck` in the harness | The reader done (`sd_read`); the harness's door not yet |
-| 9 | The World Editor: the side map, its export, its checks, PLAY; the crypt's side doorway | |
+| 8 | The text format and its reader; `HOST_SIDE=file` and `HOST_SIDE_NOW` in the harness | Done |
+| 9 | The World Editor: the side map, its export, its checks, PLAY; the crypt's side doorway | Done, harness and Playwright only; not used by the owner |
 | 10 | Side doorways on drawn levels (rooms, halls, secret rooms); the crypt doorway's own texture | |
 | 11 | Lives at the merchant, 500 gold; `LG_SIDE` in the ledger | |
 | 12 | Touch's stones and the controller in a side passage | |
@@ -138,7 +189,8 @@ agent's way.
 
 - `CRAWL_TPSIDE=n` (debug build): a side doorway to built-in side passage n in the first wall ahead of the start, every link of
   it going to that one doorway; `CRAWL_SIDE=n` straight into it as the level opens.
-- Events: `EVENT side_in`, `side_out`, `side_life`, `side_done`, `side_over`.
+- Events: `EVENT side_in`, `side_out`, `side_life`, `side_done`, `side_over`; `side_works` (a gate, current, flow, platform or trap
+  turned on or off by a trigger) and `side_trap` (a trap going off, its cells).
 
 ## 5. Tests
 
@@ -194,3 +246,46 @@ the side passages and nothing else (22 files). Tested on the merged tree: every 
 builds not here: no compilers for them in this container, so CI alone), `node tools/mapedit/test.js` passed, `make smoke` passed, the
 dream's log line for line the same as main's (seeds 1, 2, 4, 6, run 7, 1,500 s, but the time-taken line), the side passage on eight seeds
 as before (27 in, 26 at the goal, one run ended), 400 s of it under `make asan`: clean.
+
+**Session 2 (25 to 26 November 2026): the World Editor's side (step 9).** The owner chose the editor before a play-test build. Read
+first: the published artifact against this repository's build of the editor, the same but for the host's wrapper, so nothing had
+been changed outside the repository. Built as section 2c says. Tested:
+- `node tools/mapedit/test.js`: every built-in passage read and written back letter for letter (the test passage, 30 things); a new
+  passage with every kind of thing exported and read back the same; six bad texts refused with `sd_read`'s reasons; a side doorway's
+  export (`DT_SIDEDOOR, 37`) inside the map though its wall lies outside the floor's box (it lay at y -0.5 before the fix); its checks.
+  The fixtures it writes (`side_0.txt`, `side_new.txt`, `side_crypt.c`) read by the game: `HOST_SIDE` both, the new one played straight
+  in on level 4 by the dream to its goal; `HOST_DRAWN` the crypt export, its side doorway laid where the editor put it.
+- Playwright's Chromium on the built page served locally: the example opened; a new passage drawn (tiles painted and a box of ledge,
+  each kind of thing laid), a platform chosen and turned upward, the checks, SAVE, EXPORT TEXT, undo and redo; back to a crypt map,
+  a side doorway laid on a wall and refused on floor, its passage and link set, EXPORT C; OPEN listing the passage. No page errors.
+  The page's `.main` is a grid, which `[hidden]` does not hide: both sets of columns showed at once until `side_ui.js` added its rule.
+- PLAY, with the browser build made here (Emscripten 6.0.13, as CI): the example passage played alone, the game booted on level 3 and
+  straight into it, the dream playing; a crypt level (the tutorial's first, a side doorway laid) sent its export with
+  `DT_SIDEDOOR, 16` and the passage saved as number 1.
+- The game: `make host`, `build/host_debug`, `make asan`, `make web` with no new warnings; under the sanitizers a passage handed over
+  by `HOST_SIDE` played 300 s and a crypt with a side doorway 60 s, clean; the dream's log, seeds 1 and 4, 1,500 s, line for line
+  main's (`af939ef`) but the time-taken line.
+Not used by the owner; nothing under Wine; the Windows build left to CI. Still to do: the crypt's dream walking into side doorways
+(step 7), lives at the merchant and in the save (11), touch and the controller (12), the creatures' own art and the caster in the
+gear (13); in the editor, a dream's walk for passages as the crypt's has.
+Published as a new artifact, https://claude.ai/artifact/9f163JHMAJesUR8bPgMyWP (with `play/`; `db` at `admin` for `maps`, and
+`downloads`, as the first), since the first editor's artifact could not be updated from this session (the tool took it as from outside
+the account). Its store starts empty: maps from the first come across by BACKUP FILE there and LOAD FILE here.
+
+**Session 3 (26 November 2026): the owner's parts (2d).** Built as 2d says. Tested:
+- `node tools/mapedit/test.js`: both built-in passages read and written back letter for letter; a new one with every kind of thing,
+  a painted trap and a trigger exported and read back. The fixtures it writes read by the game (`HOST_SIDE`).
+- Playwright's Chromium on the built page: *The Cistern Key* opened; a new passage drawn with a plate, a gate, water and a rockfall
+  painted on three cells; a trigger bound plate to gate in the TRIGGERS tab; a slider in TUNING; the export carried each
+  (`PLATE`, `GATE`, `CURRENT`, `HAZ` with its `HZC`, `TRIG plate1 HOLD gate1:ON`, `TUNE walk 90`); no checks raised. PLAY of the
+  example with the browser build made here: the drawer opened, jump set to 330 while the dream played, and the passage finished. No page
+  errors.
+- The game: the puzzle solved by a scripted person in the harness (the lever, the gate open, the plate, the water on, the key carried
+  down and taken; frames in `media/sheets/side/side_works.png`, the top row); the fixture's four traps (bile, rock, fire, void) going off
+  (the bottom row). The dream finished both built-in passages on eight seeds each, sixteen of sixteen with no life lost (it stood at a
+  poison flow's edge to fight, its middle out of the poison and its side in it, and died there three times over; it now counts its whole
+  width). The dream does not work puzzles: it plays past them. `make asan`: both passages and the fixture, 300 to 600 s, clean. `make
+  smoke` passed. The crypt's dream, seeds 1 and 4, 1,500 s, line for line the build before's.
+Harness and Playwright only; nothing under Wine; the Windows build to CI. Open: the creatures at the caster's new height; a crypt toast
+(`+4 EXP A ROOM FOUND`) can show over a passage's status bar; the rest of section 3's steps.
+

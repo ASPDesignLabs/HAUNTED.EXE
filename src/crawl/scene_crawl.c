@@ -221,6 +221,7 @@
 #include "game/side_levels.c"
 #include "game/side_text.c"
 #include "game/side.c"
+#include "game/side_works.c"
 #include "game/side_dream.c"
 
 /* Rendering begins: shading and fog, the floor and ceiling (render_floor), secrets' cracks, the floor's marks (hazards, omens, wards, ice: fm_pixel) */

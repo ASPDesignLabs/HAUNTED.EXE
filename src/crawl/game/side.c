@@ -11,17 +11,19 @@
 #define SD_LIVES 3
 #define SD_LIFE_PRICE 500                                          /* at the merchant's (step 11) */
 #define SD_HW 5.0f                                                 /* the caster's box: half its width, its height, crouched */
-#define SD_HT 26.0f
-#define SD_HC 14.0f
-#define SD_WALK 72.0f                                              /* pixels a second */
-#define SD_RUN 128.0f
-#define SD_CREEP 40.0f
-#define SD_JUMP 236.0f                                             /* up, at the jump: a little over three tiles held, two tapped */
-#define SD_G_HELD 520.0f
-#define SD_G 950.0f
-#define SD_FALL_MAX 340.0f
-#define SD_COYOTE 0.08f
-#define SD_JBUF 0.10f
+#define SD_HT 13.0f                                                /* half the first figure's height (the owner, 26 November) */
+#define SD_HC 8.0f
+static float SDT[NTU];                                             /* the tuned numbers this passage plays with (TUNE, side_text.c) */
+#define SD_WALK SDT[TU_WALK]
+#define SD_RUN SDT[TU_RUN]
+#define SD_CREEP SDT[TU_CREEP]
+#define SD_JUMP SDT[TU_JUMP]
+#define SD_G_HELD SDT[TU_GRAV_HELD]
+#define SD_G SDT[TU_GRAV]
+#define SD_FALL_MAX SDT[TU_FALL_MAX]
+#define SD_COYOTE SDT[TU_COYOTE]
+#define SD_JBUF SDT[TU_JUMP_BUF]
+#define SD_HAND (SD.crouch ? 5.0f : 9.0f)                          /* where a spell leaves the hand, above the feet */
 #define SD_SIDES 8                                                 /* side passages a run's levels can name: SIDE_TEXT's */
 
 enum { SS_BOLT, SS_FLASK, SS_BONE };
@@ -51,6 +53,14 @@ static struct {
     float camx, camy;
     SdIn in;
     int dream_on;
+    /* the works (side_works.c): each thing's state, on or off; a gate's openness; a flow's clock and fill; what is loose, where;
+     * each trigger's state; each trap's turn */
+    uint8_t st[SD_THINGS];
+    float gk[SD_THINGS], fc[SD_THINGS], fk[SD_THINGS];
+    float ix[SD_THINGS], iy[SD_THINGS], ivx[SD_THINGS], ivy[SD_THINGS];
+    uint8_t tr_on[SD_TRIGS], tr_was[SD_TRIGS]; float tr_t[SD_TRIGS];
+    int hz_ph[SD_HAZ], hz_at[SD_HAZ], hz_n[SD_HAZ], hz_in[SD_HAZ]; float hz_t[SD_HAZ], hz_k[SD_HAZ], hz_bite[SD_HAZ];
+    float silence_t, hold_t;
 } SD;
 static struct {                                                    /* what stays done for the rest of the crypt level's visit */
     int stamp;
@@ -115,19 +125,19 @@ static int sd_fall_at(int tx, int ty) {                            /* a falling 
         if (L->th[i].kind == SDT_FALL && L->th[i].x == tx && L->th[i].y == ty && SD.fall[i].state <= 1) return i;
     return -1;
 }
-static int sd_solid(int tx, int ty) { return sd_solid_ch(sd_tile(tx, ty)) || sd_fall_at(tx, ty) >= 0; }
+static int sd_gate_at(int tx, int ty);                             /* side_works.c */
+static int sd_in_current_poison(float x, float y);
+static void sd_works_build(void); static void sd_waters(float dt); static void sd_items(float dt); static void sd_trigs(float dt); static void sd_traps(float dt);
+static int sd_solid(int tx, int ty) { return sd_solid_ch(sd_tile(tx, ty)) || sd_fall_at(tx, ty) >= 0 || sd_gate_at(tx, ty); }
 static int sd_floor_px(float px) { return (int)floorf(px / SD_TILE); }
-static float sd_flow_k(const SdThing *t) {                         /* how full a flow is: rising over 0.6 s, falling over 0.6 s */
-    float per = t->f[0] + t->f[1], c = fmodf(SD.t + t->f[2], per);
-    if (c < t->f[0]) return fminf(1.0f, c / 0.6f);
-    return fmaxf(0.0f, 1.0f - (c - t->f[0]) / 0.6f);
-}
+static float sd_flow_k(const SdThing *t) { return SD.fk[t - SD.L->th]; }   /* how full a flow is now (side_works.c keeps it) */
 static float sd_flow_top(const SdThing *t) { return (float)((t->y + t->h) * SD_TILE) - sd_flow_k(t) * (float)(t->h * SD_TILE); }
 static int sd_in_poison(float x, float y, float top) {             /* any of the box in standing poison or a flow that is up */
     const SdLevel *L = SD.L;
     for (int ty = sd_floor_px(top); ty <= sd_floor_px(y - 1.0f); ty++)
         for (int tx = sd_floor_px(x - SD_HW); tx <= sd_floor_px(x + SD_HW - 1.0f); tx++)
             if (sd_tile(tx, ty) == '~' && y - 1.0f >= (float)(ty * SD_TILE) + 4.0f) return 1;
+    if (sd_in_current_poison(x, y - 1.0f) || sd_in_current_poison(x, top + 1.0f)) return 1;
     for (int i = 0; i < L->nth; i++) {
         const SdThing *t = &L->th[i];
         if (t->kind != SDT_FLOW || sd_flow_k(t) <= 0.05f) continue;
@@ -154,6 +164,7 @@ static void sd_plats(float dt) {
         SdPlat *p = &SD.plat[i];
         p->px = p->x; p->py = p->y;
         float len = t->f[0] * SD_TILE;
+        if (!SD.st[i]) continue;                                   /* stopped by a trigger, or OFF till one */
         if (p->wait > 0.0f) p->wait -= dt;
         else {
             p->s += (float)p->dir * t->f[1] * SD_TILE * dt;
@@ -190,8 +201,8 @@ static void sd_hurt(float dmg, int el, float from_x) {
     int n = (int)(d + 0.5f);
     if (n < 1) n = 1;
     G.hp -= n;
-    SD.hurt_t = 0.35f; SD.inv_t = 0.9f;
-    SD.vx = (SD.x < from_x ? -1.0f : 1.0f) * 110.0f; SD.vy = -150.0f; SD.ground = 0; SD.on_plat = -1;
+    SD.hurt_t = 0.35f; SD.inv_t = SDT[TU_HURT_SAFE];
+    SD.vx = (SD.x < from_x ? -1.0f : 1.0f) * SDT[TU_KNOCK_X]; SD.vy = -SDT[TU_KNOCK_Y]; SD.ground = 0; SD.on_plat = -1;
     rumble(0.3f, 0.2f, 0.2f);
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "EVENT side_hurt %d el %d hp=%d/%d t=%.2f\n", n, el, G.hp, G.max_hp, SD.t);
@@ -258,11 +269,12 @@ static void sd_caster(float dt) {
         for (int c = c0; c <= c1; c++) if (sd_solid(c, r)) room = 0;
         if (room) SD.crouch = 0;
     } else if (want_crouch) SD.crouch = 1;
-    int dir = (in->right ? 1 : 0) - (in->left ? 1 : 0);
+    int dir = SD.hold_t > 0.0f ? 0 : (in->right ? 1 : 0) - (in->left ? 1 : 0);   /* held by a snare: still */
+    if (SD.hold_t > 0.0f) in->jump_hit = 0;
     if (dir) SD.face = dir;
     float top = SD.crouch ? SD_CREEP : in->run ? SD_RUN : SD_WALK;
-    if (SD.pois_k > 0.0f) top *= 0.5f;                             /* wading in poison */
-    float want = (float)dir * top, acc = SD.ground ? (dir ? 900.0f : 1100.0f) : 560.0f;
+    if (SD.pois_k > 0.0f) top *= SDT[TU_WADE];                      /* wading in poison */
+    float want = (float)dir * top, acc = SD.ground ? (dir ? SDT[TU_ACCEL] : SDT[TU_BRAKE]) : SDT[TU_AIR];
     if (SD.vx < want) SD.vx = fminf(want, SD.vx + acc * dt); else if (SD.vx > want) SD.vx = fmaxf(want, SD.vx - acc * dt);
     /* the jump: a short grace off an edge, and one pressed just before landing still counts */
     SD.coyote = SD.ground ? SD_COYOTE : SD.coyote - dt;
@@ -296,7 +308,7 @@ static void sd_place_harm(float dt) {
         for (int tx = sd_floor_px(SD.x - SD_HW + 1.0f); tx <= sd_floor_px(SD.x + SD_HW - 1.0f); tx++)
             if (sd_tile(tx, ty) == '^' && SD.y > (float)(ty * SD_TILE) + 7.0f) {
                 G.blame = (Blame){ BL_HAZARD, 0, 0 };
-                sd_hurt(0.34f * (float)G.max_hp, EL_PHYS, SD.x - (float)SD.face);
+                sd_hurt(SDT[TU_SPIKES] * (float)G.max_hp, EL_PHYS, SD.x - (float)SD.face);
                 if (!SD.dying) { SD.vy = -200.0f; SD.ground = 0; }
                 return;
             }
@@ -304,13 +316,13 @@ static void sd_place_harm(float dt) {
     SD.pois_k = in ? 1.0f : 0.0f;
     if (in) {
         SD.held += dt;
-        if (SD.held >= 0.5f) {                                     /* a tenth of your health each half second */
+        if (SD.held >= SDT[TU_BITE_EVERY]) {                       /* a share of your health each while */
             SD.held = 0.0f;
-            int n = imax(1, (int)(0.10f * (float)G.max_hp * (1.0f - el_resist(&RUN.gear, EL_POISON)) + 0.5f));
+            int n = imax(1, (int)(SDT[TU_BITE] * (float)G.max_hp * (1.0f - el_resist(&RUN.gear, EL_POISON)) + 0.5f));
             G.hp -= n; snd_sfx_ex(SFX_HURT, 0.5f, 0.5f);
             if (G.hp <= 0) { G.hp = 0; SD.dying = 1; SD.die_t = 0.0f; snd_sfx(SFX_DEATH); }
         }
-    } else SD.held = 0.4f;                                         /* the first bite comes quick */
+    } else SD.held = SDT[TU_BITE_EVERY] * 0.8f;                   /* the first bite comes quick */
     if (SD.y > (float)(SD.L->h * SD_TILE + 48)) {                  /* down past the foot: gone */
         G.hp = imax(0, G.hp); SD.dying = 1; SD.die_t = 1.0f;
 #ifdef CRAWL_DEBUG
@@ -423,9 +435,9 @@ static void sd_mobs(float dt) {
         m->t += dt; m->hurt_t = fmaxf(0.0f, m->hurt_t - dt); m->slow_t = fmaxf(0.0f, m->slow_t - dt);
         if (m->state == SDM_DIE) { if (m->t > 0.8f) m->alive = 0; continue; }
         if (m->pois_t > 0.0f) { m->pois_t -= dt; m->hp -= m->pois_dps * dt; if (m->hp <= 0.0f) { sd_mob_slain(m, AT_FLASK); continue; } }
-        float sp = m->speed * 26.0f * (m->slow_t > 0.0f ? 0.5f : 1.0f);   /* the crypt's cells a second as pixels, a little slower */
+        float sp = m->speed * SDT[TU_DEAD_PACE] * (m->slow_t > 0.0f ? 0.5f : 1.0f);   /* the crypt's cells a second as pixels, a little slower */
         float mh = sd_mob_h(m), dx = SD.x - m->x, dy = (SD.y - SD_HT * 0.5f) - (m->y - mh * 0.5f);
-        int sees = !SD.dying && fabsf(dx) < 150.0f && fabsf(dy) < 80.0f && sd_line_clear(m->x, m->y - mh * 0.6f, SD.x, SD.y - SD_HT * 0.6f);
+        int sees = !SD.dying && fabsf(dx) < SDT[TU_DEAD_SIGHT] && fabsf(dy) < 80.0f && sd_line_clear(m->x, m->y - mh * 0.6f, SD.x, SD.y - SD_HT * 0.6f);
         m->cool -= dt;
         if (m->fly) {                                              /* drift about home; seen, come at you and swoop */
             float tx = sees ? SD.x : m->home_x + 30.0f * sinf(m->t * 0.7f + (float)i), ty = sees ? SD.y - 14.0f : m->home_y + 10.0f * sinf(m->t * 1.3f);
@@ -519,18 +531,18 @@ static void sd_shots(float dt) {
  * the bone till it strikes, spirit three for now; the flask where its mark says. */
 static float sd_reach(int el) {
     switch (el) {
-    case EL_FIRE: return 6.0f;
-    case EL_FROST: return 7.2f;
-    case EL_LIGHT: return 5.0f;
-    case EL_SPIRIT: return 3.0f;
+    case EL_FIRE: return SDT[TU_FIRE_REACH];
+    case EL_FROST: return SDT[TU_FROST_REACH];
+    case EL_LIGHT: return SDT[TU_LIGHT_REACH];
+    case EL_SPIRIT: return SDT[TU_SPIRIT_REACH];
     default: return 40.0f;
     }
 }
-static float sd_speed(int el) { return el == EL_FIRE ? 230.0f : el == EL_FROST ? 190.0f : el == EL_SPIRIT ? 160.0f : 280.0f; }
-static float sd_flask_k(void) { return clampf(SD.held / 1.0f, 0.2f, 1.0f); }   /* the throw grows as it is held, over a second */
-static void sd_flask_way(float k, float *vx, float *vy) { *vx = (float)SD.face * (60.0f + 140.0f * k); *vy = -150.0f - 60.0f * k; }
+static float sd_speed(int el) { return el == EL_FIRE ? SDT[TU_FIRE_SPEED] : el == EL_FROST ? SDT[TU_FROST_SPEED] : el == EL_SPIRIT ? SDT[TU_SPIRIT_SPEED] : SDT[TU_BOLT_SPEED]; }
+static float sd_flask_k(void) { return clampf(SD.held / SDT[TU_FLASK_HOLD], 0.2f, 1.0f); }   /* the throw grows as it is held, over a second */
+static void sd_flask_way(float k, float *vx, float *vy) { *vx = (float)SD.face * (SDT[TU_FLASK_NEAR] + (SDT[TU_FLASK_FAR] - SDT[TU_FLASK_NEAR]) * k); *vy = -SDT[TU_FLASK_LIFT] - 60.0f * k; }
 static void sd_flask_mark(void) {                                  /* where the flask would land now: its arc tried */
-    float vx, vy, x = SD.x + (float)SD.face * 6.0f, y = SD.y - 18.0f;
+    float vx, vy, x = SD.x + (float)SD.face * 6.0f, y = SD.y - SD_HAND;
     sd_flask_way(sd_flask_k(), &vx, &vy);
     for (int i = 0; i < 400; i++) {
         float nx = x + vx * 0.01f, ny = y + vy * 0.01f;
@@ -544,6 +556,7 @@ static void sd_cast(int release) {
     int sp = G.spell;
     if (sp < 0 || sp >= NATK || RUN.gear.atk[sp] < 0) { sp = own_spell(); if (sp < 0) return; G.spell = sp; }
     if (SD.cd > 0.0f || SD.dying) return;
+    if (SD.silence_t > 0.0f) { if (G.msg_t <= 0.0f) say("THE VOID TAKES THE SPELL FROM YOUR HAND"); SD.cd = 0.3f; return; }
     const Gear *g = &RUN.gear;
     int el = ATK_ELEM[sp];
     if (sp == AT_BFS) {                                            /* the BFS9000: everything on the screen */
@@ -567,7 +580,7 @@ static void sd_cast(int release) {
     }
     if (sp == AT_SPEAR) { if (splinter) RUN.splint_used++; else if (rndf() >= bone_spared()) RUN.gear.bones--; }
     float dmg = spell_damage_at(g, sp, tier) * aug_dmg(sp) * (splinter ? SPLINTER_DMG : 1.0f);
-    float hx = SD.x + (float)SD.face * 8.0f, hy = SD.y - (SD.crouch ? 10.0f : 17.0f);
+    float hx = SD.x + (float)SD.face * 6.0f, hy = SD.y - SD_HAND;
     SD.cd = cast_cycle(sp); SD.cast_t = 0.3f;
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "EVENT side_cast %s tier %d t=%.2f\n", ATK_NAME[sp], tier, SD.t);
@@ -664,9 +677,10 @@ static void sd_throw(int i) {
     fprintf(stderr, "EVENT side_switch %d thing %d %s t=%.2f\n", i, t->a, on ? "on" : "off", SD.t);
 #endif
 }
-static int sd_at_thing(int i, float rx, float ry) {                /* the caster's box over a thing's tile, give or take */
+static int sd_at_thing(int i, float rx, float ry) {                /* the caster's box over a thing, give or take */
     const SdThing *t = &SD.L->th[i];
     float cx = (float)(t->x * SD_TILE) + 8.0f, cy = (float)(t->y * SD_TILE) + 8.0f;
+    if (t->kind == SDT_GOLD || t->kind == SDT_KEY || t->kind == SDT_LIFE) { cx = SD.ix[i]; cy = SD.iy[i]; }   /* (where it lies now: loose things move) */
     return fabsf(SD.x - cx) < rx && SD.y - sd_box_h() * 0.5f > cy - ry && SD.y - sd_box_h() * 0.5f < cy + ry + 8.0f;
 }
 static int sd_door_here(void) {                                    /* the doorway stood before, -1 none */
@@ -680,6 +694,7 @@ static int sd_door_here(void) {                                    /* the doorwa
 static void sd_build(void) {                                       /* the place as SDP and the entry left it */
     const SdLevel *L = SD.L;
     memset(SD.plat, 0, sizeof SD.plat); memset(SD.fall, 0, sizeof SD.fall);
+    sd_works_build();
     memset(SD.mob, 0, sizeof SD.mob); memset(SD.shot, 0, sizeof SD.shot);
     memcpy(SD.taken, SDP.taken[SD.side], sizeof SD.taken); memcpy(SD.thrown, SDP.thrown[SD.side], sizeof SD.thrown);
     SD.rs = 0x51DE0000u ^ (uint32_t)(G.level * 7919 + SD.side * 104729) ^ ((uint32_t)G.retries << 20);
@@ -701,7 +716,7 @@ static void sd_place_at(int link) {
     SD.camy = clampf(SD.y - 100.0f, 0.0f, fmaxf(0.0f, (float)(L->h * SD_TILE - SD_VIEW_H)));
 }
 static int sd_enter(int side, int link, int cx, int cy) {
-    if (side < 0 || side >= SD_SIDES || side >= NSIDE_TEXT) return 0;
+    if (side < 0 || side >= SD_SIDES || (side >= NSIDE_TEXT && !sdl_read[side])) return 0;   /* built in, or handed over by PLAY */
     side_art_init();                                               /* the tiles and the figure, made once */
     if (!sdl_read[side]) {
         char err[160];
@@ -715,6 +730,7 @@ static int sd_enter(int side, int link, int cx, int cy) {
     }
     if (SDP.stamp != sd_stamp) { memset(&SDP, 0, sizeof SDP); SDP.stamp = sd_stamp; }
     SD.on = 1; SD.side = side; SD.link_in = link; SD.cx = cx; SD.cy = cy; SD.L = &SDL[side];
+    for (int k = 0; k < NTU; k++) SDT[k] = (SD.L->tuned >> k & 1) ? SD.L->tune[k] : TUNE[k].def;   /* its own numbers, else the game's */
     SD.leaving = 0; SD.fade = 1.0f; SD.t = 0.0f;
     memcpy(SD0.taken, SDP.taken[side], sizeof SD0.taken); memcpy(SD0.thrown, SDP.thrown[side], sizeof SD0.thrown);
     memcpy(SD0.slain, SDP.slain[side], sizeof SD0.slain);
@@ -793,9 +809,29 @@ static void sd_person(void) {
     in->run = IN.down[KEY_SHIFT];
     in->jump = IN.down[KEY_SPACE]; in->jump_hit = IN.hit[KEY_SPACE];
     in->down = IN.down[KEY_S] || IN.down[KEY_DOWN];
-    in->up_hit = IN.hit[KEY_W] || IN.hit[KEY_UP] || IN.hit[KEY_E];
+    in->up_hit = IN.hit[KEY_W] || IN.hit[KEY_UP] || (IN.hit[KEY_E] && !(IN.pad && IN.pad_hit[PAD_A]));
     in->cast = IN.down[KEY_MOUSE1] || IN.down[KEY_CTRL]; in->cast_hit = IN.hit[KEY_MOUSE1] || IN.hit[KEY_CTRL];
     spell_keys();
+    if (IN.pad) {                                                  /* a controller (the owner, 26 November): read as it is, not by the crypt's layout */
+        static int up_was, lb_was, rb_was;
+        const uint8_t *d = IN.pad_down, *h = IN.pad_hit;
+        int up = IN.ly > 0.6f || d[PAD_UP];
+        in->left |= IN.lx < -0.3f || d[PAD_LEFT];                  /* the left stick or the pad to walk; pushed hard, or B held, to run */
+        in->right |= IN.lx > 0.3f || d[PAD_RIGHT];
+        in->run |= d[PAD_B] || fabsf(IN.lx) > 0.92f;
+        in->jump |= d[PAD_A]; in->jump_hit |= h[PAD_A];             /* A to jump */
+        in->down |= IN.ly < -0.6f || d[PAD_DOWN];                   /* down to crouch, and with A to drop through a ledge */
+        in->up_hit |= (up && !up_was) || h[PAD_Y];                  /* up, or Y, through a doorway or at a lever */
+        in->cast |= d[PAD_RT] || d[PAD_X]; in->cast_hit |= h[PAD_RT] || h[PAD_X];   /* the right trigger, or X, to cast */
+        int lb = d[PAD_LB], rb = d[PAD_RB];                          /* the bumpers turn through the spells held */
+        if ((lb && !lb_was) || (rb && !rb_was)) {
+            static const int ORDER[7] = { AT_FIRE, AT_FROST, AT_CHAIN, AT_FLASK, AT_DRAIN, AT_SPEAR, AT_BFS };
+            int at = 0;
+            for (int k = 0; k < 7; k++) if (ORDER[k] == G.spell) at = k;
+            for (int n = 0; n < 7; n++) { at = (at + (rb ? 1 : 6)) % 7; if (RUN.gear.atk[ORDER[at]] >= 0) { pick_spell(ORDER[at]); break; } }
+        }
+        up_was = up; lb_was = lb; rb_was = rb;
+    }
 }
 static void sd_update(float dt) {
     if (!SD.on) return;
@@ -830,8 +866,12 @@ static void sd_update(float dt) {
         SD.t += st;
         sd_plats(st);
         sd_falls(st);
+        sd_waters(st);                                             /* gates, flows, currents (side_works.c) */
         sd_caster(st);
+        sd_items(st);
+        sd_trigs(st);
         sd_place_harm(st);
+        sd_traps(st);
         sd_mobs(st);
         sd_shots(st);
         if (!SD.on) return;                                        /* (the last life went in a step) */
@@ -857,7 +897,7 @@ static void sd_update(float dt) {
         }
     }
     /* the camera: a little ahead of where you face, kept in the map */
-    float tx = SD.x - 160.0f + (float)SD.face * 24.0f, ty = SD.y - 96.0f;
+    float tx = SD.x - 160.0f + (float)SD.face * SDT[TU_CAM_LEAD], ty = SD.y - 96.0f;
     SD.camx += (tx - SD.camx) * fminf(1.0f, dt * 5.0f);
     SD.camy += (ty - SD.camy) * fminf(1.0f, dt * 4.0f);
     SD.camx = clampf(SD.camx, 0.0f, fmaxf(0.0f, (float)(SD.L->w * SD_TILE - W)));
@@ -889,8 +929,30 @@ static int sd_frame(float dt) {                                    /* crawl_upda
         sd_enter(atoi(s), 0, G.cx + DX[G.h], G.cy + DY[G.h]);
     }
 #endif
+    static int went_now = -1;                                      /* the World Editor's PLAY of a passage: straight in, once a level */
+    if (g_side_now >= 0 && !SD.on && went_now != sd_stamp && !G.shop && !G.dead && !G.tally && G.level_t > 0.5) {
+        went_now = sd_stamp;
+        sd_enter(g_side_now, 0, G.cx + DX[G.h], G.cy + DY[G.h]);
+    }
     if (!SD.on) return 0;
     G.ui_t += dt;
     sd_update(dt);
     return 1;
+}
+
+/* ---- the World Editor's PLAY (docs/PLAN-side.md, 2c): passages handed over as text, before the game starts ---- */
+int crawl_side_text(int n, const char *text, char *err, int nerr);   /* 0: read into slot n, in place of what is built in; else why not */
+int crawl_side_text(int n, const char *text, char *err, int nerr) {
+    if (n < 0 || n >= SD_SIDES) { snprintf(err, (size_t)nerr, "a side passage's number is 0 to %d", SD_SIDES - 1); return 1; }
+    if (!sd_read(text, &SDL[n], err, nerr)) { sdl_read[n] = 0; return 1; }
+    sdl_read[n] = 1;
+    return 0;
+}
+void crawl_side_now(int n, int level);                             /* a new run begins on level, and goes straight into passage n */
+void crawl_side_now(int n, int level) { g_side_now = n >= 0 && n < SD_SIDES ? n : -1; g_side_level = level < 1 ? 1 : level; }
+void crawl_side_tune(int k, float v);                              /* the World Editor's sliders while it plays: one number, now */
+void crawl_side_tune(int k, float v) {
+    if (k < 0 || k >= NTU) return;
+    SDT[k] = clampf(v, TUNE[k].lo, TUNE[k].hi);
+    for (int i = 0; i < SD_SIDES; i++) { SDL[i].tune[k] = SDT[k]; SDL[i].tuned |= 1ull << k; }   /* and kept through a life lost */
 }

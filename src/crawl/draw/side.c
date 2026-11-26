@@ -58,6 +58,97 @@ static int sd_back_tile(int tx, int ty) {                          /* what shows
     return l == '.' || r == '.' ? -1 : ST_BACK0;
 }
 
+/* ---- the works (side_works.c) ---- */
+static int sd_el_ramp(int el) { return el == EL_FIRE ? R_FLAME : el == EL_FROST ? R_GHOST : el == EL_LIGHT ? R_GLOW : el == EL_POISON ? R_MOSS : el == EL_SPIRIT ? R_PURPLE : R_BONE; }
+static uint32_t sd_hash(int a, int b, int c) { uint32_t h = (uint32_t)a * 73856093u ^ (uint32_t)b * 19349663u ^ (uint32_t)c * 83492791u; return h ^ (h >> 13); }
+static void sd_draw_works(Frame *f, int camx, int camy) {
+    const SdLevel *L = SD.L;
+    for (int i = 0; i < L->nth; i++) {
+        const SdThing *t = &L->th[i];
+        int x0 = t->x * SD_TILE - camx, y0 = t->y * SD_TILE - camy;
+        if (t->kind == SDT_CURRENT && SD.st[i]) {                  /* water running: its body, and streaks going its way */
+            int ramp = (t->flags & SDF_POISON) ? R_MOSS : R_GHOST, W2 = t->w * SD_TILE, H2 = t->h * SD_TILE;
+            float n = hypotf((float)t->a, (float)t->b), run = SD.t * t->f[0] * SD_TILE;
+            for (int y = 0; y < H2; y++) for (int x = 0; x < W2; x++) {
+                if (((x + y) & 1) && !(t->flags & SDF_POISON)) continue;   /* clear water: half the pixels, the wall showing through */
+                float along = ((float)x * (float)t->a + (float)y * (float)t->b) / n - run, across = ((float)x * -(float)t->b + (float)y * (float)t->a) / n;
+                int streak = ((int)floorf(along / 6.0f + (float)(sd_hash((int)floorf(across / 3.0f), i, 0) % 5)) % 5) == 0;
+                sd_px(f, x0 + x, y0 + y, (uint8_t)(ramp + (streak ? 13 : 7 + (int)(sd_hash(x, y, i) % 2))), 22);
+            }
+        } else if (t->kind == SDT_GATE) {                          /* iron bars, risen as far as it has opened */
+            int W2 = t->w * SD_TILE, foot = (int)((float)(t->h * SD_TILE) * (1.0f - SD.gk[i]) + 0.5f);
+            for (int y = 0; y < foot; y++) for (int x = 1; x < W2; x += 4) {
+                sd_px(f, x0 + x, y0 + y, (uint8_t)(R_IRON + 11), sd_lit((float)(t->x * SD_TILE + x), (float)(t->y * SD_TILE + y), 16, 1.0f));
+                sd_px(f, x0 + x + 1, y0 + y, (uint8_t)(R_IRON + 6), sd_lit((float)(t->x * SD_TILE + x), (float)(t->y * SD_TILE + y), 16, 1.0f));
+            }
+            for (int y = 3; y < foot; y += 8) for (int x = 0; x < W2; x++) sd_px(f, x0 + x, y0 + y, (uint8_t)(R_IRON + 8), 18);
+            if (foot > 0) for (int x = 1; x < W2; x += 4) sd_px(f, x0 + x, y0 + foot, (uint8_t)(R_IRON + 13), 20);   /* the points */
+        } else if (t->kind == SDT_PLATE) {                         /* a flagstone in the floor's top, sunk while pressed */
+            int down = sd_pressed(i) ? 2 : 0, top = y0 + SD_TILE - 3 + down;
+            for (int x = 2; x < 14; x++) for (int y = 0; y < 3 - down; y++) sd_px(f, x0 + x, top + y, (uint8_t)(R_STONE + (y == 0 ? 12 : 8) - (x == 2 || x == 13)), 18);
+            if (down) for (int x = 4; x < 12; x++) sd_px(f, x0 + x, top - 1, (uint8_t)(R_GOLD + 9), 24);
+        }
+    }
+    for (int h = 0; h < L->nhz; h++) {                            /* the traps, each in its own shape */
+        int ph = SD.hz_ph[h];
+        if (!ph) continue;
+        const SdHaz *z = &L->hz[h];
+        int ramp = z->kind == HZ_VOID ? R_PURPLE : z->kind == HZ_ASH ? R_STONE : sd_el_ramp(z->el);
+        float w = sd_hz_warn(z), k = SD.hz_k[h];
+        for (int c = 0; c < SD.hz_n[h]; c++) {
+            int cx, cy;
+            if (!sd_hz_cell(z, SD.hz_at[h] + c, &cx, &cy)) continue;
+            int x0 = cx * SD_TILE - camx, y0 = cy * SD_TILE - camy, n = SD.hz_n[h];
+            switch (z->fam) {
+            case HZF_FALL:
+                if (ph == 1) {                                     /* grit sifting down, a shadow gathering */
+                    for (int d = 0; d < 6; d++) { int dx = (int)(sd_hash(d, c, h) % 14) + 1, dy = (int)(fmodf(k * 60.0f + (float)(sd_hash(d, h, c) % 40), 40.0f)) - 24; sd_px(f, x0 + dx, y0 + dy, (uint8_t)(R_STONE + 9), 20); }
+                    int sw = (int)(k / w * 6.0f);
+                    for (int x = 8 - sw; x < 8 + sw; x++) sd_px(f, x0 + x, y0 + SD_TILE - 1, 0, 0);
+                } else {                                           /* down: a block falling, then rubble lying */
+                    int fy = k < 0.15f ? (int)(-30.0f + k / 0.15f * 30.0f) : 0;
+                    for (int y = 6; y < SD_TILE; y++) for (int x = 3; x < 13; x++) {
+                        if (fy == 0 && y < 10 + (int)(sd_hash(x, c, h) % 3)) continue;
+                        sd_px(f, x0 + x, y0 + y + fy, (uint8_t)(ramp + 6 + (int)(sd_hash(x, y, h) % 5)), sd_lit((float)(cx * SD_TILE + x), (float)(cy * SD_TILE + y), 16, 1.0f));
+                    }
+                }
+                break;
+            case HZF_LINE: {
+                float lit = ph == 1 ? k / w * (float)n - (float)c : 1.0f;   /* the cracks wake one by one, in their order */
+                if (lit <= 0.0f) break;
+                for (int x = 0; x < SD_TILE; x++) if ((sd_hash(x, c, h) % 3) == 0 || x % 5 == 2) sd_px(f, x0 + x, y0 + SD_TILE - 1 - (int)(sd_hash(x, h, c) % 2), (uint8_t)(ramp + clampi((int)(6.0f + 8.0f * fminf(1.0f, lit)), 0, 15)), 24);
+                if (ph == 2 || ph == 5) {                          /* the burst: a sheet of its element up from the cracks; embers after */
+                    int tall = ph == 2 ? 22 : 6;
+                    for (int y = 0; y < tall; y++) for (int x = 1; x < 15; x++) {
+                        uint32_t hh = sd_hash(x, y + (int)(SD.t * 30.0f), c * 31 + h);
+                        if (hh % (ph == 2 ? 3 : 9)) continue;
+                        sd_px(f, x0 + x, y0 + SD_TILE - 1 - y, (uint8_t)(ramp + 15 - y / 3), 24);
+                    }
+                }
+                break;
+            }
+            case HZF_CREEP: {                                      /* a sheen, cell by cell in its order, settled; drained back */
+                float share = ph == 4 ? fmaxf(0.0f, 1.0f - k / (0.22f * (float)n)) : fminf(1.0f, k / (0.22f * (float)n));
+                if ((float)c >= share * (float)n) break;
+                for (int y = SD_TILE - 4; y < SD_TILE; y++) for (int x = 0; x < SD_TILE; x++)
+                    if (((x + y + (int)(SD.t * 4.0f)) % 3) || y > SD_TILE - 3) sd_px(f, x0 + x, y0 + y, (uint8_t)(ramp + (y == SD_TILE - 4 ? 13 : 8)), 22);
+                if (sd_hash(c, (int)(SD.t * 3.0f), h) % 4 == 0) sd_px(f, x0 + 5 + (int)(sd_hash(c, h, 1) % 6), y0 + SD_TILE - 6, (uint8_t)(ramp + 14), 24);
+                break;
+            }
+            case HZF_CLOUD: {                                      /* gathering, hanging, lifting */
+                float d = ph == 1 ? k / w * 0.35f : ph == 2 ? 0.75f : fmaxf(0.0f, 0.75f - k / 0.8f * 0.75f);
+                for (int y = 0; y < SD_TILE; y++) for (int x = 0; x < SD_TILE; x++) {
+                    uint32_t hh = sd_hash(x + (int)(SD.t * 9.0f), y - (int)(SD.t * 5.0f), c + h * 17);
+                    if ((float)(hh % 100) >= d * 100.0f) continue;
+                    sd_px(f, x0 + x, y0 + y, (uint8_t)(ramp + 5 + (int)(hh % 6)), 22);
+                }
+                break;
+            }
+            }
+        }
+    }
+}
+
 static void sd_render(Frame *f) {
     const SdLevel *L = SD.L;
     int camx = (int)floorf(SD.camx), camy = (int)floorf(SD.camy);
@@ -139,6 +230,7 @@ static void sd_render(Frame *f) {
                     for (int xx = 0; xx < STS; xx++) sd_px(f, sx + xx, sy + yy, tile[yy * STS + xx], 22);
             }
     }
+    sd_draw_works(f, camx, camy);                                  /* water running, gates, plates, the traps */
     /* the falling blocks, shaking and falling */
     for (int i = 0; i < L->nth; i++) {
         const SdThing *t = &L->th[i];
@@ -166,14 +258,14 @@ static void sd_render(Frame *f) {
     for (int i = 0; i < L->nth; i++) {
         const SdThing *t = &L->th[i];
         if (SD.taken[i]) continue;
-        int bob = (int)floorf(1.5f * sinf(SD.t * 3.0f + (float)i));
-        int sx = t->x * SD_TILE - camx, sy = t->y * SD_TILE - camy + bob;
+        int loose = t->flags & SDF_LOOSE, bob = loose ? 0 : (int)floorf(1.5f * sinf(SD.t * 3.0f + (float)i));
+        int sx = (int)floorf(SD.ix[i]) - 8 - camx, sy = (int)floorf(SD.iy[i]) + 5 - SD_TILE - camy + bob;   /* where it lies now: loose things move */
         switch (t->kind) {
         case SDT_KEY: sd_draw_tile(f, side_tile[ST_KEY0 + t->a], sx, sy, 24, 1.0f, 0); break;
         case SDT_LIFE: sd_draw_tile(f, side_tile[ST_LIFE], sx, sy - bob, 24, 1.0f, 0); break;
         case SDT_GOLD: {
             static const int SPR[] = { SP_COINS_A, SP_CHALICE, SP_GEMS, SP_CROWN, SP_CHEST };
-            sd_draw_spr(f, SPR[clampi(t->a, 0, 4)], sx + 8, sy + 16 + (TS / 4), 0, 24, 0);
+            sd_draw_spr(f, SPR[clampi(t->a, 0, 4)], sx + 8, sy + 16, 0, 24, 0);   /* its foot on the tile's foot (it was drawn a tile low) */
             break;
         }
         default: break;
@@ -208,7 +300,7 @@ static void sd_render(Frame *f) {
         }
     }
     if (SD.holding) {                                              /* the flask held: its arc dotted, and where it lands */
-        float vx, vy, x = SD.x + (float)SD.face * 6.0f, y = SD.y - 18.0f;
+        float vx, vy, x = SD.x + (float)SD.face * 6.0f, y = SD.y - SD_HAND;
         sd_flask_way(sd_flask_k(), &vx, &vy);
         for (int i = 0; i < 400; i++) {
             float nx = x + vx * 0.01f, ny = y + vy * 0.01f;

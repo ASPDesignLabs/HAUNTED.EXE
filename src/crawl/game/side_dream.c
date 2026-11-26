@@ -27,13 +27,21 @@ static int sdd_plat_under(int tx, int ty) {                        /* a platform
 }
 static int sdd_room(int tx, int ty) {                              /* 2 room to stand, 1 to creep, 0 none */
     if (sd_solid(tx, ty) || sd_tile(tx, ty) == '~' || sd_tile(tx, ty) == '^') return 0;
-    return sd_solid(tx, ty - 1) ? 1 : 2;
+    return SD_HT <= (float)SD_TILE || !sd_solid(tx, ty - 1) ? 2 : 1;   /* a tile's height is room to stand, since the figure was halved */
+}
+static int sdd_trap_at(int tx, int ty) {                          /* a trap warning or harming over this tile now */
+    const SdLevel *L = SD.L;
+    for (int h = 0; h < L->nhz; h++) {
+        if (!SD.hz_ph[h]) continue;
+        for (int c = 0; c < SD.hz_n[h]; c++) { int x, y; if (sd_hz_cell(&L->hz[h], SD.hz_at[h] + c, &x, &y) && x == tx && (y == ty || y == ty - 1)) return 1; }
+    }
+    return 0;
 }
 static int sdd_stand(int tx, int ty) {
     if (tx < 0 || ty < 1 || tx >= SD.L->w || ty >= SD.L->h - 0) return 0;
     if (!sdd_room(tx, ty)) return 0;
     int b = sd_tile(tx, ty + 1);
-    if (sd_solid(tx, ty + 1) || b == '=' || sdd_plat_under(tx, ty)) return !sdd_hazard_floor(tx, ty);
+    if (sd_solid(tx, ty + 1) || b == '=' || sdd_plat_under(tx, ty)) return !sdd_hazard_floor(tx, ty) && !sdd_trap_at(tx, ty);
     return 0;
 }
 static int sdd_air(int tx, int ty) { return tx >= 0 && tx < SD.L->w && !sd_solid(tx, ty); }
@@ -107,7 +115,9 @@ static int sdd_flow_soon(int tx, int ty, float within) {           /* a flow ove
     for (int i = 0; i < L->nth; i++) {
         const SdThing *t = &L->th[i];
         if (t->kind != SDT_FLOW || tx < t->x || tx >= t->x + t->w || ty < t->y || ty >= t->y + t->h) continue;
-        float per = t->f[0] + t->f[1], c = fmodf(SD.t + t->f[2], per);
+        int fi = (int)(t - L->th);
+        if (!SD.st[fi]) { if (SD.fk[fi] > 0.02f) return 1; continue; }   /* switched off: dry once drained */
+        float per = t->f[0] + t->f[1], c = fmodf(SD.fc[fi], per);
         if (within < 0.0f) {                                       /* the time to the far side of it, creeping some of the way */
             float far = SD.x < (float)(t->x * SD_TILE) ? (float)((t->x + t->w) * SD_TILE) : (float)(t->x * SD_TILE);
             within = fabsf(far - SD.x) / 45.0f + 0.4f;
@@ -128,9 +138,9 @@ static void sdd_fight(void) {                                      /* the neares
     for (int i = 0; i < SD_MOBS; i++) {
         const SdMob *m = &SD.mob[i];
         if (!m->alive || m->state == SDM_DIE || ((KINDS[m->kind].flags & KF_SPIRIT) && ATK_ELEM[sp] != EL_SPIRIT)) continue;
-        float d = fabsf(m->x - SD.x), dy = (m->y - sd_mob_h(m) * 0.5f) - (SD.y - 17.0f);
+        float d = fabsf(m->x - SD.x), dy = (m->y - sd_mob_h(m) * 0.5f) - (SD.y - SD_HAND);
         if (d > fminf(reach, 150.0f) || fabsf(dy) > 14.0f + sd_mob_h(m) * 0.5f) continue;
-        if (!sd_line_clear(SD.x, SD.y - 17.0f, m->x, m->y - sd_mob_h(m) * 0.5f)) continue;
+        if (!sd_line_clear(SD.x, SD.y - SD_HAND, m->x, m->y - sd_mob_h(m) * 0.5f)) continue;
         if (d < best) { best = d; t = m; }
     }
     if (!t) return;
@@ -171,7 +181,8 @@ static void sd_dream(float dt) {
         return;
     }
     if (sd_door_here() == SDD.goal && SD.ground) { in->up_hit = 1; return; }
-    int in_flow = sdd_flow_soon(sd_floor_px(SD.x), sd_floor_px(SD.y - 1.0f), 1e9f);   /* (inside a flow's box: keep going) */
+    int fy = sd_floor_px(SD.y - 1.0f);                             /* (any of it inside a flow's box: keep going) */
+    int in_flow = sdd_flow_soon(sd_floor_px(SD.x - SD_HW), fy, 1e9f) || sdd_flow_soon(sd_floor_px(SD.x + SD_HW - 0.01f), fy, 1e9f);
     if (!in_flow) sdd_fight();
     if (in->cast || in->left || in->right) return;                 /* turning to cast, or casting: a moment */
     if ((SDD.plan_t -= dt) <= 0.0f || SDD.at >= SDD.npath) {
