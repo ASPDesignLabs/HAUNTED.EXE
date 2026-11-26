@@ -456,6 +456,24 @@ static void make_figure(void) {
     }
 }
 
+/* a crypt wall's 64 pixels square made one tile: each 4 by 4 its commonest colour (2e: the breath's slab and the cold crack) */
+static void from_tex(uint8_t *t, int tex) {
+    for (int y = 0; y < STS; y++) for (int x = 0; x < STS; x++) {
+        uint8_t seen[16]; int count[16], n = 0, best = 0;
+        for (int k = 0; k < 16; k++) {
+            uint8_t c = crawl_tex[tex][(x * 4 + (k & 3)) * TS + y * 4 + (k >> 2)];
+            int j = 0;
+            while (j < n && seen[j] != c) j++;
+            if (j == n) { seen[n] = c; count[n++] = 0; }
+            count[j]++;
+            if (count[j] > count[best]) best = j;
+        }
+        t[y * STS + x] = seen[best];
+    }
+}
+void side_art_traps(void) {
+    from_tex(side_tile[ST_HZ_SLAB], T_HZ_SLAB); from_tex(side_tile[ST_HZ_SLAB_OPEN], T_HZ_SLAB_OPEN); from_tex(side_tile[ST_HZ_COLD], T_HZ_COLD);
+}
 void side_art_init(void) {
     static int done;
     if (done) return;

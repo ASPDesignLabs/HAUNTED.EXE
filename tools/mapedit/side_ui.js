@@ -68,6 +68,7 @@ function change(fn, quiet) {
   if (snap() === before) return;
   T.hist.push(before); if (T.hist.length > 200) T.hist.shift(); T.fut = [];
   T.dirty = true; refresh(quiet); draft();
+  if (T.pv) { const t = T.map.things.find(o => o.id === T.pv.id); if (t && t.k === 'haz') previewStart(t); else previewStop(); }   /* PREVIEW follows what is set */
 }
 function undo() { if (!T.hist.length) return; T.fut.push(snap()); T.map = JSON.parse(T.hist.pop()); T.sel = null; T.dirty = true; refresh(); E.toast('UNDONE'); }
 function redo() { if (!T.fut.length) return; T.hist.push(snap()); T.map = JSON.parse(T.fut.pop()); T.sel = null; T.dirty = true; refresh(); E.toast('REDONE'); }
@@ -211,6 +212,7 @@ function draw() {
       });
       if (t.enter) { g.setLineDash([4, 3]); g.strokeStyle = '#e89a3a'; g.lineWidth = 1.5; g.strokeRect(t.enter.x0 * z + 1, t.enter.y0 * z + 1, (t.enter.x1 - t.enter.x0 + 1) * z - 2, (t.enter.y1 - t.enter.y0 + 1) * z - 2); g.setLineDash([]); }
       g.drawImage(ICON['haz_' + (SC.HAZ_FAMILY[t.kind] || 'fall')], x, y, z * 0.8, z * 0.8);
+      drawFxMarks(t, z);
     }
     if (t.tag && z >= 16 && ['gate', 'plate', 'zone', 'current', 'switch', 'haz'].includes(t.k)) { g.fillStyle = '#e9c24c'; g.font = Math.max(9, z * 0.4) + 'px VT323, monospace'; g.fillText(t.tag, x + 2, y + (t.k === 'plate' || t.k === 'switch' ? -2 : t.h ? t.h * z - 3 : z - 2)); }
   });
@@ -241,6 +243,7 @@ function draw() {
     if (t.loose && z >= 12) { g.strokeStyle = '#8fc6dc'; g.lineWidth = 1; g.beginPath(); g.moveTo(bx * z + z / 2, by * z + z); g.lineTo(bx * z + z / 2, by * z + z + z * 0.4); g.stroke(); }   /* loose: it will fall */
     if (t.k === 'mob' && z >= 16) { g.fillStyle = '#d2473b'; g.font = Math.max(10, z * 0.45) + 'px VT323, monospace'; g.fillText(t.kind === 'ANY' ? '?' : t.kind.slice(4, 6), bx * z + 1, by * z + z - 1); }
   });
+  drawPreview(z);                                  /* PREVIEW (2e) */
   const hl = T.hl && T.hl.at;
   if (hl) { g.strokeStyle = '#d2473b'; g.lineWidth = 3; g.strokeRect(hl[0] * z - 2, hl[1] * z - 2, z + 4, z + 4); }
   const s = selected();
@@ -433,7 +436,8 @@ function paneThing(t) {
       ${fam === 'creep' || fam === 'cloud' ? `<div class="field"><label for="tStay">Stays s</label>${numIn('tStay', t.stays == null ? 6 : t.stays, 0.5, 60, 0.5)}</div>` : ''}
       ${t.kind === 'HZ_SNARE' ? `<div class="field"><label for="tCh">Holds %</label>${numIn('tCh', t.chance, -1, 100)}</div>` : ''}
       <div class="row"><label><input type="checkbox" id="tSafe"${t.safe ? ' checked' : ''}> May not kill (never below a quarter of health)</label></div>
-      <p class="note">-1 for the game's own: harm a strike ${fam === 'fall' ? '30%' : fam === 'line' ? '25%' : '8% each bite'}; warning ${fam === 'fall' ? '1.2' : fam === 'line' ? '1.4' : fam === 'cloud' ? '1.0' : 'none'} s, never under 0.9.</p>`;
+      <p class="note">-1 for the game's own: harm a strike ${fam === 'fall' ? '30%' : fam === 'line' ? '25%' : '8% each bite'}; warning ${fam === 'fall' ? '1.2' : fam === 'line' ? '1.4' : fam === 'cloud' ? '1.0' : 'none'} s, never under 0.9.</p>
+      ${fxPane(t)}`;
     break;
   }
   }
@@ -441,6 +445,85 @@ function paneThing(t) {
   if (['gold', 'key', 'life'].includes(t.k)) h += `<div class="row"><label><input type="checkbox" id="tLoose"${t.loose ? ' checked' : ''}> Loose: it falls, and water carries it</label></div>`;
   h += `<div class="field"><label for="tTag">Name</label><input type="text" id="tTag" maxlength="15" value="${esc(t.tag || '')}" placeholder="for the triggers"></div>`;
   return h + `<div class="row"><button class="btn" id="tDup">COPY</button><button class="btn warn" id="tDel">REMOVE</button></div>`;
+}
+/* 2e: the emitter of a trap that pours or drifts, or the censer's swing; PREVIEW runs it here on the map */
+function fxPane(t) {
+  if (!SC.FX_KINDS.has(t.kind)) return t.kind === 'HZ_ROCK' ? '<p class="note">A crack shows in the roof over each cell all the while; where it falls, rubble lies after (walked through).</p>' : '';
+  const d = SC.FX_DEF[t.kind] || {}, e = t.emit || {}, own = (v, dv) => (v != null && v >= 0 ? v : dv == null ? -1 : dv), pv = T.pv && T.pv.id === t.id;
+  let h = `<h3>${t.kind === 'HZ_CENSER' ? 'THE SWING' : 'THE EMITTER'}</h3><p class="note">${esc(SC.FX_SAYS[t.kind])}.</p>`;
+  if (t.kind === 'HZ_CENSER') {
+    const c = SC.censerGeom(t);
+    h += `<div class="field"><label for="fLen">Chain</label>${numIn('fLen', t.len == null ? -1 : t.len, -1, 20, 0.5)}</div>
+      <div class="field"><label for="fHang">Hang s</label>${numIn('fHang', own(t.hang, d.hang), 0, 30, 0.1)}</div>
+      <div class="field"><label for="fSwing">Swing s</label>${numIn('fSwing', own(t.swing, d.swing), 0.2, 30, 0.05)}</div>
+      <p class="note">Paint its two ends: the first cell and the second (PAINT ITS CELLS). Chain in tiles, -1 to reach its ends (now ${(c.r / 16).toFixed(1)}); three at the least, and the room clear along its arc (CHECKS says where it is not). Hang: still at each end; swing: a pass from one to the other. Crouched, the caster goes under a bowl at head height.</p>`;
+  } else {
+    const rate = t.kind === 'HZ_VOTIVE' ? (e.rate != null && e.rate >= 0 ? e.rate : -1) : own(e.rate, d.rate);
+    h += `<div class="field"><label for="fRate">Rate /s</label>${numIn('fRate', rate, -1, 400, 1)}</div>
+      <div class="field"><label for="fSpd">Speed</label>${numIn('fSpd', own(e.speed, d.speed), 0, 20, 0.1)}</div>
+      <div class="field"><label for="fSpr">Spread &deg;</label>${numIn('fSpr', own(e.spread, d.spread), 0, 180, 1)}</div>
+      <div class="field"><label for="fLife">Life s</label>${numIn('fLife', own(e.life, d.life), 0.1, 30, 0.1)}</div>
+      ${t.kind === 'HZ_RELIQ' ? `<div class="field"><label for="fRad">Reach</label>${numIn('fRad', own(t.radial, d.radial), 0.5, 8, 0.5)}</div>` : ''}
+      <div class="row"><label><input type="checkbox" id="fDirOwn"${t.dir == null ? ' checked' : ''}> Its own way</label>${t.dir == null ? '' : numIn('fDir', t.dir, -180, 360, 5)}</div>
+      <p class="note">Particles a second (${t.kind === 'HZ_VOTIVE' ? '-1: 18 for each cell painted on its side' : 'its own ' + d.rate}), tiles a second, degrees either side of its way, seconds each lasts. The way in degrees: 0 right, 90 up, -90 down; its own is ${t.kind === 'HZ_VOTIVE' ? 'out along the candle as it tips' : t.kind === 'HZ_RELIQ' ? 'all round' : 'out of its open side'}.${t.kind === 'HZ_RELIQ' ? ' Reach: tiles from it each way (1, three by three).' : ''}</p>`;
+  }
+  return h + `<div class="row"><button class="btn play" id="fPrev" aria-pressed="${pv}">${pv ? 'STOP' : 'PREVIEW'}</button><button class="btn" id="fReset">ITS OWN</button></div>
+    <p class="note">PREVIEW runs it here on the map, round and round (a warning, its turn, a rest); PLAY tries it in the game.</p>`;
+}
+function wireFx(t) {
+  const on = (id, ev, fn) => { const el = $(id); if (el) el.addEventListener(ev, fn); };
+  const d = SC.FX_DEF[t.kind] || {}, em = () => (t.emit = t.emit || { rate: d.rate == null ? -1 : d.rate, speed: d.speed, spread: d.spread, life: d.life });
+  const n = (id, f) => on(id, 'change', e => change(() => f(+e.target.value)));
+  n('fLen', v => { t.len = v < 0 ? null : Math.min(20, v); }); n('fHang', v => { t.hang = Math.max(0, Math.min(30, v)); }); n('fSwing', v => { t.swing = Math.max(0.2, Math.min(30, v)); });
+  n('fRate', v => { em().rate = v < 0 ? -1 : Math.min(400, v); }); n('fSpd', v => { em().speed = Math.max(0, Math.min(20, v)); });
+  n('fSpr', v => { em().spread = Math.max(0, Math.min(180, v)); }); n('fLife', v => { em().life = Math.max(0.1, Math.min(30, v)); });
+  n('fRad', v => { t.radial = Math.max(0.5, Math.min(8, v)); });
+  on('fDirOwn', 'change', e => change(() => { t.dir = e.target.checked ? null : 0; })); n('fDir', v => { t.dir = v; });
+  on('fReset', 'click', () => change(() => { t.emit = null; t.dir = null; t.radial = null; t.len = null; t.hang = null; t.swing = null; }));
+  on('fPrev', 'click', () => { if (T.pv && T.pv.id === t.id) previewStop(); else previewStart(t); pane(); });
+}
+function previewStart(t) {
+  previewStop();
+  const pv = { id: t.id, sim: SC.fxSim(T.map, t, 11), last: performance.now(), raf: 0 };
+  const tick = now => {
+    if (T.pv !== pv) return;
+    const dt = Math.min(0.1, (now - pv.last) / 1000); pv.last = now;
+    for (let left = dt; left > 1e-6; left -= 1 / 120) pv.sim.step(Math.min(1 / 120, left));
+    draw(); pv.raf = requestAnimationFrame(tick);
+  };
+  T.pv = pv; pv.raf = requestAnimationFrame(tick);
+}
+function previewStop() { if (T.pv) cancelAnimationFrame(T.pv.raf); T.pv = null; }
+function drawPreview(z) {                          /* the particles, the chain and the bowl, in the editor's pixels */
+  const S = T.pv && T.pv.sim; if (!S) return;
+  const k = z / 16, C = { wax: p => p.heat > 0.6 ? '#ffd27a' : p.heat > 0.3 ? '#e89a3a' : '#cbbf9e', vapour: () => 'rgba(160,200,120,0.7)', rime: () => '#d8f4ff', haze: () => 'rgba(199,155,240,0.85)', smoke: () => 'rgba(190,186,196,0.6)' };
+  S.parts.forEach(p => { g.fillStyle = (C[p.kind] || C.smoke)(p); const s = Math.max(1.5, (p.kind === 'wax' ? 2 : p.kind === 'vapour' ? 3 : 1.5) * k); g.fillRect(p.x * k - s / 2, p.y * k - s / 2, s, s); });
+  if (S.cen) {
+    g.strokeStyle = '#b8bcc4'; g.lineWidth = Math.max(1, k); g.beginPath(); S.links.forEach((l, i) => (i ? g.lineTo(l.x * k, l.y * k) : g.moveTo(l.x * k, l.y * k))); g.stroke();
+    g.fillStyle = '#5c5a66'; g.beginPath(); g.ellipse(S.ball[0] * k, (S.ball[1] + 2.5) * k, 6 * k, 3.5 * k, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#f0742a'; g.fillRect((S.ball[0] - 4) * k, (S.ball[1] - 1) * k, 8 * k, Math.max(1, k));
+  }
+  if (S.kind === 'wax') {                          /* the candle, as far over as it is */
+    const t = T.map.things.find(o => o.id === T.pv.id); if (!t) return;
+    const a = S.tip * (0.6 + 0.25 * Math.min(4, S.vn)) * S.vdir, bx = (t.x * 16 + 8) * k, by = (t.y * 16 + 10) * k;
+    g.strokeStyle = '#e6dcc0'; g.lineWidth = 3 * k; g.beginPath(); g.moveTo(bx, by); g.lineTo(bx + Math.sin(a) * 9 * k, by - Math.cos(a) * 9 * k); g.stroke();
+  }
+}
+function drawFxMarks(t, z) {                       /* what a trap that pours or swings will do, while not previewed */
+  const k = z / 16;
+  if (t.kind === 'HZ_CENSER') {
+    const c = SC.censerGeom(t);
+    g.strokeStyle = 'rgba(232,154,58,0.85)'; g.setLineDash([4, 3]); g.lineWidth = 1.5; g.beginPath();
+    for (let a = c.a0; a <= c.a1 + 1e-6; a += 0.03) { const x = (c.px + c.r * Math.sin(a)) * k, y = (c.py + c.r * Math.cos(a)) * k; a === c.a0 ? g.moveTo(x, y) : g.lineTo(x, y); }
+    g.stroke(); g.setLineDash([]);
+    if (!(T.pv && T.pv.id === t.id)) { const [bx, by] = SC.censerAt(c, 0); g.strokeStyle = '#b8bcc4'; g.lineWidth = 1; g.beginPath(); g.moveTo(c.px * k, c.py * k); g.lineTo(bx * k, by * k); g.stroke(); }
+  } else if (t.kind === 'HZ_RELIQ') {
+    const r = (t.radial != null && t.radial >= 0 ? t.radial : 1) + 0.5;
+    g.strokeStyle = 'rgba(199,155,240,0.8)'; g.setLineDash([3, 3]); g.lineWidth = 1.5; g.beginPath(); g.arc((t.x + 0.5) * z, (t.y + 1 - 10 / 16) * z, r * z, 0, Math.PI * 2); g.stroke(); g.setLineDash([]);
+  } else if (t.kind === 'HZ_VOTIVE') {
+    const sides = (t.cells || []).reduce((a, [x]) => (x < t.x ? [a[0] + 1, a[1]] : x > t.x ? [a[0], a[1] + 1] : a), [0, 0]), d = sides[1] >= sides[0] ? 1 : -1;
+    g.strokeStyle = '#f0742a'; g.lineWidth = 2; g.beginPath(); g.moveTo((t.x + 0.5) * z, (t.y + 0.3) * z); g.quadraticCurveTo((t.x + 0.5 + d) * z, (t.y + 0.1) * z, (t.x + 0.5 + d * 1.4) * z, (t.y + 1) * z); g.stroke();
+  }
 }
 function wireThing(t) {
   const on = (id, ev, fn) => { const el = $(id); if (el) el.addEventListener(ev, fn); };
@@ -477,6 +560,7 @@ function wireThing(t) {
   on('tSafe', 'change', e => change(() => { t.safe = e.target.checked; }));
   on('tDup', 'click', () => change(() => { const o = SC.add(T.map, Object.assign(JSON.parse(JSON.stringify(t)), { x: Math.min(T.map.w - 1, t.x + 1) })); T.sel = o.id; }));
   on('tDel', 'click', () => removeSelected());
+  if (t.k === 'haz') wireFx(t);
 }
 /* ---- TRIGGERS: what presses (a plate, a zone, a switch), how, and what it moves ---- */
 const MODE_SAYS = { ONCE: 'the first press does it, for good', TOGGLE: 'each press does it, then undoes it', HOLD: 'done while pressed (a switch: while thrown), undone after', TIMED: 'done when pressed, undone so many seconds after it is let go' };
@@ -581,6 +665,7 @@ function badge() {
 
 /* ---- in and out of the passage's columns ---- */
 function show(on) {
+  if (!on) previewStop();
   $('sdMain').hidden = !on;
   document.querySelector('#app > .main:not(#sdMain)').hidden = on;
   ['bLattice', 'bLanes'].forEach(id => { const b = $(id); if (b) b.disabled = on; });
@@ -588,6 +673,7 @@ function show(on) {
   document.querySelector('label[for="mapLevel"]').textContent = on ? 'Played on' : 'Level';
 }
 SideUI.open = (id, body, example) => {
+  previewStop();
   const m = unpack(body.map || body);
   m.kind = 'side';
   T.map = m; T.id = id; T.hist = []; T.fut = []; T.sel = null; T.hl = null; T.drag = null;

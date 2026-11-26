@@ -23,7 +23,11 @@ typedef struct { int kind, x, y, w, h, a, b, flags; float f[4]; char tag[16]; } 
 enum { HZF_FALL, HZF_LINE, HZF_CREEP, HZF_CLOUD };
 #define SD_HAZ 16
 #define SD_HZC 512
-typedef struct { int kind, fam, el, c0, nc, how, x0, y0, x1, y1, harm, chance; float every, give, first, warn, hold; } SdHaz;   /* how: HH_* */
+typedef struct { int kind, fam, el, c0, nc, how, x0, y0, x1, y1, harm, chance; float every, give, first, warn, hold;
+                 float e_rate, e_speed, e_spread, e_life, e_dir, radial, len, hang, swing; } SdHaz;   /* how: HH_*; the rest (2e) below */
+/* 2e (the owner, 26 November): a trap's emitter and the censer's swing, each -1 for its kind's own. EMIT rate speed spread life: particles
+ * a second, tiles a second, degrees either side, seconds; DIR degrees (0 right, 90 up); RADIAL tiles about the anchor (the reliquary: 1,
+ * three by three); the censer: LEN its chain in tiles (3 at the least), HANG seconds still at each end, SWING seconds a pass. */
 #define SD_TRIGS 32
 #define SD_ACTS 8
 enum { TRM_ONCE, TRM_TOGGLE, TRM_HOLD, TRM_TIMED };
@@ -285,6 +289,7 @@ static int sd_read(const char *text, SdLevel *L, char *err, int nerr) {
             if (t.x < 0 || t.y < 0 || t.x >= L->w || t.y >= L->h) SDBAD("HAZ outside the map");
             z->fam = sd_haz_family(z->kind); z->el = HZ_ELEM[z->kind]; z->c0 = L->nhzc;
             z->harm = z->chance = -1; z->warn = -1.0f; z->hold = 6.0f;
+            z->e_rate = z->e_speed = z->e_spread = z->e_life = z->radial = z->len = z->hang = z->swing = -1.0f; z->e_dir = -999.0f;
             for (int i = 4; i < n; i++) {
                 if (!strcmp(w[i], "ZONE")) t.flags |= SDF_ZONE;
                 else if (!strcmp(w[i], "SAFE")) t.flags |= SDF_SAFE;
@@ -294,9 +299,17 @@ static int sd_read(const char *text, SdLevel *L, char *err, int nerr) {
                 else if (!strcmp(w[i], "CHANCE") && i + 1 < n) z->chance = atoi(w[++i]);
                 else if (!strcmp(w[i], "WARN") && i + 1 < n) z->warn = (float)atof(w[++i]);
                 else if (!strcmp(w[i], "STAYS") && i + 1 < n) z->hold = (float)atof(w[++i]);
+                else if (!strcmp(w[i], "EMIT") && i + 4 < n) { z->e_rate = (float)atof(w[i + 1]); z->e_speed = (float)atof(w[i + 2]); z->e_spread = (float)atof(w[i + 3]); z->e_life = (float)atof(w[i + 4]); i += 4; }
+                else if (!strcmp(w[i], "DIR") && i + 1 < n) z->e_dir = (float)atof(w[++i]);
+                else if (!strcmp(w[i], "RADIAL") && i + 1 < n) z->radial = (float)atof(w[++i]);
+                else if (!strcmp(w[i], "LEN") && i + 1 < n) z->len = (float)atof(w[++i]);
+                else if (!strcmp(w[i], "HANG") && i + 1 < n) z->hang = (float)atof(w[++i]);
+                else if (!strcmp(w[i], "SWING") && i + 1 < n) z->swing = (float)atof(w[++i]);
                 else if (!strcmp(w[i], "TAG")) i++;
             }
             if ((z->how & HH_CLOCK) && z->every < 0.5f) SDBAD("a trap's clock wants half a second at the least");
+            if (z->e_rate > 400.0f || z->e_life > 30.0f || z->radial > 8.0f || z->len > 20.0f) SDBAD("an emitter past its limits (rate 400, life 30, radial 8, chain 20)");
+            if ((z->swing >= 0.0f && z->swing < 0.2f) || z->hang > 30.0f) SDBAD("a censer's swing wants a fifth of a second at the least");
             t.a = L->nhz++;
             break;
         }

@@ -26,6 +26,7 @@ enum {                              /* the tiles, row-major, C_CLEAR where the b
     ST_LIFE,                                                       /* a life: a votive lamp */
     ST_TORCH0, ST_TORCH1, ST_TORCH2,                               /* a sconce on the back wall, burning */
     ST_CHAIN,                                                      /* a chain hanging, for the platforms and the dressing */
+    ST_HZ_SLAB, ST_HZ_SLAB_OPEN, ST_HZ_COLD,                       /* 2e: the crypt's breath slab, cracked open, and its cold crack, as tiles */
     NST
 };
 
@@ -47,6 +48,7 @@ extern uint8_t side_tile[NST][STS * STS];                      /* row-major, C_C
 extern uint8_t side_fig[NSF][SF_W * SF_H];                     /* row-major, facing right, C_CLEAR clear */
 extern uint8_t side_fig_part[NSF][SF_W * SF_H];                /* FP_* of each pixel */
 extern const char *const SIDE_FRAME_NAME[NSF];
+void side_art_traps(void);                                     /* the tiles taken from the crypt's walls, as the run looks now */
 
 void side_art_init(void);                                      /* once, after crawl_art_init (it reads the palette's ramps only) */
 

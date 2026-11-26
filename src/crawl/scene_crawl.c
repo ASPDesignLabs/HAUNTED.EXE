@@ -221,6 +221,7 @@
 #include "game/side_levels.c"
 #include "game/side_text.c"
 #include "game/side.c"
+#include "game/side_fx.c"
 #include "game/side_works.c"
 #include "game/side_dream.c"
 

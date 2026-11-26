@@ -226,5 +226,35 @@ DATA.hazards.fixed.flat().concat(DATA.hazards.arise.flat(), DATA.hazards.sapper)
     if (!C.check(DATA, cm).some(c => c.msg.includes('not in stone'))) fail("a side doorway on the floor was not refused");
     console.log(`side passages: ${DATA.sides.length} built in read and written back; a new one's export read back; the side doorway`);
 }
+/* run I's traps in a passage (docs/PLAN-side.md, 2e): the fixture read and written back; every emitter option; the censer's clearance;
+ * the PREVIEW's run: wax settling, the bowl swinging, the haze kept to its reach */
+{
+    const SC = require('./side.js'), ids = DATA.kinds.map(k => k.id);
+    const txt = fs.readFileSync(path.join(__dirname, 'fixtures', 'side_traps1.txt'), 'utf8'), r = SC.parse(txt, ids);
+    if (r.error) fail(`side_traps1: line ${r.line}: ${r.error}`);
+    else {
+        if (SC.exportText(r.map) !== txt) fail('side_traps1 does not read back letter for letter');
+        const errs = SC.check(r.map).filter(c => c.sev === 'error'); if (errs.length) fail('side_traps1: ' + errs[0].msg);
+        const m = r.map, hz = k => m.things.find(t => t.k === 'haz' && t.kind === k);
+        const v = hz('HZ_VOTIVE'); Object.assign(v, { emit: { rate: 40, speed: 1.5, spread: 10, life: 5 }, dir: 45 });
+        const q = hz('HZ_RELIQ'); q.radial = 2; const c = hz('HZ_CENSER'); Object.assign(c, { len: 6, hang: 0.5, swing: 1.25 });
+        const t2 = SC.exportText(m), back = SC.parse(t2, ids);
+        ['EMIT 40 1.5 10 5.0 DIR 45', 'RADIAL 2', 'LEN 6 HANG 0.5 SWING 1.25'].forEach(k => { if (!t2.includes(k)) fail('the emitter export lacks ' + k); });
+        if (back.error || SC.exportText(back.map) !== t2) fail('the emitters do not read back the same');
+        const short = JSON.parse(JSON.stringify(c)); short.len = 2;
+        if (!SC.censerCheck(m, short).some(([s, msg]) => s === 'error' && /three at the least/.test(msg))) fail('a censer on two tiles of chain should be refused');
+        const deep = JSON.parse(JSON.stringify(c)); deep.len = 9;
+        if (!SC.censerCheck(m, deep).some(([s, msg]) => s === 'error' && /strikes stone/.test(msg))) fail('a censer swinging into the floor should be refused');
+        const lone = JSON.parse(JSON.stringify(v)); lone.cells = [[v.x, v.y + 2]];
+        if (!SC.check(Object.assign({}, m, { things: [lone] })).some(c => /which way to tip/.test(c.msg))) fail('a sconce with nothing painted aside should be refused');
+        const run = (t, s) => { const S = SC.fxSim(m, t, 5); for (let i = 0; i < s * 120; i++) S.step(1 / 120); return S; };
+        const sv = run(hz('HZ_VOTIVE'), 5), sc = run(c, 1.1), sq = run(q, 4);
+        if (!sv.parts.some(p => p.rest)) fail('the preview: no wax settled');
+        if (!sc.ball || Math.abs(sc.ball[0] - SC.censerGeom(c).px) > SC.censerGeom(c).r) fail('the preview: the censer is not on its circle');
+        const far = sq.parts.filter(p => Math.hypot(p.x - (q.x * 16 + 8), p.y - ((q.y + 1) * 16 - 10)) > (2 + 0.5) * 16 + 8);
+        if (!sq.parts.length || far.length) fail(`the preview: the haze ${sq.parts.length} with ${far.length} past its reach`);
+        console.log(`run I's traps: read back; emitters written and read; the censer's clearance refused short and into stone; preview wax ${sv.parts.filter(p => p.rest).length} settled, haze ${sq.parts.length}`);
+    }
+}
 console.log(bad ? `${bad} FAILED` : 'all passed');
 process.exit(bad ? 1 : 0);

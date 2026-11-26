@@ -61,6 +61,7 @@ static int sd_back_tile(int tx, int ty) {                          /* what shows
 /* ---- the works (side_works.c) ---- */
 static int sd_el_ramp(int el) { return el == EL_FIRE ? R_FLAME : el == EL_FROST ? R_GHOST : el == EL_LIGHT ? R_GLOW : el == EL_POISON ? R_MOSS : el == EL_SPIRIT ? R_PURPLE : R_BONE; }
 static uint32_t sd_hash(int a, int b, int c) { uint32_t h = (uint32_t)a * 73856093u ^ (uint32_t)b * 19349663u ^ (uint32_t)c * 83492791u; return h ^ (h >> 13); }
+static void sd_draw_fx(Frame *f, int camx, int camy);
 static void sd_draw_works(Frame *f, int camx, int camy) {
     const SdLevel *L = SD.L;
     for (int i = 0; i < L->nth; i++) {
@@ -91,7 +92,7 @@ static void sd_draw_works(Frame *f, int camx, int camy) {
     }
     for (int h = 0; h < L->nhz; h++) {                            /* the traps, each in its own shape */
         int ph = SD.hz_ph[h];
-        if (!ph) continue;
+        if (!ph || sd_fx_kind(L->hz[h].kind)) continue;          /* (run I's that pour and drift: sd_draw_fx) */
         const SdHaz *z = &L->hz[h];
         int ramp = z->kind == HZ_VOID ? R_PURPLE : z->kind == HZ_ASH ? R_STONE : sd_el_ramp(z->el);
         float w = sd_hz_warn(z), k = SD.hz_k[h];
@@ -145,6 +146,118 @@ static void sd_draw_works(Frame *f, int camx, int camy) {
                 break;
             }
             }
+        }
+    }
+    sd_draw_fx(f, camx, camy);
+}
+
+/* ---- 2e: run I's traps, each with its sign while idle, and what they pour and breathe ---- */
+static void sd_fx_line(Frame *f, float x0, float y0, float x1, float y1, uint8_t a, uint8_t b) {   /* a chain: links of two shades */
+    int n = (int)fmaxf(fabsf(x1 - x0), fabsf(y1 - y0)) + 1;
+    for (int k = 0; k <= n; k++) {
+        float u = (float)k / (float)n, wx = x0 + (x1 - x0) * u, wy = y0 + (y1 - y0) * u;
+        sd_px(f, (int)floorf(wx - SD.camx), (int)floorf(wy - SD.camy), ((int)(wx + wy) >> 1) & 1 ? a : b, sd_lit(wx, wy, 22, 1.0f));
+    }
+}
+static void sd_draw_fx(Frame *f, int camx, int camy) {
+    const SdLevel *L = SD.L;
+    for (int i = 0; i < L->nth; i++) {
+        const SdThing *t = &L->th[i];
+        if (t->kind != SDT_HAZ) continue;
+        int h = t->a, ph = SD.hz_ph[h], sx = t->x * SD_TILE - camx, sy = t->y * SD_TILE - camy;
+        const SdHaz *z = &L->hz[h];
+        float wx = (float)(t->x * SD_TILE) + 8.0f, wy = (float)(t->y * SD_TILE) + 8.0f;
+        switch (z->kind) {
+        case HZ_ROCK:                                              /* a crack in the roof over each cell, always; rubble where it fell */
+            for (int c = 0; c < z->nc; c++) {
+                int x, y; sd_hz_cell(z, c, &x, &y);
+                int top = y; while (top > 0 && !sd_solid(x, top - 1) && y - top < 10) top--;
+                if (top > 0 && sd_solid(x, top - 1)) {
+                    int bx = x * SD_TILE - camx, by = top * SD_TILE - camy;
+                    for (int k = 0; k < 14; k++) {                 /* a jagged seam along the roof's underside, and two bits hanging */
+                        int px = 1 + k, py = -1 - (int)(sd_hash(k, x, top) % 3);
+                        if (sd_hash(k, top, x) % 4) { sd_px(f, bx + px, by + py, 0, 0); sd_px(f, bx + px, by + py - 1, (uint8_t)(R_STONE + 13), 22); }
+                    }
+                    for (int q = 0; q < 3; q++) { sd_px(f, bx + 5, by + q, (uint8_t)(R_STONE + 12 - q * 2), 22); if (q < 2) sd_px(f, bx + 11, by + q, (uint8_t)(R_STONE + 11 - q * 2), 22); }   /* bits hanging loose */
+                }
+                if (FX.rubble[z->c0 + c]) {                        /* the rubble on the floor, walked through */
+                    int bx = x * SD_TILE - camx, by = y * SD_TILE - camy;
+                    for (int k = 0; k < 11; k++) {
+                        int px = 1 + (int)(sd_hash(k, x, y) % 14), hgt = 1 + (int)(sd_hash(y, k, x) % 3);
+                        for (int q = 0; q < hgt; q++) for (int r = 0; r < 2; r++) sd_px(f, bx + px + r, by + SD_TILE - 1 - q, (uint8_t)(R_STONE + 8 + (int)(sd_hash(k, q, r) % 6) - (q == 0 ? 0 : 1)), sd_lit(wx, wy, 22, 1.0f));
+                    }
+                }
+            }
+            break;
+        case HZ_VOTIVE: {                                          /* an iron sconce on the wall; its candle tips the painted way and pours */
+            float a = FX.tip[h] * (0.6f + 0.25f * (float)imin(4, FX.vn[h])) * (float)FX.vdir[h];
+            int lt = sd_lit(wx, wy, 24, 1.0f), bx = sx + 8, by = sy + 10;
+            for (int y = -2; y <= 4; y++) for (int x = -1; x <= 0; x++) sd_px(f, bx - 4 * FX.vdir[h] + x, by + y, (uint8_t)(R_IRON + 9 + x), lt);   /* the plate on the wall */
+            for (int x = -3; x <= 3; x++) sd_px(f, bx + x, by + 1, (uint8_t)(R_IRON + 11), lt);   /* the cup it stands in */
+            for (int x = -2; x <= 2; x++) sd_px(f, bx + x, by + 2, (uint8_t)(R_IRON + 8), lt);
+            for (int v = 0; v < 9; v++) for (int u = -1; u <= 1; u++) {   /* the candle, turned on its foot */
+                float px = (float)u * cosf(a) + (float)v * sinf(a), py = (float)u * sinf(a) - (float)v * cosf(a);
+                sd_px(f, bx + (int)lroundf(px), by + (int)lroundf(py), (uint8_t)(R_BONE + (u < 0 ? 13 : u > 0 ? 9 : 11) - (v > 6 && ph == 2 ? 3 : 0)), lt);
+            }
+            if (FX.tip[h] < 0.6f) {                                /* lit while it stands: the sign it is there */
+                float fx = (float)bx + sinf(a) * 10.5f, fy = (float)by - cosf(a) * 10.5f;
+                int fl = (int)(SD.t * 10.0f + (float)h) % 3;
+                sd_px(f, (int)fx, (int)fy, (uint8_t)(R_FLAME + 15), 31); sd_px(f, (int)fx, (int)fy - 1, (uint8_t)(R_FLAME + 12), 31);
+                if (fl) sd_px(f, (int)fx, (int)fy - 2, (uint8_t)(R_FLAME + 8), 31);
+            }
+            break;
+        }
+        case HZ_BREATH:                                            /* the crypt's slab, as a tile; its seam lit as it cracks */
+            sd_draw_tile(f, side_tile[ph ? ST_HZ_SLAB_OPEN : ST_HZ_SLAB], sx, sy, 21, 1.0f, 0);
+            break;
+        case HZ_COLD:                                              /* the crypt's cold crack, as a tile; frost glinting on it */
+            sd_draw_tile(f, side_tile[ST_HZ_COLD], sx, sy, 21, 1.0f, 0);
+            for (int k = 0; k < 3; k++) if (sd_hash(k, (int)(SD.t * 4.0f), h) % 3 == 0) sd_px(f, sx + 3 + (int)(sd_hash(k, h, 7) % 10), sy + 3 + (int)(sd_hash(h, k, 9) % 10), (uint8_t)(R_GHOST + 15), 31);
+            break;
+        case HZ_RELIQ: {                                           /* the crypt's reliquary on its plinth; its reach marked on the floor */
+            int open = ph == 1 || ph == 2;
+            sd_draw_spr(f, open ? SP_RELIQ_O : SP_RELIQ, sx + 8, sy + SD_TILE, 0, sd_lit(wx, wy, 23, 1.0f), 0);
+            int r = (int)(sd_fx_radial(z) * SD_TILE + 8.0f);
+            for (int d = -r; d <= r; d += 3) if (abs(d) > r - 4 || (abs(d) % 6 == 0 && sd_hash(d, h, 3) % 2))
+                sd_px(f, sx + 8 + d, sy + SD_TILE - 1, (uint8_t)(R_PURPLE + (open ? 13 : 8)), open ? 31 : 20);
+            break;
+        }
+        default: break;
+        }
+    }
+    for (int k = 0; k < FX.nc; k++) {                              /* the censers: the hook, the chain as it hangs, the bowl */
+        const SdCenser *c = &FX.c[k];
+        sd_px(f, (int)c->px - camx - 1, (int)c->py - camy - 2, (uint8_t)(R_IRON + 9), 16); sd_px(f, (int)c->px - camx, (int)c->py - camy - 2, (uint8_t)(R_IRON + 11), 16);
+        for (int l = 0; l < SDC_LINKS; l++) sd_fx_line(f, c->lx[l], c->ly[l], c->lx[l + 1], c->ly[l + 1], (uint8_t)(R_IRON + 13), (uint8_t)(R_IRON + 9));
+        int bx = (int)floorf(c->bx) - camx, by = (int)floorf(c->by) - camy, lt = sd_lit(c->bx, c->by, 24, 1.0f);
+        for (int y = 0; y < 7; y++) for (int x = -6; x <= 6; x++) {   /* the bowl: iron, rounded under, a rim */
+            if (x * x * 4 + (y - 1) * (y - 1) * 10 > 170 || (y == 0 && abs(x) > 5)) continue;
+            sd_px(f, bx + x, by + y, (uint8_t)(R_IRON + (y == 0 ? 12 : 9 - y + (x < 0))), lt);
+        }
+        for (int x = -4; x <= 4; x++) if ((x + (int)(SD.t * 8.0f)) % 3) sd_px(f, bx + x, by - 1, (uint8_t)(R_FLAME + 10 + (x & 3)), 31);   /* its coals */
+        sd_px(f, bx, by - 2, (uint8_t)(R_IRON + 12), lt);
+    }
+    for (int k = 0; k < FX.n; k++) {                               /* the particles */
+        const SdPart *p = &FX.p[k];
+        int px = (int)floorf(p->x) - camx, py = (int)floorf(p->y) - camy;
+        float left = p->life - p->age;
+        uint32_t hh = sd_hash(k, (int)(p->age * 20.0f), p->kind);
+        if (left < 1.0f && (float)(hh % 100) > left * 100.0f) continue;   /* thinning as it goes */
+        switch (p->kind) {
+        case PK_WAX: {
+            uint8_t c = p->heat > 0.6f ? (uint8_t)(R_FLAME + 9 + (int)(p->heat * 6.0f)) : p->heat > 0.3f ? (uint8_t)(R_WARM + 10 + (int)(p->heat * 8.0f)) : (uint8_t)(R_BONE + 9 + (int)(hh % 2));
+            int lt = sd_lit(p->x, p->y, 24, 1.0f);
+            sd_px(f, px - 1, py - 1, c, lt); sd_px(f, px, py - 1, c, lt); sd_px(f, px - 1, py, c, lt); sd_px(f, px, py, c, lt);
+            break;
+        }
+        case PK_VAPOUR:
+            for (int q = 0; q < 5; q++) { static const int O[5][2] = { { 0, 0 }, { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } }; if (q && (hh >> q) % 3) continue;
+                sd_px(f, px + O[q][0], py + O[q][1], (uint8_t)(p->harm ? R_MOSS + 8 + (int)(hh % 3) : R_STONE + 10), 26); }
+            break;
+        case PK_RIME: sd_px(f, px, py, (uint8_t)(R_GHOST + 11 + (int)(hh % 5)), 26); if (p->rest && hh % 3 == 0) sd_px(f, px + 1, py, (uint8_t)(R_GHOST + 13), 26); break;
+        case PK_HAZE: sd_px(f, px, py, (uint8_t)(R_PURPLE + (p->harm ? 11 : 8) + (int)(hh % 4)), p->harm ? 31 : 24); if (p->harm && hh % 2) sd_px(f, px + 1, py, (uint8_t)(R_PURPLE + 9), 24); break;
+        case PK_SMOKE: if (hh % 4) sd_px(f, px, py, (uint8_t)(R_STONE + 10 + (int)(hh % 3)), 24); if (p->age > 0.3f && hh % 3 == 0) sd_px(f, px + 1, py - 1, (uint8_t)(R_STONE + 9), 22); break;
+        case PK_GRIT: sd_px(f, px, py, (uint8_t)(R_STONE + 10), 18); break;
         }
     }
 }
