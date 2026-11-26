@@ -75,6 +75,20 @@ static int sd_dream_lost = -1;                                     /* the level 
 
 static int sd_lives(void) { return SD_LIVES - clampi(RUN.sd_lost, 0, SD_LIVES); }
 static float sd_rndf(void) { return (float)(rng_next(&SD.rs) & 0xFFFFFF) / 16777216.0f; }
+/* a sound where it happens (the owner, 26 November): whole within 140 px of the caster (about the screen's half), gone by 260, some 100
+ * past its edge (up and down count half again, the view being low), and to the side it is on. The caster's own stay whole. */
+static void sd_sfx_at(int id, float gain, float x, float y) {
+    float dx = x - SD.x, dy = (y - (SD.y - 12.0f)) * 1.6f, d = sqrtf(dx * dx + dy * dy);
+    float g = gain * clampf(1.0f - (d - 140.0f) / 120.0f, 0.0f, 1.0f);
+    if (g > 0.02f) snd_sfx_ex(id, g, 0.5f + 0.4f * clampf(dx / 160.0f, -1.0f, 1.0f));
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_SIDESND")) fprintf(stderr, "SND %d at %.0f px: %s %.2f of %.2f t=%.2f\n", id, d, g > 0.02f ? "heard" : "unheard", g, gain, SD.t);
+#endif
+}
+static void sd_sfx_th(int id, float gain, int i) { const SdThing *t = &SD.L->th[i]; sd_sfx_at(id, gain, (float)(t->x * SD_TILE) + 8.0f, (float)(t->y * SD_TILE) + 8.0f); }
+static void sd_sfx_hz(int id, float gain, int h) {                 /* a trap: at the thing that holds it */
+    for (int i = 0; i < SD.L->nth; i++) if (SD.L->th[i].kind == SDT_HAZ && SD.L->th[i].a == h) { sd_sfx_th(id, gain, i); return; }
+}
 
 /* ---- the crypt's side: its doorways, laid with the level ---- */
 static void sd_add_door(int x, int y, int side, int link) {
@@ -375,10 +389,10 @@ static void sd_falls(float dt) {
             if (SD.ground && SD.on_plat < 0 && fabsf(SD.y - (float)(t->y * SD_TILE)) < 1.0f
                 && SD.x + SD_HW > (float)(t->x * SD_TILE) && SD.x - SD_HW < (float)((t->x + 1) * SD_TILE)) {
                 f->state = 1; f->t = 0.0f;
-                snd_sfx_ex(SFX_BONES, 0.4f, 0.5f);
+                sd_sfx_th(SFX_BONES, 0.4f, i);
             }
             break;
-        case 1: if ((f->t += dt) >= t->f[0]) { f->state = 2; f->t = 0.0f; f->vy = 0.0f; snd_sfx_ex(SFX_KNOCK, 0.5f, 0.5f); } break;
+        case 1: if ((f->t += dt) >= t->f[0]) { f->state = 2; f->t = 0.0f; f->vy = 0.0f; sd_sfx_th(SFX_KNOCK, 0.5f, i); } break;
         case 2:
             f->vy = fminf(420.0f, f->vy + SD_G * dt); f->dy += f->vy * dt; f->t += dt;
             if (f->t > 2.5f) { f->state = 3; f->t = 0.0f; }
@@ -439,7 +453,7 @@ static void sd_mob_slain(SdMob *m, int sp) {
     tmp.type = m->kind; tmp.rank = m->rank; tmp.last_atk = sp; tmp.x = G.px; tmp.y = G.py;
     if (!KINDS[m->kind].flags || !(KINDS[m->kind].flags & KF_UNCOUNTED)) { rec_kill(&tmp); xp_kill(&tmp); }
     gain_souls(RANK_SOULS[m->rank] * soul_share());
-    snd_sfx_ex(KINDS[m->kind].sfx_die, 0.8f, 0.5f);
+    sd_sfx_at(KINDS[m->kind].sfx_die, 0.8f, m->x, m->y - 8.0f);
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "EVENT side_slain %s rank %d by %s t=%.2f\n", KINDS[m->kind].name, m->rank, sp >= 0 && sp < NATK ? ATK_NAME[sp] : "?", SD.t);
 #endif
@@ -501,7 +515,7 @@ static void sd_mobs(float dt) {
                 float t = fmaxf(0.5f, fabsf(dx) / 150.0f);
                 sd_shot_new(SS_BONE, m->x, m->y - mh * 0.7f, dx / t, (dy - 0.5f * SD_G * 0.6f * t * t) / t, sd_blow(m), 3.0f, SD_G * 0.6f, 1, -1, 0);
                 m->cool = fmaxf(0.9f, 2.2f - 0.03f * (float)G.level) + sd_rndf();
-                snd_sfx_ex(SFX_WHOOSH, 0.3f, 0.5f);
+                sd_sfx_at(SFX_WHOOSH, 0.3f, m->x, m->y - 8.0f);
             }
         }
         /* a touch: its blow */
@@ -522,7 +536,7 @@ static void sd_burst(SdShot *s) {                                  /* the flask:
         if (!m->alive || m->state == SDM_DIE) continue;
         if (hypotf(m->x - s->x, (m->y - sd_mob_h(m) * 0.5f) - s->y) < 26.0f) sd_mob_hit(m, s->dmg, s->sp, EL_POISON);
     }
-    snd_sfx_ex(SFX_SPLASH, 0.7f, 0.5f);
+    sd_sfx_at(SFX_SPLASH, 0.7f, s->x, s->y);
     s->alive = 0;
 }
 static void sd_shots(float dt) {

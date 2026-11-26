@@ -344,8 +344,8 @@ static void sd_fx_trap(int i, int h, float dt) {
     if (ph) SD.hz_k[h] += dt;
     float k = SD.hz_k[h];
     if (ph == 1 && k >= w) { SD.hz_ph[h] = ph = 2; SD.hz_k[h] = k = 0.0f;
-        snd_sfx_ex(z->kind == HZ_VOTIVE ? SFX_IGNITE : z->kind == HZ_RELIQ || z->kind == HZ_SAINT ? SFX_SHIMMER : z->kind == HZ_GALV ? SFX_ZAP
-                   : z->kind == HZ_SLUICE ? SFX_SPLASH : z->kind == HZ_BILE ? SFX_DRIP : SFX_HISS, 0.7f, 0.5f);
+        sd_sfx_hz(z->kind == HZ_VOTIVE ? SFX_IGNITE : z->kind == HZ_RELIQ || z->kind == HZ_SAINT ? SFX_SHIMMER : z->kind == HZ_GALV ? SFX_ZAP
+                   : z->kind == HZ_SLUICE ? SFX_SPLASH : z->kind == HZ_BILE ? SFX_DRIP : SFX_HISS, 0.7f, h);
         if (z->kind == HZ_GALV) {                                   /* the bolt: all in its water are struck, once */
             FX.bolt[h] = 0.3f;
             float bx0 = SD.x - SD_HW, bx1 = SD.x + SD_HW, by0 = SD.y - sd_box_h(), by1 = SD.y + 2.0f;
@@ -388,8 +388,7 @@ static void sd_fx_snare(int i, int h, float dt) {                  /* the web: w
             SdMob *mb = &SD.mob[m];
             if (mb->alive && fabsf(mb->x - SD.x) < 8.0f * SD_TILE && fabsf(mb->y - SD.y) < 4.0f * SD_TILE) { mb->home_x = SD.x; mb->home_y = SD.y; }
         }
-        snd_sfx_ex(SFX_THRUM, 0.7f, 0.5f);
-        (void)i;
+        sd_sfx_th(SFX_THRUM, 0.7f, i);
 #ifdef CRAWL_DEBUG
         fprintf(stderr, "EVENT side_trap HZ_SNARE holds t=%.2f\n", SD.t);
 #endif
@@ -402,7 +401,7 @@ static void sd_fx_ignite(float x, float y) {                       /* a fire spe
         SdPart *p = &FX.p[k];
         if (p->kind != PK_GAS || fabsf(p->x - x) > 10.0f || fabsf(p->y - y) > 10.0f) continue;
         p->kind = PK_FLAME; p->age = 0.0f; p->life = 0.5f + 0.3f * sd_rndf(); p->harm = 1; p->vy = -30.0f;
-        snd_sfx_ex(SFX_IGNITE, 0.8f, 0.5f);
+        sd_sfx_at(SFX_IGNITE, 0.8f, p->x, p->y);
     }
 }
 static void sd_fx_censers(float dt) {
@@ -412,7 +411,7 @@ static void sd_fx_censers(float dt) {
         float ox = c->bx;
         sdc_step(c, live, dt);
         int side = c->bx > c->px ? 1 : -1;
-        if (live && side != c->side && fabsf(c->bvx) > 60.0f) snd_sfx_ex(SFX_WHOOSH, 0.35f, 0.5f);
+        if (live && side != c->side && fabsf(c->bvx) > 60.0f) sd_sfx_at(SFX_WHOOSH, 0.35f, c->bx, c->by);
         c->side = side;
         float sp = fabsf(c->bx - ox) / dt;
         if ((c->smoke += (live ? 3.0f + sp * 0.12f : 1.0f) * dt) >= 1.0f) {   /* a thin trail behind it, and a thread while it hangs */

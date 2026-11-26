@@ -230,6 +230,9 @@ The owner's asks of 26 November, before the squash; my defaults where they left 
   to seven; at the end a knock and a low bell. A dial on the lever empties as the time runs.
 - **Laid by a trigger**: `LEDGE x y w [OFF]`, a ledge of `=` w tiles wide a trigger's ON lays and OFF takes up (a dotted outline while it is
   up), and `FALL ... OFF`, a falling block not there till an ON (a faint outline). Each lays with a knock and goes with a creak.
+- **Sound where it happens** (the owner: far creatures were heard): what the dead, the traps, the works and a flask's splash make is
+  placed (`sd_sfx_at`): whole within 140 px of the caster, fading to nothing by 260 px (about 100 past the screen's edge; up and down
+  count half again), panned to its side. The caster's own sounds and a timed switch's metronome stay whole.
 - **The dream** goes to a lever and throws it when it has stood two seconds with no way on (only a lever a trigger listens to).
 - **The editor**: *Switched ledge* among the ways, *Timed switch* and the three powerups among the things; the switch's BACK AFTER, the ledge's
   width, the powerup's kind and seconds, OFF on ledges and falling blocks; ledges and blocks may be a trigger's target; CHECKS warns of
@@ -427,3 +430,6 @@ game reads them, no page errors.
 The World Editor was republished from this branch before the squash, at the owner's asking (version 5), its PLAY with this branch's game. Not played by hand; nothing under Wine. Open: the owner's art for the powerups; the numbers (the metronome, the flask's aim, the
 powerups' seconds) theirs to tune.
 
+Later the same day the owner, playing the republished editor, heard creatures far off the screen; every sound a passage makes away from
+the caster is now placed as 2f says (`CRAWL_SIDESND=1` logs each, its distance and its gain). Checked by that log on run I's and run
+II's passages with a person standing at the door; under the sanitizers on run I's. Harness only.
