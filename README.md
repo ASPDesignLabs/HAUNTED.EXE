@@ -38,6 +38,7 @@ takes the crypt. It is the same code compiled to WebAssembly, and a browser keep
 * **The ledger is kept in the browser**, not the registry, and is lost if the site's data is cleared (Safari clears
   it after a week without a visit). Settings writes it to a file and reads it back. Pages don't cross between the
   browser and Windows.
+* **`?side=0`** on the page's address goes straight into a side passage (see *the dead in the side passages*), its saves apart.
 * **Phones and tablets can play**, held sideways (since 1.0.0b21.4). The page asks first how you will play:
   *Keyboard and mouse*, *Controller* or *Touch*, and remembers it (*Change* on the page, or Settings). By touch:
   * **A finger held anywhere** for three seconds takes the crypt, as H does. On Android, Touch asks for full screen,
@@ -301,6 +302,19 @@ you, none blocks a way, none is counted, and none is saved: they are set dressin
 
 When only three of a level's dead remain to be put down, every torch, lamp and chandelier turns a cold, pale ghost-light and breathes slowly,
 brighter and dimmer. It is only the picture: the dead see by the same light as before.
+
+### CATACOMB: the dead in the side passages
+
+The side passages behind crypt doorways (a small platformer, with lives of their own) are not in the released levels yet, but the browser
+can open one: [`play/?side=0`](https://aspdesignlabs.github.io/HAUNTED.EXE/play/?side=0) starts a new run on level 1 straight in the first,
+*The Ossuary Stair* (`?side=1` to `?side=4` the others, *The Dead's Gallery* last; `&level=n` for a deeper level). It keeps its saves apart from
+the page's own. The dream plays it until you hold H.
+
+In a passage the dead now go each their own way, as they do in the crypt. Skeletons keep their distance and lob bones in a high, slow arc
+after half a second's warning, so a step aside clears them; bats circle above, flutter and dive, low enough to be struck; hounds and rats
+run you down and leap; the wall skulls and gargoyles wait, the spiders drop on a thread, the deacon raises the fallen and the whipper's
+lash reaches. Every blow flashes white before it lands. What strikes, and what is struck, is the creature's own pixels and the shot's own
+shape, not a box round either.
 
 ### CATACOMB: the bosses
 
@@ -1453,6 +1467,25 @@ controller's motors as `RUMBLE` lines.
 The Windows build honours `HVS_NOGL=1` (force the GDI path) and `HVS_DUMP=file.ppm` (write one frame and exit).
 
 ## What has been verified
+
+**New in 1.0.0b21.12** (the dead in the side passages). Nobody has played it by hand. All of it is tested in the harness only: not run under
+Wine, and the Windows build compiled and smoke-tested by GitHub Actions and by nothing else; the browser build was also built here and run in
+Playwright's Chromium.
+
+* **The bones**: a scripted person seven tiles off a rank I skeleton on level 3. Standing still, 5 of 6 throws struck; stepping back and forth,
+  1 of 7. Each comes after half a second's warning and is in the air about a second, rising some 40 pixels.
+* **Pixel-true hits**: each creature's mask checked against every pixel drawn of it (none apart); shots meet the caster's and the creatures'
+  pixels, a pixel at a time.
+* **Each kind**: all 24 alone in a passage of their own at level 6, the dream at the goal each time with no life lost; mixed passages with each
+  act seen in the log.
+* **The four passages before, against 1.0.0b21.11**, eight seeds for 600 seconds each: the Cistern Key and run I's traps the same, run for run;
+  run II's hurt the dream 15 to 32 times (17 to 30 before) and the Ossuary Stair 4 to 14 (6 to 10), its bats now struck back; no life lost
+  in any, before or after. *The Dead's Gallery*: at the goal on all eight seeds at levels 2, 4 and 6 with no life lost; at 8 and 10 the end
+  bays cost the dream nine lives before it got through. The dream does not dodge.
+* **Nothing else moved**: the crypt's screensaver on three seeds for 1,500 seconds logged the build before's lines to the line; clean under
+  AddressSanitizer and UBSan; the saves are as they were.
+* **`?side=n`**: the page in Playwright's Chromium went straight into the passage with its saves apart, and without it booted as before.
+* **Not tried**: a hand on any of it; the creatures still stand about twice the caster's height, their own art for the passages to come.
 
 **New in 1.0.0b21.11** (three left; levels drawn by hand). Nobody has played it by hand. All of it is tested in the harness only: not run under
 Wine, and the Windows and browser builds compiled and smoke-tested by GitHub Actions and by nothing else.

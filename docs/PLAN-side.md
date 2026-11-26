@@ -519,3 +519,8 @@ left `side.c`. A built-in example to meet them all, *The Dead's Gallery* (`SIDE_
 Not played by hand; nothing under Wine; the Windows build to CI. Open: the owner's word on the feel and the six numbers; the creatures
 still stand about twice the caster's height (step 13); the dream does not dodge, so a passage crowded with callers can wear it down.
 
+
+**Released (26 November 2026)** as 1.0.0b21.12, "The Dead's Gallery", at the owner's word after trying the Ossuary Stair in an artifact
+built to go straight into it. With it, the browser's page takes `?side=n` (and `&level=l`): a new run straight into passage n, CATACOMB
+alone, its saves under `haunted.exe/side/` (`web/haunted.js`, ahead of `PREFIX`); the World Editor's PLAY sets its own and is left alone.
+Tested in Playwright's Chromium: `?side=0` in the passage with its saves apart, the page without it booting HAUNT.EXE as before.
