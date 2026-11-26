@@ -297,6 +297,11 @@ you, none blocks a way, none is counted, and none is saved: they are set dressin
 * **Two settings** (Settings, 1.0.0b21.6): *Small life: movement* and *Small life: sound*, each on, reduced (only what keeps still:
   the puddles, the prints, the fungus at rest) or off. Off draws and sounds exactly as the build before.
 
+### CATACOMB: three left
+
+When only three of a level's dead remain to be put down, every torch, lamp and chandelier turns a cold, pale ghost-light and breathes slowly,
+brighter and dimmer. It is only the picture: the dead see by the same light as before.
+
 ### CATACOMB: the bosses
 
 The tenth level of each run is an ordinary level with an arena set into its far end in place of the
@@ -1448,6 +1453,24 @@ controller's motors as `RUMBLE` lines.
 The Windows build honours `HVS_NOGL=1` (force the GDI path) and `HVS_DUMP=file.ppm` (write one frame and exit).
 
 ## What has been verified
+
+**New in 1.0.0b21.11** (three left; levels drawn by hand). Nobody has played it by hand. All of it is tested in the harness only: not run under
+Wine, and the Windows and browser builds compiled and smoke-tested by GitHub Actions and by nothing else.
+
+* **Three left**: with three or fewer of a level's dead left, every torch and light prop takes the ghost ramp (the author's pick from a sheet of four)
+  and breathes, one breath in two seconds, a fifth brighter and dimmer. The dead read the light map (to see by), so the breath is added only to
+  the frame drawn and the map is put back after it. Eight seeds for 3,000 seconds against the build before: the same lines to the line but the
+  time-taken lines.
+* **Levels drawn by hand**: the game reads a level from the author's World Editor as text and lays it at its level: scripted events, hazards of
+  the level's run, lights hung by hand (the generator's shown in the editor), four new hanging lights with the pierced cage lantern's dappled
+  light, the barred door, relic, socket, lever and plate, twelve relic looks, and side passages (a platformer behind a crypt doorway, with lives
+  of its own). None is in this release's levels: the tutorial's two are the only drawn ones and have none of it. Tested on drawings made for the
+  purpose: each read back field for field against the same drawing compiled in, the dream finishing them, frames looked at, the readers fed text
+  cut short at thousands of points (refused, never a crash), clean under AddressSanitizer and UBSan.
+* **Nothing else moved**: the screensaver on eight seeds for 3,000 seconds logged the same lines as the build before on the generated levels and
+  the tutorial's two; every existing sprite and texture is the same for levels 1 to 40.
+* **The save**: a section of the ledger holds the side passages' lives; an older save reads as three, and every older save still loads.
+* **Not tried**: a hand on any of it; the drawn levels' machinery on a level a player meets; the Windows and browser builds beyond compiling.
 
 **New in 1.0.0b21.10** (the author's wording put in). Nobody has played it by hand. All of it is tested in the harness only: not run under Wine,
 and the Windows and browser builds compiled and smoke-tested by GitHub Actions and by nothing else.
