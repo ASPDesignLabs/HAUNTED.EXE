@@ -942,9 +942,10 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
     for (int i = 0; i < G.nthing && !PK.depth && !G.shop; i++) {  /* a puzzle's things (1.0.0b13) */
         const Thing *t = &G.thing[i];
         if (t->spr < 0 || G.carry == i + 1) continue;
-        if (t->in >= 0 && t->role == TR_ITEM && G.thing[t->in].spr == SP_EV_SOCKET0) continue;   /* set in an event's socket: its holding look shows it */
+        if (t->in >= 0 && t->role == TR_ITEM && ev_socket(G.thing[t->in].spr)) continue;   /* set in an event's socket: its holding look shows it */
         int n0 = n, spr = t->spr + (t->frames > 1 ? t->state % t->frames : 0), back = 0;
-        if (t->spr == SP_EV_SOCKET0 && t->in >= 0) spr = SP_EV_SOCKET1;   /* the relic across its hands, the shape cut in it alight */
+        if (ev_socket(t->spr) && t->in >= 0) spr = rl_held(rl_of(G.thing[t->in].spr));   /* the relic across its hands, its shape cut in it
+                                                                      alight (2d: the relic's own, whatever the socket was cut for) */
         if (t->facing) spr = t->spr + ((t->state - dir_to(G.px, G.py, t->x, t->y) + 4) & 3);   /* away, to your right, to you, to your left */
         if (t->spr >= SP_PBELL0 && t->spr <= SP_PBELL3 && t->t < 0.8f) { spr = SP_PBELL0R + t->spr - SP_PBELL0; back = t->t >= 0.42f; }   /* rung: it leans, and swings back */
         ADD(t->x, t->y, t->z, spr, 0);
