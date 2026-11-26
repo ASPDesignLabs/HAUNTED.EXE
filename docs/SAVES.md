@@ -38,7 +38,8 @@ by spell empty, and an older record's go into their elements, a spell learnt sta
 `LG_CASTER_BYTES`: a byte of flags (1 the map, 2 the lantern shuttered), u16 the Level of Atonement, u32 the experience since the last
 death, u16 points unspent, a u16 of steps bought in each of the lines (twelve, thirteen from 1.0.0b11 with Resist
 Spirit's; a reader counts them from the length), a byte of overlevels in each, a byte of cornerstones, a byte for Second Wind spent, u16 the run it last came back on; an older page reads as
-Level of Atonement 1 with no map), and `LG_PORTRAIT` (the portraits of the slain, docs/PLAN-portraits.md, `LG_PORTRAIT_BYTES`
+Level of Atonement 1 with no map), `LG_SIDE` (the side passages' lives lost, of three, a byte, and three spare, docs/PLAN-side.md; a page
+without it has all three), and `LG_PORTRAIT` (the portraits of the slain, docs/PLAN-portraits.md, `LG_PORTRAIT_BYTES`
 277: a byte of how her room pays this life, `POR_*`, u32 the tapestries drawn back (a bit a kind, the bosses' from bit 24), the run each
 kind's gem was unlocked in, a byte each, eight a kind, then each kind's gems taken this life and each boss's, a byte each, then each
 kind's own count, u16 (`RUN.por_feat`; a 229-byte section, `LG_PORTRAIT_B4`, reads without them); an older page reads with its ranks

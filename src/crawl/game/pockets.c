@@ -390,6 +390,7 @@ static void ledger_first(void);
 static uint32_t new_run_id(uint32_t seed);
 static void claim_take(void);
 static struct { int fight, frail, place, menu; float fight_t, calm_t, cast_t; } MUS;   /* what the music is told (music_frame) */
+static int g_side_now = -1, g_side_level = 1;                      /* side (PLAN-side): PLAY of a passage, its number and level */
 static void crawl_enter(uint32_t seed) {
     crawl_art_init();
     memset(&MUS, 0, sizeof MUS);
@@ -411,6 +412,7 @@ static void crawl_enter(uint32_t seed) {
     if (!resume) {
         memset(&RUN, 0, sizeof RUN);
         RUN.active = 1; RUN.level = g_dtext_on ? g_dtext.level : 1; RUN.hp = 100;   /* a drawing read for PLAY: begun on its level */ RUN.shop_next = 1;
+        if (g_side_now >= 0) { RUN.level = g_side_level; RUN.shop_next = 0; }   /* side (PLAN-side): PLAY of a passage, at once */
         RUN.run_id = new_run_id(seed); RUN.peds = 2; RUN.repo_n = 2; RUN.atone = 1;
         gear_reset(&RUN.gear);
 #ifdef CRAWL_DEBUG

@@ -5,6 +5,7 @@
 static void save_selftest(void);                                   /* save.c, further down the list */
 static void compass_selftest(void);                                /* wisps.c, and the same */
 #endif
+static void sd_level_laid(void);                                  /* side.c: the level's side doorways (docs/PLAN-side.md) */   /* side (PLAN-side) */
 static void start_level(void) {
     line_lend();
     pocket_reset_level();
@@ -88,6 +89,7 @@ static void start_level(void) {
         if (g_events) drawn_events();                              /* the relics, sockets, levers and plates (docs/PLAN-events.md) */
     }
     ward_make();                                                   /* a soul-lamp by each challenge, out (1.0.0b18.1) */
+    sd_level_laid();                                               /* the side passages' doorways; no dice thrown */   /* side (PLAN-side) */
 #ifdef CRAWL_DEBUG
     if (getenv("CRAWL_THINGS")) things_test();
 #endif
@@ -218,6 +220,7 @@ static void debug_gear(void) {
     if (getenv("CRAWL_ABIL")) give_ability(atoi(getenv("CRAWL_ABIL")));
     if (getenv("CRAWL_BAG")) give_bag(atoi(getenv("CRAWL_BAG")));
     if (getenv("CRAWL_GOLD")) RUN.treasure = atoi(getenv("CRAWL_GOLD"));
+    if (getenv("CRAWL_SDLOST")) RUN.sd_lost = clampi(atoi(getenv("CRAWL_SDLOST")), 0, 3);   /* side (PLAN-side): the passages' lives lost */
     if (getenv("CRAWL_WAYS")) { RUN.ways = (1u << NWAY) - 1; RUN.deed_amb = 3; RUN.deed_hush = 2; }   /* 1.0.0b18: every way met, for the shots */
     if (getenv("CRAWL_SEENALL")) for (int k = 0; k < NKINDS && k < REC_KINDS; k++) {   /* every kind met, and some slain, for the shots */
         RUN.rec.seen[k] = 0x1f;

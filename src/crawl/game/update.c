@@ -106,6 +106,7 @@ static int deco_look(const Deco *dc);
 #endif
 static void update_mark(float dt);
 static void comp_note(int level);
+static int sd_frame(float dt);                                     /* side.c: a side passage has the frame (docs/PLAN-side.md) */   /* side (PLAN-side) */
 static void crawl_update(double dt) {
     float fdt = (float)dt;
     if (title_tick(fdt)) return;                                   /* the title holds the screen: the crypt waits behind it */
@@ -126,6 +127,7 @@ static void crawl_update(double dt) {
         XPF.banner = fmaxf(0.0f, XPF.banner - fdt);
     }
     if (G.player && G.ui && !G.shop) { update_ui(); return; }     /* a menu is up: the crypt holds its breath */
+    if (sd_frame(fdt)) return;                                     /* in a side passage: the crypt waits behind it */   /* side (PLAN-side) */
     if (G.player && !G.ui && !G.dead && !G.tally && !G.exiting) wheel_input(fdt);   /* a wheel: real time for it (her rooms too,
                                                                       1.0.0b18.1, but never over one of her menus), */
     else if (WH.open) wheel_close(0);

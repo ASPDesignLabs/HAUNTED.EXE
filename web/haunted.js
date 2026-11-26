@@ -546,7 +546,7 @@
   // ---- booting -------------------------------------------------------------------------------------
   async function boot() {
     if (booted || !plate.classList.contains("ready")) return;
-    if (window.HVS_WANT_LEVEL && !window.HVS_LEVEL) return;       // the world editor's PLAY: not before its level has come
+    if (window.HVS_WANT_LEVEL && !window.HVS_LEVEL && !window.HVS_SIDES) return;   // the world editor's PLAY: not before its level has come
     probe.tapAt = performance.now();
     plate.classList.remove("ready");
     $("press").textContent = "Loading...";
@@ -559,6 +559,16 @@
       const why = b.length >= M._web_drawn_cap() ? "it is too long" : (M.HEAPU8.set(b, M._web_drawn_buf()), M.UTF8ToString(M._web_drawn_load(b.length)));
       if (why) { $("press").textContent = "The level cannot be played: " + why; return; }
     }
+    for (const s of window.HVS_SIDES || []) {                     // and its side passages (docs/PLAN-side.md), each into its number
+      const b = new TextEncoder().encode(s.text);
+      const why = b.length >= M._web_side_cap() ? "it is too long" : (M.HEAPU8.set(b, M._web_side_buf()), M.UTF8ToString(M._web_side_load(s.n, b.length)));
+      if (why) { $("press").textContent = "Side passage " + s.n + " cannot be played: " + why; return; }
+    }
+    if (window.HVS_SIDE_NOW != null && window.HVS_SIDE_NOW >= 0) M._web_side_now(window.HVS_SIDE_NOW, window.HVS_SIDE_LEVEL || 1);
+    for (const [k, v] of window.HVS_TUNE || []) M._web_side_tune(k, v);   // the editor's tuning, then as its sliders move
+    if (window.HVS_WANT_LEVEL) addEventListener("message", (e) => {
+      if (e.source === parent && e.data && e.data.type === "hvs-tune" && Number.isInteger(e.data.k)) M._web_side_tune(e.data.k, +e.data.v);
+    });
     if (window.HVS_FORCE) Object.assign(cfg, window.HVS_FORCE);   // and the settings it plays with
     loadSlots();
     M._web_config(cfg.sound, cfg.volume, cfg.brightness, cfg.haunt, cfg.crawl, Math.round(cfg.stay * 60), cfg.shift, cfg.pad, cfg.music, cfg.effects);

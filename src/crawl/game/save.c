@@ -200,7 +200,9 @@ enum { LG_END, LG_PAGE, LG_VISIT, LG_STONES, LG_PEDS, LG_COMP, LG_REPO, LG_CODEX
        LG_CONF,                                                    /* 1.0.0b20: the Confessions' points and overlevels, a byte each, and
                                                                       the old overlevels whose Alignment Points were given */
        LG_AUG,                                                     /* 1.0.0b21: each line's augments, AUG_LINE_BYTES a line */
-       LG_PORTRAIT };                                              /* the portraits of the slain (docs/PLAN-portraits.md), below */
+       LG_PORTRAIT,                                                /* the portraits of the slain (docs/PLAN-portraits.md), below */
+       LG_SIDE };                                                  /* side (PLAN-side): the side passages' lives lost, of three; three spare */
+#define LG_SIDE_BYTES 4
 /* LG_PORTRAIT: a byte of how her room pays this life (POR_*), u32 the tapestries drawn back, then for each kind the run each gem
  * was unlocked in (1 + its set, a byte each), each kind's gems taken this life (a byte, a bit a gem), each boss's (a byte, a bit a
  * deed); then (step 5) each kind's own count, u16 (RUN.por_feat). A page without one is older: each rank it unlocked is shown in
@@ -224,7 +226,7 @@ enum { PG_SIGNED, PG_DEATH, PG_CLAIM };
 #define SAVE_END6 (SAVE_V3 + REC_BYTES + SAVE_V4_EXTRA + SAVE_V5_SHRINE + SAVE_V6_EXT)   /* save_end(6) */
 #define PAGE_BYTES (SAVE_END6 + 4 + 3 + LG_PAGE_BYTES + 3 + LG_VISIT_BYTES + 3 + 1 + STONES * STONE_BYTES + 3 + 1 + 3 + COMP_BYTES + 3 + REPO_BYTES \
                     + 3 + 24 + 3 + LG_CASTER_BYTES + 3 + REC_ELEM_BYTES + 3 + LG_ALIGN_BYTES + 3 + LG_HALL2_BYTES + 3 + LG_DEEDS_BYTES + 3 + LG_WAYS_BYTES \
-                    + 3 + 2 * NCONF + 1 + 3 + NELEM * AUG_LINE_BYTES + 3 + LG_PORTRAIT_BYTES + 1)   /* the most a page takes so far */
+                    + 3 + 2 * NCONF + 1 + 3 + NELEM * AUG_LINE_BYTES + 3 + LG_PORTRAIT_BYTES + 3 + LG_SIDE_BYTES + 1)   /* the most a page takes so far */
 _Static_assert(PAGE_BYTES <= SLOT_MAX, "a page fits its slot");
 static void stone_pack(uint8_t *p, const Stone *st) {
     uint64_t w = (uint64_t)st->when;
@@ -359,6 +361,9 @@ static int run_pack(uint8_t *buf, int cap, int why) {
     put32(c, (int32_t)RUN.ways); put32(c + 4, (int32_t)RUN.way_said); put16(c + 8, clampi(RUN.way_run, 0, 65535));
     put16(c + 10, RUN.deed_amb); put16(c + 12, RUN.deed_shaken); put16(c + 14, RUN.deed_heads); put16(c + 16, RUN.deed_hush); put16(c + 18, RUN.deed_file);
     p = section_end(c, c + LG_WAYS_BYTES);
+    c = section_begin(p, LG_SIDE);                                 /* side (PLAN-side): the passages' lives */
+    memset(c, 0, LG_SIDE_BYTES); c[0] = (uint8_t)clampi(RUN.sd_lost, 0, 255);
+    p = section_end(c, c + LG_SIDE_BYTES);
     c = section_begin(p, LG_PORTRAIT);                             /* the portraits of the slain */
     c[0] = (uint8_t)RUN.por_open; put32(c + 1, (int32_t)RUN.por_drawn);
     memcpy(c + 5, RUN.por_run, sizeof RUN.por_run); memcpy(c + 5 + sizeof RUN.por_run, RUN.por_taken, sizeof RUN.por_taken);
@@ -489,6 +494,8 @@ static void run_unpack(const uint8_t *buf, int len) {
         RUN.ways = (uint32_t)get32(c) & ((1u << NWAY) - 1); RUN.way_said = (uint32_t)get32(c + 4) & ((1u << NWAY) - 1); RUN.way_run = get16(c + 8);
         RUN.deed_amb = get16(c + 10); RUN.deed_shaken = get16(c + 12); RUN.deed_heads = get16(c + 14); RUN.deed_hush = get16(c + 16); RUN.deed_file = get16(c + 18);
     }
+    c = page_section(buf, len, LG_SIDE, &k);                       /* side (PLAN-side): an older page has its three */
+    RUN.sd_lost = c && k >= 1 ? clampi(c[0], 0, 3) : 0;
     c = page_section(buf, len, LG_HALL2, &k);
     if (c && k >= 7) {
         RUN.bell_cursed = c[0] != 0; RUN.font_cursed = c[1] != 0; RUN.bell_next = get16(c + 2);
@@ -602,6 +609,13 @@ static void save_selftest(void) {
     RUN.has_compass = 0;
     int n = run_pack(buf, sizeof buf, PG_SIGNED);
     if (n > 0) { RUN.has_compass = 1; run_unpack(buf, n); cases++; if (RUN.has_compass) bad++; }
+    for (int l = 0; l <= 3; l++) {                                 /* side (PLAN-side): the passages' lives lost, each count */
+        RUN = keep; RUN.sd_lost = l;
+        n = run_pack(buf, sizeof buf, PG_SIGNED);
+        if (n <= 0) { bad++; continue; }
+        RUN.sd_lost = 9; run_unpack(buf, n); cases++;
+        if (RUN.sd_lost != l) bad++;
+    }
     RUN = keep;
     fprintf(stderr, "EVENT save_selftest cases %d bad %d\n", cases, bad);
 }

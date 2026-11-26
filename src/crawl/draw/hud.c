@@ -54,6 +54,16 @@ static void render_shop_tags(Frame *f, float dx, float dy, float horizon) {
             gfx_text8(f, tx, ty, tag, COMPASS_PRICE <= RUN.treasure ? (uint8_t)(R_GOLD + 12) : (uint8_t)(R_BLOOD + 11), 1);
         }
     }
+    if (LIFE_FOR_SALE() && project(LIFE_X, LIFE_Y, 0.95f, dx, dy, horizon, &sx, &sy, &dep) && sx >= 0 && sx < W && dep < zbuf[(int)sx] + 0.3f && dep < 6.0f) {   /* side (PLAN-side): a life's price */
+        char tag[16];
+        snprintf(tag, sizeof tag, "$%d", LIFE_PRICE);
+        int w = gfx_text_width(tag, 1), tx = (int)sx - w / 2, ty = (int)sy - 10, hit = 0;
+        for (int k = 0; k < nb; k++) hit |= tx < box[k][2] + 3 && tx + w + 3 > box[k][0] && ty - 10 < box[k][3] && ty + 9 > box[k][1];
+        if (!hit && ty >= 0 && ty <= H - 60) {
+            gfx_text8(f, tx + 1, ty + 1, tag, 0, 1);
+            gfx_text8(f, tx, ty, tag, LIFE_PRICE <= RUN.treasure ? (uint8_t)(R_GOLD + 12) : (uint8_t)(R_BLOOD + 11), 1);
+        }
+    }
                                                                    /* the map's price, over it */
     if (!RUN.has_map && !g_map_kept && project(MAP_X, MAP_Y, 0.95f, dx, dy, horizon, &sx, &sy, &dep) && sx >= 0 && sx < W && dep < zbuf[(int)sx] + 0.3f && dep < 6.0f) {
         char tag[16];
@@ -291,7 +301,7 @@ static void draw_coin(Frame *f, int x, int y) {                    /* a Cursed C
             else if (r == 2 || r == 4) gfx_px(f, x + c, y + r, 0);
 }
 static int shop_carded(void) {                                     /* a person looking at something in her room: its card is up */
-    return G.shop && G.player && (G.shop_look >= 0 || G.rep_look || G.comp_look || G.stone_look >= 0 || G.map_look || G.compass_look || G.mer_look || G.por_look
+    return G.shop && G.player && (G.shop_look >= 0 || G.rep_look || G.comp_look || G.stone_look >= 0 || G.map_look || G.compass_look || G.life_look || G.mer_look || G.por_look
                                   || G.tot_look || G.bell_look || G.font_look || G.lamp_look || G.sh_look || G.pt_look);
 }
 /* In her rooms, for a person (after 1.0.0b21.2, at the owner's word): what is faced on a slim band at the foot of the view, the key
@@ -339,6 +349,9 @@ static void render_shop_prompt(Frame *f) {
     } else if (G.compass_look) {
         snprintf(what, sizeof what, "A COMPASS"); col = R_BONE + 13;
         snprintf(note, sizeof note, "$%d", COMPASS_PRICE); ncol = COMPASS_PRICE <= RUN.treasure ? R_GOLD + 12 : R_BLOOD + 12;
+    } else if (G.life_look) {                                      /* side (PLAN-side) */
+        snprintf(what, sizeof what, "A LIFE FOR THE PASSAGES"); col = R_BONE + 13;
+        snprintf(note, sizeof note, "$%d", LIFE_PRICE); ncol = LIFE_PRICE <= RUN.treasure ? R_GOLD + 12 : R_BLOOD + 12;
     } else if (G.sh_look) {
         snprintf(what, sizeof what, "THE RUNE SHRINE"); col = R_GOLD + 12;
         if (!RUN.shrine) snprintf(note, sizeof note, "SANCTIFIED");

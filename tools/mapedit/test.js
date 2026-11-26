@@ -182,5 +182,121 @@ DATA.hazards.fixed.flat().concat(DATA.hazards.arise.flat(), DATA.hazards.sapper)
     grouped.forEach(g => { if (!DATA.rooms.includes(g)) fail(`the list names ${g}, which the game does not have`); });
     console.log(`rooms by run: ${C.ROOM_RUNS.map(r => r.length).join(' + ')} + ${C.ROOM_ANY.length} of any run = ${DATA.rooms.length} types`);
 }
+/* side passages (docs/PLAN-side.md): each built in read and written back letter for letter; a new one, its export read back; the
+ * crypt's side doorway; the reader refusing what the game would. The files under fixtures/ are for the harness's HOST_SIDE. */
+{
+    const SC = require('./side.js'), ids = DATA.kinds.map(k => k.id), tn = (DATA.tune || []).map(k => k.name);
+    if (tn.length < 30) fail(`the tuning table read ${tn.length} names`);
+    for (const s of DATA.sides) {
+        const r = SC.parse(s.text, ids, tn);
+        if (r.error) { fail(`side passage ${s.n}: line ${r.line}: ${r.error}`); continue; }
+        const out = SC.exportText(r.map);
+        if (out !== s.text) { const a = s.text.split('\n'), b = out.split('\n'), i = a.findIndex((l, k) => l !== b[k]); fail(`side passage ${s.n}: line ${i + 1} "${b[i]}" was "${a[i]}"`); }
+        const errs = SC.check(r.map).filter(c => c.sev === 'error');
+        if (errs.length) fail(`side passage ${s.n}: ${errs[0].msg}`);
+        fs.writeFileSync(path.join(__dirname, 'fixtures', `side_${s.n}.txt`), out);
+    }
+    const m = SC.blank(40, 14);
+    SC.add(m, { k: 'plat', x: 10, y: 8, w: 2, dx: 0, dy: -1, dist: 4.5, speed: 1.25, loop: true, wait: 0.75, at: 0.5 });
+    SC.add(m, { k: 'flow', x: 20, y: 9, w: 3, h: 2, on: 2.5, off: 6, at: 1 });
+    SC.add(m, { k: 'fall', x: 15, y: 8, delay: 0.3, back: 2 }); SC.add(m, { k: 'fall', x: 16, y: 8, delay: SC.FALL_DELAY, back: SC.FALL_BACK });
+    SC.add(m, { k: 'mob', x: 25, y: 10, kind: 'MOB_SKEL', rank: 'RK_II' }); SC.add(m, { k: 'switch', x: 30, y: 10, thing: 4, toggle: true });
+    SC.add(m, { k: 'gold', x: 12, y: 10, it: 'IT_CROWN' }); SC.add(m, { k: 'key', x: 13, y: 10, c: 2 });
+    SC.add(m, { k: 'gate', x: 18, y: 9, w: 1, h: 2, open: false, tag: 'g1' }); SC.add(m, { k: 'plate', x: 6, y: 10, tag: 'p1' });
+    SC.add(m, { k: 'current', x: 20, y: 5, w: 4, h: 1, dx: 1, dy: 0, speed: 3, stopped: true, poison: true, tag: 'w1' }); m.things.find(t => t.k === 'key').loose = true;
+    SC.add(m, { k: 'haz', kind: 'HZ_FIRE', x: 30, y: 10, cells: [[30, 10], [31, 10]], zone: true, safe: true, clock: { every: 4, give: 1, first: 2 }, enter: { x0: 28, y0: 9, x1: 31, y1: 10 }, harm: 20, chance: -1, warn: 1.5, stays: 6, tag: 't1' });
+    m.trigs = [{ src: 'p1', mode: 'HOLD', acts: [{ tag: 'w1', verb: 'ON' }, { tag: 'g1', verb: 'FLIP' }] }, { src: 'p1', mode: 'TIMED', secs: 2.5, acts: [{ crypt: 7 }] }]; m.tune = { walk: 80, jump: 250 };
+    const t1 = SC.exportText(m), back = SC.parse(t1, ids, tn);
+    if (back.error) fail(`a new passage's export: line ${back.line}: ${back.error}`);
+    else if (SC.exportText(back.map) !== t1) fail("a new passage's export does not read back the same");
+    fs.writeFileSync(path.join(__dirname, 'fixtures', 'side_new.txt'), t1);
+    [['SIDE 2\n', 'version'], ['SIDE 1\nSIZE 10 10\n', 'SIZE wants'], ['SIDE 1\nSIZE 20 10\nROW "#"\n', 'a ROW is'],
+     ['SIDE 1\nSIZE 20 10\n' + 'ROW "....................."\n', 'a ROW is'], ['SIDE 1\nSIZE 20 10\n' + 'ROW "...................."\n'.repeat(10), 'no doorway'],
+     ['SIDE 1\nSIZE 20 10\n' + 'ROW "...................."\n'.repeat(10) + 'PLAT 1 1 3 0 0 4 2\n', "way is"]].forEach(([t, want]) => {
+        const r = SC.parse(t, ids); if (!r.error || !r.error.includes(want)) fail(`the reader took a bad passage (wanted "${want}"): ${r.error || 'no refusal'}`); });
+    const cm = C.blank(3); cm.things.push({ id: 1, t: 'sidedoor', num: 2, link: 5, x: 10.5, y: 10.5 });
+    for (let x = 9; x <= 13; x++) cm.grid[C.idx(x, 11)] = '+'; cm.grid[C.idx(9, 11)] = 'S'; cm.grid[C.idx(13, 10)] = 'X';   /* a hall, its start and exit */
+    const cx = C.exportDrawn(DATA, cm, 3).text;
+    if (!cx.includes('{ DT_SIDEDOOR, 37, ')) fail("the crypt's side doorway did not export as DT_SIDEDOOR 37");
+    const sd = cx.match(/\{ DT_SIDEDOOR, \d+, (-?[\d.]+)f, (-?[\d.]+)f \}/);
+    if (!sd || +sd[1] < 0 || +sd[2] < 0) fail(`a side doorway above the floor's box exported outside the map: ${sd && sd[0]}`);
+    fs.writeFileSync(path.join(__dirname, 'fixtures', 'side_crypt.c'), cx);
+    if (C.check(DATA, cm).some(c => c.msg.includes('side doorway'))) fail("a side doorway in a wall by the floor was refused");
+    cm.things[0].x = 10.5; cm.things[0].y = 11.5;
+    if (!C.check(DATA, cm).some(c => c.msg.includes('not in stone'))) fail("a side doorway on the floor was not refused");
+    console.log(`side passages: ${DATA.sides.length} built in read and written back; a new one's export read back; the side doorway`);
+}
+/* 26 November: timed switches, ledges and falling blocks off at the start, powerups: the fixture read and written back; the reader
+ * refusing what the game would; a ledge off with nothing to lay it warned of */
+{
+    const SC = require('./side.js'), ids = DATA.kinds.map(k => k.id);
+    const txt = fs.readFileSync(path.join(__dirname, 'fixtures', 'side_works2.txt'), 'utf8'), r = SC.parse(txt, ids);
+    if (r.error) fail(`side_works2: line ${r.line}: ${r.error}`);
+    else {
+        if (SC.exportText(r.map) !== txt) fail('side_works2 does not read back letter for letter');
+        const cs = SC.check(r.map); if (cs.length) fail('side_works2: ' + cs[0].msg);
+        const sw = r.map.things.find(t => t.k === 'switch'), lg = r.map.things.find(t => t.k === 'ledge'), fl = r.map.things.find(t => t.k === 'fall');
+        if (!sw || sw.timer !== 8) fail("side_works2: the lever's timer was not read");
+        if (!lg || lg.w !== 6 || !lg.stopped || !fl || !fl.stopped) fail('side_works2: the ledge or the block was not read as off');
+        if (r.map.things.filter(t => t.k === 'power').map(t => t.kind + t.secs).join() !== 'RAPID10,MIGHT12,WARD8') fail('side_works2: the powerups were not read');
+        const lone = Object.assign({}, r.map, { trigs: [] });
+        if (!SC.check(lone).some(c => /never there/.test(c.msg))) fail('a ledge off with no trigger should be warned of');
+    }
+    const head = 'SIDE 1\nNAME "X"\nSIZE 20 10\n' + Array.from({ length: 10 }, (_, y) => `ROW "${(y === 0 || y === 9 ? '#' : '#' + ','.repeat(18) + '#').padEnd(20, '#')}"`).join('\n') + '\nDOOR 1 8 0\n';
+    [['POWER 4 8 HASTE', /RAPID, MIGHT or WARD/], ['POWER 4 8 WARD 200', /120 seconds/], ['LEDGE 15 4 9', /off the map/], ['SWITCH 4 8 -1 TIMER 500', /0 to 120/]].forEach(([l, re]) => {
+        const q = SC.parse(head + l + '\n', ids); if (!q.error || !re.test(q.error)) fail(`"${l}" should be refused: ${q.error || 'it was read'}`);
+    });
+    console.log('side passages: timed switches, ledges and blocks off at the start, powerups');
+}
+/* run I's traps in a passage (docs/PLAN-side.md, 2e): the fixture read and written back; every emitter option; the censer's clearance;
+ * the PREVIEW's run: wax settling, the bowl swinging, the haze kept to its reach */
+{
+    const SC = require('./side.js'), ids = DATA.kinds.map(k => k.id);
+    const txt = fs.readFileSync(path.join(__dirname, 'fixtures', 'side_traps1.txt'), 'utf8'), r = SC.parse(txt, ids);
+    if (r.error) fail(`side_traps1: line ${r.line}: ${r.error}`);
+    else {
+        if (SC.exportText(r.map) !== txt) fail('side_traps1 does not read back letter for letter');
+        const errs = SC.check(r.map).filter(c => c.sev === 'error'); if (errs.length) fail('side_traps1: ' + errs[0].msg);
+        const m = r.map, hz = k => m.things.find(t => t.k === 'haz' && t.kind === k);
+        const v = hz('HZ_VOTIVE'); Object.assign(v, { emit: { rate: 40, speed: 1.5, spread: 10, life: 5 }, dir: 45 });
+        const q = hz('HZ_RELIQ'); q.radial = 2; const c = hz('HZ_CENSER'); Object.assign(c, { len: 6, hang: 0.5, swing: 1.25 });
+        const t2 = SC.exportText(m), back = SC.parse(t2, ids);
+        ['EMIT 40 1.5 10 5.0 DIR 45', 'RADIAL 2', 'LEN 6 HANG 0.5 SWING 1.25'].forEach(k => { if (!t2.includes(k)) fail('the emitter export lacks ' + k); });
+        if (back.error || SC.exportText(back.map) !== t2) fail('the emitters do not read back the same');
+        const short = JSON.parse(JSON.stringify(c)); short.len = 2;
+        if (!SC.censerCheck(m, short).some(([s, msg]) => s === 'error' && /three at the least/.test(msg))) fail('a censer on two tiles of chain should be refused');
+        const deep = JSON.parse(JSON.stringify(c)); deep.len = 9;
+        if (!SC.censerCheck(m, deep).some(([s, msg]) => s === 'error' && /strikes stone/.test(msg))) fail('a censer swinging into the floor should be refused');
+        const lone = JSON.parse(JSON.stringify(v)); lone.cells = [[v.x, v.y + 2]];
+        if (!SC.check(Object.assign({}, m, { things: [lone] })).some(c => /which way to tip/.test(c.msg))) fail('a sconce with nothing painted aside should be refused');
+        const run = (t, s) => { const S = SC.fxSim(m, t, 5); for (let i = 0; i < s * 120; i++) S.step(1 / 120); return S; };
+        const sv = run(hz('HZ_VOTIVE'), 5), sc = run(c, 1.1), sq = run(q, 4);
+        if (!sv.parts.some(p => p.rest)) fail('the preview: no wax settled');
+        if (!sc.ball || Math.abs(sc.ball[0] - SC.censerGeom(c).px) > SC.censerGeom(c).r) fail('the preview: the censer is not on its circle');
+        const far = sq.parts.filter(p => Math.hypot(p.x - (q.x * 16 + 8), p.y - ((q.y + 1) * 16 - 10)) > (2 + 0.5) * 16 + 8);
+        if (!sq.parts.length || far.length) fail(`the preview: the haze ${sq.parts.length} with ${far.length} past its reach`);
+        console.log(`run I's traps: read back; emitters written and read; the censer's clearance refused short and into stone; preview wax ${sv.parts.filter(p => p.rest).length} settled, haze ${sq.parts.length}`);
+    }
+}
+/* run II's (2e): the fixture read and written back; each one's PREVIEW makes its own; a web or a pool with no cells refused */
+{
+    const SC = require('./side.js'), ids = DATA.kinds.map(k => k.id);
+    const txt = fs.readFileSync(path.join(__dirname, 'fixtures', 'side_traps2.txt'), 'utf8'), r = SC.parse(txt, ids);
+    if (r.error) fail(`side_traps2: line ${r.line}: ${r.error}`);
+    else {
+        if (SC.exportText(r.map) !== txt) fail('side_traps2 does not read back letter for letter');
+        const errs = SC.check(r.map).filter(c => c.sev === 'error'); if (errs.length) fail('side_traps2: ' + errs[0].msg);
+        const want = { HZ_BILE: 'bile', HZ_SLUICE: 'water', HZ_GALV: 'spark', HZ_SILT: 'gas', HZ_SAINT: 'tear' }, got = [];
+        r.map.things.filter(t => t.k === 'haz' && want[t.kind]).forEach(t => {
+            const S = SC.fxSim(r.map, t, 4); let n = 0;
+            for (let i = 0; i < 4 * 120; i++) { S.step(1 / 120); n = Math.max(n, S.parts.filter(p => p.kind === want[t.kind]).length); }
+            got.push(`${want[t.kind]} ${n}`);
+            if (!n) fail(`the preview of ${t.kind} made no ${want[t.kind]}`);
+        });
+        ['HZ_SNARE', 'HZ_GALV', 'HZ_SILT'].forEach(k => { const t = JSON.parse(JSON.stringify(r.map.things.find(o => o.kind === k))); t.cells = [];
+            if (!SC.check(Object.assign({}, r.map, { things: [t] })).some(c => c.sev === 'error' && /no cells/.test(c.msg))) fail(`${k} with no cells should be refused`); });
+        console.log(`run II's traps: read back; previews ${got.join(', ')}; a web, a pool and a mud with no cells refused`);
+    }
+}
 console.log(bad ? `${bad} FAILED` : 'all passed');
 process.exit(bad ? 1 : 0);

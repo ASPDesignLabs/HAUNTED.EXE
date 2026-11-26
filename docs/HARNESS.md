@@ -148,3 +148,18 @@ overlapping a vault, a wing, a trial's room or the arena is not tested directly 
 level took, secret rooms found and gold, per seed and in all; 16 seeds of 3,000 s take about 17 minutes on four cores. Eight seeds carry
 noise of about a quarter either way: read the means.
 
+
+**Side passages** (docs/PLAN-side.md; harness only until the owner has played them). The debug build's switches: `CRAWL_SIDE=n` (straight
+into built-in side passage n, `SIDE_TEXT[n]` in `game/side_levels.c`, half a second into each level, once a level; its doorways out all lead
+back before the cell you faced), `CRAWL_TPSIDE=n` (a side doorway to passage n, every link of it, in the first wall ahead of the start: walk
+into it or press E), `CRAWL_SIDETRACE=1` (twice a second, `SIDE at x,y tile tx,ty v vx,vy ground plat crouch in L R J D C hp t`, and each of
+the dream's plans: `SIDE plan from a to b: n reached, the furthest x,y, a way|no way`). Events: `side_in`, `side_out` (its link, whether the
+goal), `side_take`, `side_switch`, `side_cast`, `side_hurt`, `side_slain`, `side_pit`, `side_life`, `side_over`, `side_dream gives up`, `side_works` (a thing a trigger turned on or
+off), `side_trap` (a trap going off), `life_bought` (a life for the passages bought in her room); `CRAWL_TPLIFE=1` (before that life, in her
+room), `CRAWL_SIDECAM=x,y` (a passage's view held at that tile; with `CRAWL_SIDETRACE`, `SIDE fx` counts of its particles by kind),
+`CRAWL_SIDEFIRE=1` (the dream in a passage casts the fire bolt, to light silt gas), `EVENT side_death_sound k` (a life lost, the sound TUNING's death_sound chose), `CRAWL_SIDESND=1` (each sound a passage places: `SND id at d px: heard|unheard gain of gain`), `CRAWL_SIDEMETRO=1` (a timed switch's metronome, each beat: `METRO i beat n chord A|B up n`), `EVENT side_power kind for secs`, `EVENT side_flask aimed n px ahead (n below), held s` (a flask thrown), `EVENT side_switch i back, its time out`, `EVENT side_trap HZ_SNARE holds` and `CRAWL_SDLOST=n` (the passages' lives lost at a fresh start); `SIDE
+door` when a doorway is laid and `SIDE n unreadable: line n: why` when a text is refused. The draft art's sheet: `make build/sidemock`,
+`build/sidemock out.png` (kept as `media/sheets/side/side_draft.png`). The World Editor's PLAY, in the harness (any build):
+`HOST_SIDE=file:n[,file:n]` (passages read as PLAY hands them over, each into slot n, 0 to 7, in place of what is built in; a text it
+cannot read stops the harness with the reason and its line) and `HOST_SIDE_NOW=n[:level]` (a new run on that level, the merchant passed
+by, straight into passage n). `node tools/mapedit/test.js` writes `tools/mapedit/fixtures/side_*.txt` and `side_crypt.c` for them.

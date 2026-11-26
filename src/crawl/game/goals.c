@@ -160,7 +160,7 @@ static int altar_wanted(void) {
  * then the visportal's gift (or the cooler's drink) at the end, or the way on; it turns back when its
  * health falls under two thirds, when it has the gift, or after CHAIN_TIME in a level's chains. It
  * stands on the lane beside the cell before a doorway or the visportal and turns to use it (PS_USE). */
-enum { USE_NONE, USE_DOOR, USE_VIS, USE_THING };   /* USE_THING: a puzzle's piece (1.0.0b13) */
+enum { USE_NONE, USE_DOOR, USE_VIS, USE_THING, USE_SIDE };   /* USE_THING: a puzzle's piece (1.0.0b13); USE_SIDE a side passage's doorway (PLAN-side) */
 #define CHAIN_TIME 150.0f
 static int pocket_go(int x, int y);
 static int visportal_use(void);

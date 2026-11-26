@@ -120,6 +120,15 @@ enum {
     SFX_MTELL,          /* mice telling one another: a run of chirps back and forth */
     SFX_RAT_HISS,       /* the charnel rat noticing you: a hiss through the teeth, a growl under it */
     SFX_RAT_SQUEAL,     /* the charnel rat told, biting or dying: a harsh squeal, up and falling */
+    /* a side passage's jumps and deaths (docs/PLAN-side.md, 2g): the owner chose the bone pipe and the toll; the rest are kept for
+     * other things to do */
+    SFX_SJUMP1,         /* a cloak's swish: a short breath of cloth, rising */
+    SFX_SJUMP2,         /* a hop: a soft round blip sweeping up */
+    SFX_SJUMP3,         /* a boot and a breath: grit scuffed off the stone, a short "hup" */
+    SFX_SJUMP4,         /* a bone pipe: two hollow breathy notes, a fourth apart */
+    SFX_SDEATH1,        /* the toll: bells stepping down a minor line, slowing, an organ and a deep bell at the end */
+    SFX_SDEATH2,        /* the music box running down: a lullaby's turn, slowing, its last note sagging flat */
+    SFX_SDEATH3,        /* the choir's sigh: a harp falling, voices sinking chord by chord to a low minor */
     SFX_COUNT
 };
 

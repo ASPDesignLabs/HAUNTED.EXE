@@ -561,6 +561,7 @@ static struct {
     int por_open;
     uint16_t por_feat[REC_KINDS];           /* kept through death: each kind's feat's deeds; the Spectre's laid to rest, the Wraith's
                                                times driven back (step 5; the spiderling's and the imp's are the record's) */
+    int sd_lost;                            /* side (PLAN-side): the side passages' lives lost, of three (LG_SIDE in the ledger) */
 } RUN;
 static int lantern_held(void) { return RUN.corner >> CS_LANTERN & 1; }   /* the Lantern of the Dead (docs/PLAN-ai.md, 26) */
 static int lantern_lit(void) { return lantern_held() && !RUN.lantern_off; }
@@ -830,6 +831,7 @@ static struct {
     int mer_look;                           /* the merchant herself, close enough for E */
     int map_look;                           /* the map floating beside her, looked at */
     int compass_look;                       /* the compass floating at her right, looked at */
+    int life_look;                          /* side (PLAN-side): a life for the side passages, looked at */
     float compass_bear; int compass_init;   /* the needle as it is drawn: the bearing it has eased to (degrees clockwise from north), and whether it has one yet */
     int stone_look, stone_sel;              /* a stone in the plot looked at (-1 none); the one whose page is open */
 

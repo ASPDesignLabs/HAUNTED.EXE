@@ -131,6 +131,11 @@ const thingCell = t => [Math.floor(t.x), Math.floor(t.y)];
 function exportDrawn(DATA, m, n) {
     const { cells } = compose(DATA, m), L = lanes(m, cells), b = bounds(cells);
     if (!b) return { text: '/* the map is all stone: nothing to export */', ok: false };
+    m.things.forEach(t => {                     /* side (PLAN-side): a side doorway's wall may lie just outside the floor's box; take it in */
+        if (t.t !== 'sidedoor') return;
+        const [x, y] = thingCell(t);
+        b.x0 = Math.min(b.x0, x); b.y0 = Math.min(b.y0, y); b.x1 = Math.max(b.x1, x); b.y1 = Math.max(b.y1, y); b.w = b.x1 - b.x0 + 1; b.h = b.y1 - b.y0 + 1;
+    });
     const rows = [];
     for (let y = b.y0; y <= b.y1; y++) {
         let s = '';
@@ -153,6 +158,7 @@ function exportDrawn(DATA, m, n) {
         case 'gseal': things.push(`{ DT_GSEAL, 0, ${f2(x)}, ${f2(y)} }`); break;
         case 'map': things.push(`{ DT_MAP, 0, ${f2(x)}, ${f2(y)} }`); break;
         case 'compass': things.push(`{ DT_COMPASS, 0, ${f2(x)}, ${f2(y)} }`); break;
+        case 'sidedoor': things.push(`{ DT_SIDEDOOR, ${16 * (t.num | 0) + (t.link | 0)}, ${f2(x)}, ${f2(y)} }`); break;   /* side (PLAN-side) */
         case 'relic': things.push(`{ DT_RELIC, ${relicNo(t.id)}, ${f2(x)}, ${f2(y)} }`); break;
         case 'socket': things.push(`{ DT_SOCKET, ${t.accepts ? relicNo(t.accepts) : -1}, ${f2(x)}, ${f2(y)} }`); break;
         case 'lever': things.push(`{ DT_LEVER, 0, ${f2(x)}, ${f2(y)} }`); break;
@@ -941,6 +947,12 @@ function check(DATA, m) {
     m.things.forEach(t => {
         const [x, y] = thingCell(t);
         if (t.spotTag) return;                  /* it stands where its spots are, not where it was set down */
+        if (t.t === 'sidedoor') {               /* side (PLAN-side): in a wall, floor beside it */
+            if (at(x, y) !== '#') add('error', 'A side doorway stands in a wall: this one is not in stone.', [[x, y]]);
+            else if (!DIRS.some(([dx, dy]) => isOpen(at(x + dx, y + dy)))) add('error', 'A side doorway with no floor beside it: nobody can walk into it.', [[x, y]]);
+            if (m.things.some(o => o !== t && o.t === 'sidedoor' && o.num === t.num && o.link === t.link)) add('warn', `Two side doorways lead to passage ${t.num}, link ${t.link}: its way out comes to the first.`, [[x, y]]);
+            return;
+        }
         if (!isOpen(at(x, y))) add('error', `A ${label(DATA, t).toLowerCase()} stands in stone.`, [[x, y]]);
         else if (DOORS.has(at(x, y))) add('warn', `A ${label(DATA, t).toLowerCase()} stands in a doorway.`, [[x, y]]);
     });
@@ -1082,6 +1094,7 @@ function label(DATA, t) {
     case 'gseal': return 'Gate\'s seal';
     case 'map': return 'The map';
     case 'compass': return 'The compass';
+    case 'sidedoor': return `Side doorway: passage ${t.num}, link ${t.link}`;   /* side (PLAN-side) */
     case 'relic': return 'Relic' + (t.name ? ': ' + t.name.toLowerCase() : '');
     case 'socket': return 'Socket' + (t.name ? ': ' + t.name.toLowerCase() : '');
     case 'spot': return 'Spot' + (t.tag ? ': ' + t.tag : '');

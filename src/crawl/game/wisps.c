@@ -8,6 +8,10 @@
 #define COMPASS_X 10.75f
 #define COMPASS_Y 16.8f                     /* where it floats in her room, at her right: the map's mirror across her */
 #define COMPASS_FOR_SALE() (RUN.has_map && !RUN.has_compass && !g_map_kept)
+#define LIFE_PRICE 500                      /* side (PLAN-side): a life for the side passages, the owner's price */
+#define LIFE_X 19.45f
+#define LIFE_Y 16.85f                       /* where it floats in her room: the south-east corner, by the way on */
+#define LIFE_FOR_SALE() (RUN.sd_lost > 0)   /* only while one is lost */
 #define MAP_REACH 1.5f                      /* what lies this near the caster fills in, through walls (3.2 until 1.0.0b11) */
 #define MAP_SIGHT 16.0f                     /* and what is seen, out to where the dark closes */
 static void map_carto(void) {                                      /* the Cartographer: the shape of it all, known at once */

@@ -22,6 +22,7 @@
 #include "crawl_portrait.h"
 #include "crawl_tutor.h"
 #include "crawl_stamp.h"
+#include "side_art.h"
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -216,6 +217,14 @@
 /* More menus' logic: the Compendium, the Repository, the Codex, the Totem, the Portal; the map's keys; update_ui */
 #include "game/menus_hall.c"
 
+/* Side passages (docs/PLAN-side.md): those built in; what one is and its text read; the platformer itself; the dream in one */   /* side (PLAN-side) */
+#include "game/side_levels.c"
+#include "game/side_text.c"
+#include "game/side.c"
+#include "game/side_fx.c"
+#include "game/side_works.c"
+#include "game/side_dream.c"
+
 /* Rendering begins: shading and fog, the floor and ceiling (render_floor), secrets' cracks, the floor's marks (hazards, omens, wards, ice: fm_pixel) */
 #include "draw/floor.c"
 
@@ -257,6 +266,9 @@
 
 /* The portraits of the slain, drawn: what each shows, their overlays, their cards */
 #include "draw/portraits.c"
+
+/* A side passage drawn (docs/PLAN-side.md) */   /* side (PLAN-side) */
+#include "draw/side.c"
 
 /* crawl_render: the frame's order; the music's side (music_frame); touch's stones (crawl_stage); the scene itself */
 #include "draw/frame.c"
