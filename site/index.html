@@ -384,8 +384,8 @@ C:\&gt;<span id="cmd">HAUNTED.EXE</span><span class="cursor"></span></pre>
   </section>
 
   <section aria-labelledby="new">
-    <h2 id="new">New in this release: a compass</h2>
-    <p>Once you own the map, the merchant sells a compass for 2,500 gold: a disc of old stone, chipped and mossed, with a needle of bone. It leans toward what you ask it to find in the L list (the way out, a key you can see, the altar's secret) and says how far: <em>GOLD KEY 36 S</em>. It knows the direction, not the route. The disc turns with you, and its gilt stud is north. A death takes it, as it takes your gold; the map stays. The list of controls that stood on the screen when you took over is off for now.</p>
+    <h2 id="new">New in this release: three left</h2>
+    <p>When only three of a level's dead remain, every torch, lamp and chandelier turns a cold, pale ghost-light and breathes slowly. Underneath, the crypt has learnt to be drawn by hand: events, hazards, lights, relics and side passages for the levels to come.</p>
   </section>
 
   <section aria-labelledby="game">
@@ -432,11 +432,12 @@ C:\&gt;<span id="cmd">HAUNTED.EXE</span><span class="cursor"></span></pre>
 
   <section aria-labelledby="beta">
     <h2 id="beta">Beta status</h2>
-    <p>This is the twenty-first beta's tenth point release, 1.0.0b21.10, "Plain Words". The author played 1.0.0b21.7, "Drawn Rooms", and said it plays well; none of the three since, 1.0.0b21.8 "The Antechamber", 1.0.0b21.9 "A Needle of Bone" and this one, has been played by hand. Everything is tested in the test harness, not under Wine, and the Windows and browser builds were compiled and smoke-tested by GitHub Actions. What each release was tested with, and how, is under <em>What has been verified</em> in the <a href="https://github.com/ASPDesignLabs/HAUNTED.EXE#what-has-been-verified">README</a>.</p>
+    <p>This is the twenty-first beta's eleventh point release, 1.0.0b21.11, "Three Left". The author played 1.0.0b21.7, "Drawn Rooms", and said it plays well; none of the four since has been played by hand. Everything is tested in the test harness, not under Wine, and the Windows and browser builds were compiled and smoke-tested by GitHub Actions. What each release was tested with, and how, is under <em>What has been verified</em> in the <a href="https://github.com/ASPDesignLabs/HAUNTED.EXE#what-has-been-verified">README</a>.</p>
     <div class="scroll">
       <table>
         <thead><tr><th>Area</th><th>Evidence</th><th>Confidence</th></tr></thead>
         <tbody>
+          <tr><td>Three left, and levels drawn by hand (1.0.0b21.11)</td><td>Not played by hand. In the harness: the screensaver on eight seeds for 3,000 seconds logging the build before's lines to the line; the torches' change is drawing only. The drawn levels' events, hazards, lights, relics and side passages were tested on drawings made for the purpose; none is in this release's levels yet.</td><td><span class="tag low">LOW</span></td></tr>
           <tr><td>The new words (1.0.0b21.10)</td><td>Not played by hand. In the harness: the screensaver on two seeds for 600 seconds logging the build before's lines but for the renamed names, four more for 1,500 seconds clean under AddressSanitizer, and no text overflowing its pane. Each boss's, shop's and controller's line has been checked by the numbers and not read in place.</td><td><span class="tag low">LOW</span></td></tr>
           <tr><td>The compass</td><td>Not played by hand. In the harness: the bearing from eight places round the exit and each key on five levels, the saved page read back for every compass it can hold, scripted players who bought one, aimed it, died and woke, clean under AddressSanitizer. The screensaver on eight seeds for 3,000 seconds logged the same lines as the build before, but it cannot buy one. 2,500 gold is the author's number and is not weighed by hand.</td><td><span class="tag low">LOW</span></td></tr>
           <tr><td>The antechamber</td><td>In the harness only. 1,800 levels with every exit, key, locked door and secret room reached and no floor stranded. The screensaver on sixteen seeds for 3,000 seconds, three times over, with the antechamber left out and put in: 120 deaths and 99, 6.8 levels cleared either way. Against 1.0.0b21.7 it died more (130 deaths against 99, 6.6 levels cleared against 6.9), which is not explained and is probably noise. Not played by hand.</td><td><span class="tag low">LOW</span></td></tr>
