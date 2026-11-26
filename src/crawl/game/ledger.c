@@ -397,6 +397,7 @@ static void death_fall(void) {
 #endif
     RUN.treasure = 0; RUN.souls = 0; RUN.soul_frac = 0.0f; RUN.coins = 0; RUN.goal = 0;
     RUN.has_compass = 0; RUN.compass_kind = WK_EXIT; RUN.compass_color = 0; G.compass_init = 0;   /* before the page is written: a death page must not keep it */
+    RUN.sd_lost = 0;                                               /* side (PLAN-side): the passages' three back after a death that costs */
     g->atk[AT_BFS] = -1;                                           /* the lines' spells follow them (align_sync) */
     memset(RUN.al, 0, sizeof RUN.al); RUN.al_points = 0;           /* the lines go, every one; */
     RUN.cls = RUN.cls_pts = RUN.cls_spent = 0; RUN.al_gift = 0; RUN.gifts = 0; RUN.gifted = 0;   /* the next life is asked what it was, and given again */

@@ -1248,6 +1248,11 @@ static void render_sprites(Frame *f, float dx, float dy, float horizon) {
             ADD(COMPASS_X, COMPASS_Y, 0.42f + 0.04f * sinf((float)G.t * 1.6f + 1.3f), SP_COMPASSWARE, 0);
             if (n > n0) list[n - 1].scale = 0.5f;
         }
+        if (LIFE_FOR_SALE()) {                                     /* side (PLAN-side): a life for the passages, while one is lost */
+            n0 = n;
+            ADD(LIFE_X, LIFE_Y, 0.40f + 0.04f * sinf((float)G.t * 1.6f + 2.6f), SP_LIFEWARE, 0);
+            if (n > n0) list[n - 1].scale = 0.5f;
+        }
         for (int i = 0; i < G.ped_n; i++) {
             if (G.offer_gone[i]) continue;
             const Offer *o = &G.offers[i];

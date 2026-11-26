@@ -266,7 +266,7 @@ static int human_use(void) {
 static const char *use_word(void) {
     if (!G.player || G.dead || G.tally || G.exiting) return 0;
     if (G.shop) {
-        if ((G.shop_look >= 0 && !G.offer_gone[G.shop_look]) || G.map_look || G.compass_look) return "BUY";
+        if ((G.shop_look >= 0 && !G.offer_gone[G.shop_look]) || G.map_look || G.compass_look || G.life_look) return "BUY";
         if (G.pt_look) { int p = por_head(G.pt_look - 1); return por_is_drawn(p) ? "LOOK" : por_can_draw(p) ? "DRAW" : 0; }
         if (G.mer_look) return "SPEAK";
         if (G.stone_look >= 0) return "READ";

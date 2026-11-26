@@ -176,17 +176,19 @@ a plate set water running, the water carries a key down through the gate). Built
 | 4 | The spells, by element | Done; their numbers the owner's to tune |
 | 5 | The creatures (the run's kinds, in their bestiary pictures until their own are drawn) | A first version: walkers, fliers, throwers |
 | 6 | Keys, gold, lives to find, switches firing the crypt's triggers | Done; a switch on a drawn level not yet tried |
-| 7 | The dream in a side passage | A first version: finishes the test passage; the crypt's dream does not yet walk into side doorways by itself |
+| 7 | The dream in a side passage | Done, harness only: it finishes both built-in passages; the crypt's dream walks into a side doorway (`sd_dream_goal`, `USE_SIDE`) once a visit while early, whole and with two lives, and not again on a level where it lost its last |
 | 8 | The text format and its reader; `HOST_SIDE=file` and `HOST_SIDE_NOW` in the harness | Done |
 | 9 | The World Editor: the side map, its export, its checks, PLAY; the crypt's side doorway | Done, harness and Playwright only; not used by the owner |
 | 10 | Side doorways on drawn levels (rooms, halls, secret rooms); the crypt doorway's own texture | |
-| 11 | Lives at the merchant, 500 gold; `LG_SIDE` in the ledger | |
-| 12 | Touch's stones and the controller in a side passage | |
+| 11 | Lives at the merchant, 500 gold; `LG_SIDE` in the ledger | Done, harness only: a votive lamp in her room's south-east corner while a life is lost (`LIFE_*`, `BUY_LIFE`, `SP_LIFEWARE`, a draft); `LG_SIDE`; a death that costs gives the three back |
+| 12 | Touch's stones and the controller in a side passage | Done, harness and Playwright only: the controller (2d); touch: the left stick walks, crouches and, pushed up, goes through a doorway, a tap at the left uses, a finger on the right of the picture jumps, the right strip casts |
 | 13 | Art for each run's creatures from the side, and the caster in the gear worn (as sheets first) | |
 | 14 | `make asan` and long runs; the dream's log on levels without side passages the same, line for line, as the build before | |
 
 ## 4. Debug
 
+- `CRAWL_TPLIFE=1` (before the life for sale in her room) and `CRAWL_SDLOST=n` (the passages' lives lost at a fresh start); `EVENT
+  life_bought lost n left gold`.
 - `CRAWL_TPSIDE=n` (debug build): a side doorway to built-in side passage n in the first wall ahead of the start, every link of
   it going to that one doorway; `CRAWL_SIDE=n` straight into it as the level opens.
 - Events: `EVENT side_in`, `side_out`, `side_life`, `side_done`, `side_over`; `side_works` (a gate, current, flow, platform or trap
@@ -288,4 +290,26 @@ the account). Its store starts empty: maps from the first come across by BACKUP 
   smoke` passed. The crypt's dream, seeds 1 and 4, 1,500 s, line for line the build before's.
 Harness and Playwright only; nothing under Wine; the Windows build to CI. Open: the creatures at the caster's new height; a crypt toast
 (`+4 EXP A ROOM FOUND`) can show over a passage's status bar; the rest of section 3's steps.
+
+**Session 4 (26 November 2026): steps 7, 11 and 12.** Main took the branch squashed first (`2787bbd`; merged back into the branch as
+`7993542`). Built:
+- Step 11. A life for the passages sold in her room at $500 while one is lost: a votive lamp floating in the south-east corner, by the way
+  on (`LIFE_X`, `LIFE_Y`, `LIFE_FOR_SALE()` in `wisps.c`), its price over it, its prompt, its page among her wares (A/D go round to it),
+  `life_buy`. The lamp is `SP_LIFEWARE` (`parts/hall.c`), the passages' own life drawn larger: a draft, as the passages' art is; its frames
+  are `media/sheets/side/life_ware.png`. `LG_SIDE` in the ledger (`RUN.sd_lost` and three spare bytes); a page without it has its three.
+  A death that costs gives the three back, as it takes the compass (`death_fall`).
+- Step 7. The crypt's dream goes into a side doorway as into a chain's (`sd_dream_goal` after `chain_goal`, `USE_SIDE`, `sd_dream_in` from
+  `PS_USE`). Doing it showed the fliers still swooped at the old figure's chest, over the new one's head, where straight bolts passed under
+  them: they come at its middle now.
+- Step 12. Touch in a passage (`sd_person`).
+- The experience banner sat on a passage's bar: it sits over it now.
+Tested: with `CRAWL_TPSIDE` the crypt's dream walked into the doorway and finished the passage on eight seeds of eight, no life lost (before
+the fliers' fix, passage 0 took all three lives on seeds 2 and 4); each passage alone (`HOST_SIDE_NOW`) on eight seeds, sixteen of sixteen,
+and the puzzle fixture. A life bought by a scripted person (`EVENT life_bought lost 1 left 300`), refused when short; `CRAWL_SAVETEST=1`
+15 cases, 0 bad (four of them the lives). Touch in Playwright's Chromium as a Pixel 7 held sideways, on PLAY's path (taken over, the
+title, BEGIN A NEW RUN, straight into *The Cistern Key*): walked right by the stick, jumped by a finger on the right
+(`media/sheets/side/touch.png`). The crypt's dream, seeds 1, 4 and 7, 1,500 s, line for line the build before's but the time-taken
+line; `make asan` clean on two crypts with a doorway (500 s each), the life bought and the save test; `make smoke` passed. Not played by
+hand; nothing under Wine. Left: the creatures' own art and the caster in the gear worn (13, as sheets first); the lamp's look, the
+owner's to approve.
 
