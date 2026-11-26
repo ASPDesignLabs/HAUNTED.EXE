@@ -359,7 +359,8 @@ static void sd_render(Frame *f) {
         else if (t->kind == SDT_LIFE && !SD.taken[i]) sd_light(x, y, 30.0f, 4.0f);
     }
     sd_light(SD.x, SD.y - 14.0f, 64.0f, 4.0f);
-    for (int i = 0; i < SD_SHOTS; i++) if (SD.shot[i].alive && !SD.shot[i].foe) sd_light(SD.shot[i].x, SD.shot[i].y, 48.0f, 6.0f);
+    for (int i = 0; i < SD_SHOTS; i++)                             /* spells, and the dead's fire, light their way */
+        if (SD.shot[i].alive && (!SD.shot[i].foe || SD.shot[i].el == EL_FIRE)) sd_light(SD.shot[i].x, SD.shot[i].y, 48.0f, 6.0f);
     if (SD.beam_t > 0.0f) sd_light((SD.bx0 + SD.bx1) * 0.5f, (SD.by0 + SD.by1) * 0.5f, 80.0f, 10.0f);
 
     /* the far wall, at half the pace, in the dark */
@@ -487,24 +488,51 @@ static void sd_render(Frame *f) {
         default: break;
         }
     }
-    /* the dead: their bestiary pictures from the side, until their own are drawn (step 13) */
+    /* the dead: their bestiary pictures from the side, until their own are drawn (step 13); what strikes them strikes these pixels
+     * (side_dead.c's masks). A warning shows: the last of it a white flash, a thrower's bone held up, a skull's fire in its mouth */
     for (int i = 0; i < SD_MOBS; i++) {
         const SdMob *m = &SD.mob[i];
         if (!m->alive) continue;
         if (m->state == SDM_DIE && ((int)(m->t * 16.0f) & 1)) continue;
-        int spr = ((int)(m->t * 5.0f) & 1) ? KINDS[m->kind].side2 : KINDS[m->kind].side;
-        if (spr <= 0) spr = KINDS[m->kind].spr;
-        int sink = m->state == SDM_DIE ? (int)(m->t * 12.0f) : 0;
-        sd_draw_spr(f, spr, (int)m->x - camx, (int)m->y - camy + sink + (TS / 4 - (int)sd_mob_h(m) / 2 > 0 ? 0 : 0), m->face < 0, sd_lit(m->x, m->y - 10.0f, 18, 1.0f), m->hurt_t > 0.1f);
+        int sink = m->state == SDM_DIE ? (int)(m->t * 12.0f) : 0, light = sd_lit(m->x, m->y - 10.0f, 18, 1.0f);
+        int warn = m->state != SDM_DIE && m->act == SA_WIND && m->act_t > m->wind - 0.16f && ((int)(m->act_t * 30.0f) & 1);
+        if (m->way == SW_DROP && m->state != SDM_DIE)              /* the spider's thread, up to where it is tied */
+            for (int y = (int)m->aim_y; y < (int)sd_mob_top(m) + 2; y++) sd_px(f, (int)m->x - camx, y - camy, R_BONE + 9, light);
+        sd_draw_spr(f, sd_mob_spr(m), (int)m->x - camx, (int)m->y - camy + sink, m->face < 0, light, m->hurt_t > 0.1f || warn);
+        if (m->state == SDM_DIE) continue;
+        if (m->act == SA_WIND && m->next == SA_THROW) {
+            int hx = (int)m->x + m->face * 3 - camx, hy = (int)sd_mob_top(m) + 2 - camy;
+            float k = fminf(1.0f, m->act_t / fmaxf(0.05f, m->wind));
+            if (m->way == SW_THROW) for (int d = -2; d <= 2; d++) sd_px(f, hx + d, hy - 2 - (int)(k * 3.0f), (uint8_t)(R_BONE + 14), light + 4);
+            else sd_blob(f, m->x + (float)m->face * 5.0f, sd_mob_cy(m) - 2.0f, 0.8f + 1.8f * k, R_FLAME, 15);
+        }
+        if (m->act == SA_LASH && m->act_t < 0.24f) {               /* the whip, out from his hand */
+            float hx = m->x + (float)m->face * 6.0f, hy = sd_mob_top(m) + 10.0f;
+            int n = (int)fabsf(m->aim_x - hx);
+            for (int p = 0; p <= n; p++) {
+                float k = (float)p / (float)imax(1, n);
+                sd_px(f, (int)floorf(hx + (m->aim_x - hx) * k) - camx, (int)floorf(hy + (m->aim_y - hy) * k) - camy, (uint8_t)(R_BONE + 6 + (p & 1) * 4), light + 4);
+            }
+        }
     }
-    /* the shots */
+    /* the shots: their pixels are what strike (sd_shot_shape) */
     for (int i = 0; i < SD_SHOTS; i++) {
         const SdShot *s = &SD.shot[i];
         if (!s->alive) continue;
-        if (s->foe || s->kind == SS_BONE) { sd_blob(f, s->x, s->y, 1.6f, R_BONE, 14); continue; }
-        if (s->kind == SS_FLASK) { sd_blob(f, s->x, s->y, 2.2f, R_MOSS, 13); continue; }
+        if (s->kind == SS_BONE) {
+            int dx[SD_SHOT_PX], dy[SD_SHOT_PX], n = sd_shot_shape(s, dx, dy);
+            for (int k = 0; k < n; k++) sd_px(f, (int)floorf(s->x) + dx[k] - camx, (int)floorf(s->y) + dy[k] - camy, (uint8_t)(R_BONE + (k == 0 || k == n - 1 ? 15 : 12)), 26);
+            continue;
+        }
+        if (s->kind == SS_EMBER || s->kind == SS_FIREBALL) {
+            float r = sd_shot_r(s);
+            for (int k = 3; k >= 1; k--) sd_blob(f, s->x - s->vx * 0.02f * (float)k, s->y - s->vy * 0.02f * (float)k, r * (1.0f - 0.25f * (float)k), R_FLAME, 12 - k * 2);
+            sd_blob(f, s->x, s->y, r, R_FLAME, 15);
+            continue;
+        }
+        if (s->kind == SS_FLASK) { sd_blob(f, s->x, s->y, sd_shot_r(s), R_MOSS, 13); continue; }
         int ramp = s->el == EL_FIRE ? R_FLAME : s->el == EL_FROST ? R_GLOW : s->el == EL_SPIRIT ? R_GHOST : s->el == EL_PHYS ? R_BONE : R_GLOW;
-        for (int k = 3; k >= 0; k--) sd_blob(f, s->x - s->vx * 0.012f * (float)k, s->y, 2.4f - 0.5f * (float)k, ramp, 15 - k * 2);
+        for (int k = 3; k >= 0; k--) sd_blob(f, s->x - s->vx * 0.012f * (float)k, s->y, sd_shot_r(s) - 0.5f * (float)k, ramp, 15 - k * 2);
     }
     if (SD.beam_t > 0.0f) {                                        /* lightning: jagged, a moment */
         float x = SD.bx0, y = SD.by0;
