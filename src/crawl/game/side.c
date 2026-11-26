@@ -743,6 +743,7 @@ static void sd_place_at(int link) {
 static int sd_enter(int side, int link, int cx, int cy) {
     if (side < 0 || side >= SD_SIDES || (side >= NSIDE_TEXT && !sdl_read[side])) return 0;   /* built in, or handed over by PLAY */
     side_art_init();                                               /* the tiles and the figure, made once */
+    side_art_traps();                                              /* and those taken from the crypt's walls, in the run's look now */
     if (!sdl_read[side]) {
         char err[160];
         if (!sd_read(SIDE_TEXT[side], &SDL[side], err, sizeof err)) {
@@ -940,6 +941,9 @@ static void sd_update(float dt) {
     SD.camx += (tx - SD.camx) * fminf(1.0f, dt * 5.0f);
     SD.camy += (ty - SD.camy) * fminf(1.0f, dt * 4.0f);
     SD.camx = clampf(SD.camx, 0.0f, fmaxf(0.0f, (float)(SD.L->w * SD_TILE - W)));
+#ifdef CRAWL_DEBUG
+    { float cx, cy; const char *e = getenv("CRAWL_SIDECAM"); if (e && sscanf(e, "%f,%f", &cx, &cy) == 2) { SD.camx = cx * SD_TILE; SD.camy = cy * SD_TILE; } }   /* testing: the view held at a tile */
+#endif
     SD.camy = clampf(SD.camy, 0.0f, fmaxf(0.0f, (float)(SD.L->h * SD_TILE - SD_VIEW_H)));
     /* the figure's frame */
     SD.anim += dt * (fabsf(SD.vx) / 14.0f);

@@ -183,7 +183,7 @@ static void sd_hz_go(int i, int h) {                                /* a turn be
         SD.hz_n[h] = z->fam == HZF_FALL ? 1 : imin(4, z->nc - best);
         SD.hz_at[h] = z->fam == HZF_FALL ? best : best;
     }
-    SD.hz_ph[h] = z->fam == HZF_CREEP ? 3 : 1; SD.hz_k[h] = 0.0f;
+    SD.hz_ph[h] = z->fam == HZF_CREEP && !sd_fx_kind(z->kind) ? 3 : 1; SD.hz_k[h] = 0.0f;
     snd_sfx_ex(z->fam == HZF_FALL ? SFX_RUMBLE : z->fam == HZF_LINE ? SFX_CRACKLE : z->fam == HZF_CLOUD ? SFX_HISS : SFX_DRIP, 0.6f, 0.5f);
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "EVENT side_trap %s goes, %d cells from %d t=%.2f\n", sd_hz_name(z->kind), SD.hz_n[h], SD.hz_at[h], SD.t);
@@ -220,7 +220,7 @@ static void sd_traps(float dt) {
         if (t->kind != SDT_HAZ) continue;
         int h = t->a;
         const SdHaz *z = &L->hz[h];
-        if (!z->nc) continue;
+        if (z->kind == HZ_CENSER || (!z->nc && !sd_fx_kind(z->kind))) continue;   /* the censer swings on its own (side_fx.c) */
         /* what sets it off: its clock, its box walked into, a trigger's waking (neither of the first two: at once) */
         if (SD.st[i] && SD.hz_ph[h] == 0) {
             int go = 0;
@@ -233,13 +233,15 @@ static void sd_traps(float dt) {
             if (!z->how && SD.hz_t[h] <= 0.0f) { go = 1; SD.hz_t[h] = 1e9f; }   /* woken by a trigger, or live from the start */
             if (go) sd_hz_go(i, h);
         }
+        if (sd_fx_kind(z->kind)) { sd_fx_trap(i, h, dt); continue; }   /* run I's that pour and drift (2e) */
         int ph = SD.hz_ph[h];
         if (!ph) continue;
         float w = sd_hz_warn(z);
         SD.hz_k[h] += dt;
         switch (z->fam) {
         case HZF_FALL:                                             /* dust and a shadow; then it comes down: rubble a while */
-            if (ph == 1 && SD.hz_k[h] >= w) { SD.hz_ph[h] = 2; SD.hz_k[h] = 0.0f; snd_sfx_ex(SFX_BOOM, 0.7f, 0.5f); if (sd_hz_covers(h, bx0, by0, bx1, by1, 1.0f)) sd_hz_strike(i, h, sd_hz_harm(z)); }
+            if (ph == 1) sd_fx_grit(h, dt);                         /* grit from the crack first */
+            if (ph == 1 && SD.hz_k[h] >= w) { SD.hz_ph[h] = 2; SD.hz_k[h] = 0.0f; snd_sfx_ex(SFX_BOOM, 0.7f, 0.5f); sd_fx_rubble(h); if (sd_hz_covers(h, bx0, by0, bx1, by1, 1.0f)) sd_hz_strike(i, h, sd_hz_harm(z)); }
             else if (ph == 2 && SD.hz_k[h] >= 2.5f) SD.hz_ph[h] = 0;
             break;
         case HZF_LINE:                                             /* the cells glow one by one in their order; then all burst a second; embers */
@@ -268,6 +270,7 @@ static void sd_traps(float dt) {
         }
     }
     SD.silence_t = fmaxf(0.0f, SD.silence_t - dt); SD.hold_t = fmaxf(0.0f, SD.hold_t - dt);
+    sd_fx_step(dt);                                                /* the particles and the censers (side_fx.c) */
 }
 
 /* ---- laid as the passage opens, and again after a life lost ---- */
@@ -285,4 +288,5 @@ static void sd_works_build(void) {
         if (t->kind == SDT_HAZ) { const SdHaz *z = &L->hz[t->a]; SD.hz_t[t->a] = (z->how & HH_CLOCK) ? z->first : 0.0f; }
         SD.ix[i] = (float)(t->x * SD_TILE) + 8.0f; SD.iy[i] = (float)((t->y + 1) * SD_TILE) - 5.0f; SD.ivx[i] = SD.ivy[i] = 0.0f;
     }
+    sd_fx_build();
 }

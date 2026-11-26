@@ -113,6 +113,7 @@ HAZ HZ_kind x y [ZONE] [SAFE] [CLOCK every give first] [ENTER x0 y0 x1 y1] [HARM
 HZC x y                        ; a cell of the trap last named, in the order painted (where a creep or a line spreads from first)
 TRIG source MODE [secs] tag:ON|OFF|FLIP ... CRYPT:n   ; MODE: ONCE, TOGGLE, HOLD (on while pressed), TIMED secs (on, then off secs after let go)
 TUNE name value                ; this passage's own number for one of the tuned (2d)
+; and on a HAZ line (2e): EMIT rate speed spread life, DIR degrees, RADIAL tiles; the censer's LEN tiles, HANG s, SWING s
 ```
 Any thing takes `TAG name` (what a trigger calls it) and the flags `OFF` (a platform, flow, current or trap still until a trigger),
 `LOOSE` (gold, a key or a life that falls and that water carries), `POISON`, `OPEN`. A source is a switch, a plate or a zone; a target
@@ -165,6 +166,36 @@ a plate set water running, the water carries a key down through the gate). Built
   TOGGLE TAG lever`, `GATE ... TAG gate`, `PLATE ... TAG plate`, `CURRENT ... OFF TAG water`, `KEY ... LOOSE`; `TRIG lever HOLD
   gate:ON` and `TRIG plate HOLD water:ON`. The owner draws the real one.
 
+### 2e. Run I's traps drawn, and what pours and drifts as particles (session 5)
+
+Asked for on 26 November: art for the traps, each with a sign of where it is and what it does while idle, starting with run I's; the censer
+on a chain between two ends the owner sets, three tiles of clearance at the least, its hang and swing set; the breath and the cold vault as
+tiles from their crypt pictures; a mark that stays after a rockfall; votive wax from a candle in a wall sconce that tips and pours, its way
+and rate set by painting; the fluids as particles, from emitters tuned in the World Editor, with a PREVIEW there and a trial by PLAY; the
+reliquary's emitter radial, three tiles by three. The owner chose (asked): the sconce, its tip and rate by the cells painted; wax that pools,
+cools and fades; a crack in the roof that stays, with rubble after that is walked through. Built (`game/side_fx.c`, its drawing in
+`draw/side.c`'s `sd_draw_fx`):
+- **Particles**: wax, vapour, rime, haze, smoke, grit; 900 at once. Wax and rime settle as a falling sand does, on a grid of two pixels: down,
+  then aside while warm (wax cools over 2.6 s, burning above four tenths), so it runs, pools and stops. Gases drift with drag and slide along
+  stone. What harms counts what touches the caster: hot wax one, rime and haze two, breath three; a bite each half second (TUNING:
+  bite_every), by the trap's element; the reliquary takes a soul with each. The dream keeps out of tiles where two or more harm.
+- **The censer**: hung at its anchor, its ends the first two cells painted; its swing eased, still for HANG at each end, SWING a pass; the
+  chain ten links of verlet pinned to the hook and the bowl, two per cent slack so it bows on the swing; a thin smoke behind. Struck, a fifth
+  of health and thrown the way it swings. Its chain three tiles at the least (the game makes it three; the editor refuses less) and the editor
+  refuses an arc that meets stone. Set at head height, a crouch goes under it.
+- **The rockfall**: a crack in the roof over each painted cell, always; grit from it in the warning; rubble on the cell after, till a life
+  is lost or the passage is left.
+- **The votive sconce**: an iron sconce on the back wall; its candle tips toward the side more cells are painted on, further the more there
+  are (to four), and pours 18 a second for each, from its lip along the candle; lit while it stands.
+- **The breath and the cold vault**: the crypt's `T_HZ_SLAB` (open in its warning and its turn) and `T_HZ_COLD`, each made one tile of its
+  4 by 4 commonest colours (`side_art_traps`, as the run looks); their vapour and rime from the open side, kept to the painted cells if any.
+- **The reliquary**: the crypt's sprite, open in its turn; its haze all round to its reach (1, three by three), marked on the floor.
+- A turn: a warning (the thin breath first; the candle tipping), its turn (STAYS, at most 4 s; the sconce 2.2), a rest; while idle a wisp
+  now and then that does no harm. `SIDE_TEXT[2]`, *Run I's Traps*, holds one of each; it is also `tools/mapedit/fixtures/side_traps1.txt`.
+- **The editor**: on a trap's CHOSEN, THE EMITTER (rate, speed, spread, life, its way, the reliquary's reach; -1 or *its own* for the game's)
+  or THE SWING (chain, hang, swing); ITS OWN puts them back; PREVIEW runs `SideCore.fxSim`, the game's rules over again, on the map, round
+  and round, and follows each change. The map shows the censer's arc, the sconce's way and the reliquary's reach.
+
 ## 3. Steps
 
 | Step | What | State |
@@ -187,6 +218,8 @@ a plate set water running, the water carries a key down through the gate). Built
 
 ## 4. Debug
 
+- `CRAWL_SIDECAM=x,y` (the view held at that tile, for frames) and, with `CRAWL_SIDETRACE`, `SIDE fx n: wax .. vapour .. rime .. haze ..
+  smoke .. grit .., n settled` twice a second.
 - `CRAWL_TPLIFE=1` (before the life for sale in her room) and `CRAWL_SDLOST=n` (the passages' lives lost at a fresh start); `EVENT
   life_bought lost n left gold`.
 - `CRAWL_TPSIDE=n` (debug build): a side doorway to built-in side passage n in the first wall ahead of the start, every link of
@@ -312,4 +345,19 @@ title, BEGIN A NEW RUN, straight into *The Cistern Key*): walked right by the st
 line; `make asan` clean on two crypts with a doorway (500 s each), the life bought and the save test; `make smoke` passed. Not played by
 hand; nothing under Wine. Left: the creatures' own art and the caster in the gear worn (13, as sheets first); the lamp's look, the
 owner's to approve.
+
+**Session 5 (26 November 2026): run I's traps and the particles (2e).** Main took steps 7, 11 and 12 squashed first (`9720c44`) and the editor
+was republished with that game before this began, so the other agent on the editor could fetch it. Built as 2e says. Tested:
+- The frames: `media/sheets/side/traps_run1.png` (sent to the owner as a draft; not approved yet), from `HOST_SIDE` and `CRAWL_SIDECAM`.
+- The dream through *Run I's Traps* on four seeds, four of four at the goal and no life lost (struck once by the censer on one); the other
+  two built in as before. Under the sanitizers two runs of 400 s through it, clean. `make smoke` passed. The crypt's dream, seeds 1, 4 and
+  7, 1,500 s, line for line the build before's but the time-taken line.
+- `node tools/mapedit/test.js`: three built in read and written back; the emitters written and read; the censer refused on two tiles of
+  chain and swinging into the floor; a sconce with nothing painted aside refused; the PREVIEW's run (wax settled, the bowl on its circle,
+  the haze within its reach).
+- Playwright's Chromium on the built editor: *Run I's Traps* opened; the censer's PREVIEW and its swing changed while running; a short
+  chain refused in CHECKS; the sconce's rate raised and previewed, pouring and pooling; the reliquary's reach set to 2 and previewed; the
+  breath previewed; the export carried each; PLAY of it with the browser build made here, the dream struck by the censer. No page errors.
+Not played by hand; nothing under Wine. Open: the owner's word on the art; runs II to IV's traps the same way; the editor's PREVIEW is the
+game's rules written again in JavaScript, near but not the same frame for frame.
 

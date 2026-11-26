@@ -32,10 +32,10 @@ static int sdd_room(int tx, int ty) {                              /* 2 room to 
 static int sdd_trap_at(int tx, int ty) {                          /* a trap warning or harming over this tile now */
     const SdLevel *L = SD.L;
     for (int h = 0; h < L->nhz; h++) {
-        if (!SD.hz_ph[h]) continue;
+        if (!SD.hz_ph[h] || sd_fx_kind(L->hz[h].kind)) continue;     /* (those that pour and drift: by their particles, below) */
         for (int c = 0; c < SD.hz_n[h]; c++) { int x, y; if (sd_hz_cell(&L->hz[h], SD.hz_at[h] + c, &x, &y) && x == tx && (y == ty || y == ty - 1)) return 1; }
     }
-    return 0;
+    return sd_fx_danger(tx, ty) || sd_fx_danger(tx, ty - 1);
 }
 static int sdd_stand(int tx, int ty) {
     if (tx < 0 || ty < 1 || tx >= SD.L->w || ty >= SD.L->h - 0) return 0;

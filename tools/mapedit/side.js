@@ -23,6 +23,17 @@ const HAZ_NAMES = { HZ_ROCK: 'Rockfall', HZ_TIMBER: 'Falling timber', HZ_GLASS: 
   HZ_CENSER: 'The censer', HZ_SNARE: 'The snare' };
 const FAMILY_SAYS = { fall: 'dust and a shadow, then it falls on its cells; rubble a while', line: 'its cells glow in the order painted, then burst together; embers',
   creep: 'it spreads over its cells in their order, stays, and drains back', cloud: 'it gathers over its cells, hangs a while, and lifts' };
+/* 2e (the owner, 26 November): run I's traps that pour and drift, by particles from an emitter tuned here (side_fx.c), and the censer's
+   swing. Each number null for the game's own, as here. The votive sconce's rate: 18 a second for each cell painted on its side. */
+const FX_KINDS = new Set(['HZ_VOTIVE', 'HZ_CENSER', 'HZ_BREATH', 'HZ_COLD', 'HZ_RELIQ']);
+const FX_DEF = { HZ_VOTIVE: { rate: null, speed: 1.3, spread: 14, life: 7 }, HZ_BREATH: { rate: 26, speed: 0.7, spread: 55, life: 3.5 },
+  HZ_COLD: { rate: 20, speed: 0.9, spread: 35, life: 4.5 }, HZ_RELIQ: { rate: 34, speed: 1.6, spread: 180, life: 2, radial: 1 },
+  HZ_CENSER: { len: null, hang: 0.7, swing: 1.5 } };
+const FX_SAYS = { HZ_VOTIVE: 'a candle in an iron sconce on the wall: it tips toward the side more of its cells are painted on, further and pouring faster the more there are, and its wax runs, pools and cools',
+  HZ_BREATH: "the crypt's burial slab as a tile: its grey-green breath drifts out of its open side, kept to its painted cells if it has any",
+  HZ_COLD: "the crypt's cold crack as a tile: rime falls from its open side and creeps along the floor, kept to its painted cells if it has any",
+  HZ_RELIQ: "the crypt's reliquary on its plinth: its haze goes out all round it, as far as its reach (1: three tiles by three)",
+  HZ_CENSER: 'an iron bowl on a chain hung here, swinging between the two cells painted for its ends; a thin smoke behind it. The chain three tiles at the least' };
 const MODES = ['ONCE', 'TOGGLE', 'HOLD', 'TIMED'];
 const SOURCES = ['plate', 'zone', 'switch'], TARGETS = ['gate', 'current', 'flow', 'plat', 'haz'];
 const TAG_RE = /^[A-Za-z0-9_-]{1,15}$/;
@@ -78,6 +89,10 @@ function line(t) {
         if (t.enter) p.push('ENTER', t.enter.x0, t.enter.y0, t.enter.x1, t.enter.y1);
         if (t.harm >= 0) p.push('HARM', t.harm | 0); if (t.chance >= 0) p.push('CHANCE', t.chance | 0); if (t.warn >= 0) p.push('WARN', sec(t.warn));
         if (t.stays != null && +t.stays !== 6) p.push('STAYS', sec(t.stays));
+        if (t.emit) p.push('EMIT', num(t.emit.rate), sec(t.emit.speed), num(t.emit.spread), sec(t.emit.life));
+        if (t.dir != null) p.push('DIR', num(t.dir));
+        if (t.radial != null) p.push('RADIAL', num(t.radial));
+        if (t.len != null) p.push('LEN', num(t.len)); if (t.hang != null) p.push('HANG', sec(t.hang)); if (t.swing != null) p.push('SWING', sec(t.swing));
         break;
     default: break;
     }
@@ -239,15 +254,20 @@ function parse(text, kindIds, tuneNames) {
             break;
         case 'haz':
             if (!HAZ_FAMILY[t.kind]) return bad("not one of the crypt's traps: " + t.kind);
-            Object.assign(t, { cells: [], zone: false, safe: false, clock: null, enter: null, harm: -1, chance: -1, warn: -1, stays: 6 });
+            Object.assign(t, { cells: [], zone: false, safe: false, clock: null, enter: null, harm: -1, chance: -1, warn: -1, stays: 6, emit: null, dir: null, radial: null, len: null, hang: null, swing: null });
             for (let i = 4; i < w.length; i++) {
                 if (w[i] === 'ZONE') t.zone = true; else if (w[i] === 'SAFE') t.safe = true;
                 else if (w[i] === 'CLOCK') { t.clock = { every: fv[i + 1], give: fv[i + 2], first: fv[i + 3] }; i += 3; }
                 else if (w[i] === 'ENTER') { t.enter = { x0: iv[i + 1], y0: iv[i + 2], x1: iv[i + 3], y1: iv[i + 4] }; i += 4; }
                 else if (w[i] === 'HARM') t.harm = iv[++i]; else if (w[i] === 'CHANCE') t.chance = iv[++i];
                 else if (w[i] === 'WARN') t.warn = fv[++i]; else if (w[i] === 'STAYS') t.stays = fv[++i]; else if (w[i] === 'TAG') i++;
+                else if (w[i] === 'EMIT') { t.emit = { rate: fv[i + 1], speed: fv[i + 2], spread: fv[i + 3], life: fv[i + 4] }; i += 4; }
+                else if (w[i] === 'DIR') t.dir = fv[++i]; else if (w[i] === 'RADIAL') t.radial = fv[++i];
+                else if (w[i] === 'LEN') t.len = fv[++i]; else if (w[i] === 'HANG') t.hang = fv[++i]; else if (w[i] === 'SWING') t.swing = fv[++i];
             }
             if (t.clock && !(t.clock.every >= 0.5)) return bad("a trap's clock wants half a second at the least");
+            if ((t.emit && (t.emit.rate > 400 || t.emit.life > 30)) || t.radial > 8 || t.len > 20) return bad('an emitter past its limits (rate 400, life 30, radial 8, chain 20)');
+            if ((t.swing != null && t.swing >= 0 && t.swing < 0.2) || t.hang > 30) return bad("a censer's swing wants a fifth of a second at the least");
             lastHaz = t;
             break;
         default: break;
@@ -313,7 +333,9 @@ function check(m) {
     });
     m.things.forEach(t => {
         if (t.k === 'haz') {
-            if (!(t.cells || []).length) err('A trap with no cells: paint them (PAINT ITS CELLS).', t);
+            if (!(t.cells || []).length && !FX_KINDS.has(t.kind)) err('A trap with no cells: paint them (PAINT ITS CELLS).', t);
+            if (t.kind === 'HZ_VOTIVE' && !(t.cells || []).some(([x]) => x !== t.x)) err('A sconce with no cell painted to either side: it does not know which way to tip.', t);
+            if (t.kind === 'HZ_CENSER') censerCheck(m, t).forEach(([sev, msg]) => (sev === 'error' ? err : warn)(msg, t));
             if (!t.clock && !t.enter && !(m.trigs || []).some(g => g.acts.some(a => a.tag && a.tag === t.tag)) && t.stopped) warn('A trap that is off, with no clock, no box and no trigger: it never goes.', t);
             if (t.clock && !(t.clock.every >= 0.5)) err("A trap's clock wants half a second at the least.", t);
         }
@@ -355,7 +377,131 @@ function label(t, kinds) {
     }
 }
 
+/* ---- the censer: its swing as the game has it (side_fx.c's sdc_build, sdc_at), and whether it is clear ---- */
+function censerGeom(t) {
+    const px = t.x * 16 + 8, py = t.y * 16 + 2, a = [-0.7854, 0.7854];
+    let r = 0, got = 0;
+    (t.cells || []).slice(0, 2).forEach(([x, y], k) => { const dx = x * 16 + 8 - px, dy = y * 16 + 8 - py; a[k] = Math.atan2(dx, Math.max(dy, 1)); r += Math.hypot(dx, dy); got++; });
+    r = got ? r / got : 64;
+    if (t.len != null && t.len > 0) r = t.len * 16;
+    const want = r;
+    r = Math.max(r, 48);
+    let a0 = Math.max(-1.4, Math.min(a[0], a[1])), a1 = Math.min(1.4, Math.max(a[0], a[1]));
+    if (a1 - a0 < 0.2) { a0 -= 0.4; a1 += 0.4; }
+    const hang = t.hang != null && t.hang >= 0 ? t.hang : FX_DEF.HZ_CENSER.hang, swing = Math.max(0.2, t.swing != null && t.swing >= 0 ? t.swing : FX_DEF.HZ_CENSER.swing);
+    return { px, py, r, want, a0, a1, hang, swing, ends: got };
+}
+function censerAt(c, t) {
+    const cyc = 2 * (c.hang + c.swing), u = ((t % cyc) + cyc) % cyc, e = s => 0.5 - 0.5 * Math.cos(Math.PI * s);
+    const a = u < c.hang ? c.a0 : u < c.hang + c.swing ? c.a0 + (c.a1 - c.a0) * e((u - c.hang) / c.swing) : u < 2 * c.hang + c.swing ? c.a1 : c.a1 + (c.a0 - c.a1) * e((u - 2 * c.hang - c.swing) / c.swing);
+    return [c.px + c.r * Math.sin(a), c.py + c.r * Math.cos(a), a];
+}
+function censerCheck(m, t) {
+    const c = censerGeom(t), out = [];
+    if (c.ends < 2) out.push(['error', 'A censer wants its two ends painted: the first cell and the second.']);
+    if (c.want < 48) out.push(['error', `Its chain is ${(c.want / 16).toFixed(1)} tiles: three at the least. Hang it higher, or paint its ends further down.`]);
+    if (!SOLID.has(at(m, t.x, t.y - 1))) out.push(['warn', 'Nothing above it to hang from: the hook shows on the dark.']);
+    for (let a = c.a0; a <= c.a1 + 1e-6; a += 0.02) {                /* the bowl's way, and the chain along it, clear of stone */
+        for (let k = 0; k <= 12; k++) {
+            const f = k / 12, r = c.r * f + (k === 12 ? 6 : 0), x = c.px + r * Math.sin(a), y = c.py + r * Math.cos(a);
+            const tx = Math.floor(x / 16), ty = Math.floor(y / 16);
+            if (f > 0.15 && SOLID.has(at(m, tx, ty))) { out.push(['error', `Its swing strikes stone at ${tx},${ty}: it wants the room clear along its arc.`]); return out; }
+        }
+    }
+    return out;
+}
+/* ---- PREVIEW: the emitter run here, as near the game's as a page needs (side_fx.c). step(dt); parts: x, y (pixels), kind, heat, age, life ---- */
+function fxSim(m, t, seed) {
+    let s = (seed || 7) >>> 0;
+    const rnd = () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296;
+    const def = FX_DEF[t.kind] || {}, e = t.emit || {}, own = (v, d) => (v != null && v >= 0 ? v : d);
+    const side = (t.cells || []).reduce((a, [x]) => (x < t.x ? [a[0] + 1, a[1]] : x > t.x ? [a[0], a[1] + 1] : a), [0, 0]);
+    const vdir = side[1] >= side[0] ? 1 : -1, vn = Math.max(1, Math.max(side[0], side[1]));
+    const rate = own(e.rate, t.kind === 'HZ_VOTIVE' ? Math.min(90, 18 * vn) : def.rate || 0), speed = own(e.speed, def.speed || 1) * 16,
+        spread = own(e.spread, def.spread || 30), life = own(e.life, def.life || 3), radial = own(t.radial, def.radial || 1);
+    const solidPx = (x, y) => { const tx = Math.floor(x / 16), ty = Math.floor(y / 16); if (x < 0 || x >= m.w * 16) return true; if (y >= m.h * 16) return false; const ch = at(m, tx, ty); return SOLID.has(ch) || (ch === '=' && (y & 15) < 2); };
+    const occ = new Set(), key = (cx, cy) => cy * 4096 + cx, free = (cx, cy) => !occ.has(key(cx, cy)) && !solidPx(cx * 2, cy * 2) && !solidPx(cx * 2 + 1, cy * 2 + 1);
+    const kind = t.kind === 'HZ_VOTIVE' ? 'wax' : t.kind === 'HZ_BREATH' ? 'vapour' : t.kind === 'HZ_COLD' ? 'rime' : t.kind === 'HZ_RELIQ' ? 'haze' : 'smoke';
+    const warn = t.warn >= 0 ? Math.max(0.9, t.warn) : t.kind === 'HZ_VOTIVE' ? 1.4 : 1.0, on = t.kind === 'HZ_VOTIVE' ? Math.min(t.stays == null ? 6 : t.stays, 2.2) : Math.min(t.stays == null ? 6 : t.stays, 4);
+    let openDir = -90;
+    if (t.kind !== 'HZ_VOTIVE' && t.kind !== 'HZ_RELIQ') {
+        const D = [[1, 0, 0], [-1, 0, 180], [0, 1, -90], [0, -1, 90]], solid = SOLID.has(at(m, t.x, t.y));
+        for (const [dx, dy, d] of D) { if (solid ? !SOLID.has(at(m, t.x + dx, t.y + dy)) : SOLID.has(at(m, t.x - dx, t.y - dy))) { openDir = d; break; } }
+    }
+    const S = { t: 0, phase: 1, k: 0, tip: 0, acc: 0, parts: [], kind, vdir, vn, radial, cen: t.kind === 'HZ_CENSER' ? censerGeom(t) : null, links: [], ball: null, caT: 0 };
+    if (S.cen) { const [bx, by] = censerAt(S.cen, 0); for (let k = 0; k <= 10; k++) S.links.push({ x: S.cen.px + (bx - S.cen.px) * k / 10, y: S.cen.py + (by - S.cen.py) * k / 10, ox: 0, oy: 0 }); S.links.forEach(l => { l.ox = l.x; l.oy = l.y; }); S.ball = [bx, by]; }
+    const mouth = () => {
+        let x = t.x * 16 + 8, y = t.y * 16 + 8, d = openDir;
+        if (t.kind === 'HZ_VOTIVE') { const a = S.tip * (0.6 + 0.25 * Math.min(4, vn)) * vdir; x += Math.sin(a) * 9; y += 2 - Math.cos(a) * 9; d = 90 - a * 57.29578; }
+        else if (t.kind === 'HZ_RELIQ') { y = (t.y + 1) * 16 - 10; d = 0; }
+        else if (SOLID.has(at(m, t.x, t.y))) { x += Math.cos(d * Math.PI / 180) * 9; y -= Math.sin(d * Math.PI / 180) * 9; }
+        if (t.dir != null) d = t.dir;
+        return [x, y, d];
+    };
+    const spawn = (x, y, d, sp, spd, lf, k) => {
+        if (S.parts.length >= 900) return;
+        const a = (d + (rnd() * 2 - 1) * sp) * Math.PI / 180, v = spd * (0.7 + 0.6 * rnd());
+        S.parts.push({ x, y, vx: Math.cos(a) * v, vy: -Math.sin(a) * v, age: 0, life: lf * (0.8 + 0.4 * rnd()), heat: 1, kind: k, rest: false, dir: Math.cos(a) < 0 ? -1 : 1 });
+    };
+    const settle = p => { let cx = Math.floor(p.x / 2), cy = Math.floor(p.y / 2); for (let k = 0; k < 8 && !free(cx, cy); k++) cy--; if (!free(cx, cy)) { p.age = p.life; return; } p.rest = true; p.x = cx * 2 + 1; p.y = cy * 2 + 1; occ.add(key(cx, cy)); };
+    const tryMove = (p, dx, dy) => { const cx = Math.floor(p.x / 2), cy = Math.floor(p.y / 2); if (!free(cx + dx, cy + dy)) return false; occ.delete(key(cx, cy)); occ.add(key(cx + dx, cy + dy)); p.x += dx * 2; p.y += dy * 2; return true; };
+    S.step = dt => {
+        S.t += dt;
+        if (S.cen) {                                               /* the censer: its bowl on its way, the chain after it, the smoke */
+            const [bx, by] = censerAt(S.cen, S.t), rest = S.cen.r * 1.02 / 10;
+            S.ball = [bx, by];
+            for (let k = 1; k < 10; k++) { const l = S.links[k], vx = (l.x - l.ox) * 0.995, vy = (l.y - l.oy) * 0.995; l.ox = l.x; l.oy = l.y; l.x += vx; l.y += vy + 420 * dt * dt; }
+            S.links[0].x = S.cen.px; S.links[0].y = S.cen.py; S.links[10].x = bx; S.links[10].y = by;
+            for (let it = 0; it < 6; it++) for (let k = 0; k < 10; k++) {
+                const A = S.links[k], B = S.links[k + 1], dx = B.x - A.x, dy = B.y - A.y, d = Math.max(0.001, Math.hypot(dx, dy)), f = (d - rest) / d * 0.5;
+                if (d < rest) continue; if (k > 0) { A.x += dx * f; A.y += dy * f; } if (k + 1 < 10) { B.x -= dx * f; B.y -= dy * f; }
+            }
+            if ((S.acc += 6 * dt) >= 1) { S.acc -= 1; spawn(bx, by - 3, 90, 25, 10, 1.4, 'smoke'); }
+        } else {                                                   /* warning, on, off, and round again */
+            S.k += dt;
+            if (S.phase === 1 && S.k >= warn) { S.phase = 2; S.k = 0; } else if (S.phase === 2 && S.k >= on) { S.phase = 5; S.k = 0; } else if (S.phase === 5 && S.k >= 2.5) { S.phase = 1; S.k = 0; }
+            S.tip = t.kind !== 'HZ_VOTIVE' ? 0 : S.phase === 1 ? Math.min(1, S.k / warn) : S.phase === 2 ? 1 : Math.max(0, 1 - S.k);
+            const r = S.phase === 2 ? rate : S.phase === 1 && t.kind !== 'HZ_VOTIVE' ? rate * 0.2 : 0;
+            if (r > 0) {
+                const [x, y, d] = mouth();
+                let lf = life, sp = speed;
+                if (kind === 'haze') lf = Math.min(lf, (radial + 0.6) * 16 / Math.max(8, sp) * 1.6);
+                S.acc += r * dt;
+                while (S.acc >= 1) { S.acc -= 1; const j = kind === 'wax' ? 2 : 6; spawn(x + (rnd() - 0.5) * j, y + (rnd() - 0.5) * j, d, spread, sp, lf, kind); }
+            }
+        }
+        if ((S.caT += dt) >= 1 / 60) {                              /* the settled: down if they can, aside while warm */
+            S.caT = 0;
+            S.parts.forEach(p => { if (!p.rest) return; if (tryMove(p, 0, 1)) return; const flow = p.kind === 'wax' ? p.heat : p.age < p.life * 0.6 ? 0.45 : 0;
+                if (flow <= 0.15) return; if (tryMove(p, p.dir, 1) || tryMove(p, -p.dir, 1)) return; if (rnd() < flow * 0.8 && !tryMove(p, p.dir, 0)) p.dir = -p.dir; });
+        }
+        for (let i = S.parts.length - 1; i >= 0; i--) {
+            const p = S.parts[i];
+            p.age += dt; if (p.kind === 'wax') p.heat = Math.max(0, p.heat - dt / 2.6);
+            if (p.age >= p.life) { if (p.rest) occ.delete(key(Math.floor(p.x / 2), Math.floor(p.y / 2))); S.parts.splice(i, 1); continue; }
+            if (p.rest) continue;
+            let g = 0, drag = 0;
+            if (p.kind === 'wax') g = 520; else if (p.kind === 'rime') { g = 260; drag = 1; } else if (p.kind === 'vapour') { g = 14; drag = 1.6; p.vx += (rnd() - 0.5) * 90 * dt; p.vy += (rnd() - 0.5) * 60 * dt; }
+            else if (p.kind === 'haze') drag = 1.2; else if (p.kind === 'smoke') { g = -26; drag = 2.2; p.vx += (rnd() - 0.5) * 40 * dt; }
+            p.vy += g * dt; p.vx -= p.vx * Math.min(1, drag * dt); p.vy -= p.vy * Math.min(1, drag * 0.5 * dt);
+            const nx = p.x + p.vx * dt, ny = p.y + p.vy * dt;
+            if (solidPx(nx, ny) || ((p.kind === 'wax' || p.kind === 'rime') && occ.has(key(Math.floor(nx / 2), Math.floor(ny / 2))))) {
+                if (p.kind === 'wax' || p.kind === 'rime') { settle(p); continue; }
+                if (!solidPx(nx, p.y)) { p.x = nx; p.vy *= -0.2; } else if (!solidPx(p.x, ny)) { p.y = ny; p.vx *= -0.2; } else { p.vx = p.vy = 0; }
+                continue;
+            }
+            p.x = nx; p.y = ny;
+            if (p.kind === 'haze') { const r = (radial + 0.5) * 16, dx = p.x - (t.x * 16 + 8), dy = p.y - ((t.y + 1) * 16 - 10); if (dx * dx + dy * dy > r * r) p.age = Math.max(p.age, p.life - 0.15); }
+            if ((p.kind === 'vapour' || p.kind === 'rime') && (t.cells || []).length) {
+                const tx = Math.floor(p.x / 16), ty = Math.floor(p.y / 16);
+                if (!t.cells.some(([x, y]) => x === tx && Math.abs(y - ty) <= 1)) p.age += dt * 3;
+            }
+        }
+    };
+    return S;
+}
+
 const API = { LIM, TILES, TILE_NAMES, SOLID, KINDS, GOLD, RANKS, KEYS, FALL_DELAY, FALL_BACK, HAZ_FAMILY, HAZ_NAMES, FAMILY_SAYS, MODES, SOURCES, TARGETS, TAG_RE,
-              blank, add, newTag, at, resize, exportText, exportC, parse, check, label };
+              blank, add, newTag, at, resize, exportText, exportC, parse, check, label, FX_KINDS, FX_DEF, FX_SAYS, censerGeom, censerAt, censerCheck, fxSim };
 if (typeof module !== 'undefined' && module.exports) module.exports = API; else root.SideCore = API;
 })(typeof window !== 'undefined' ? window : globalThis);
