@@ -173,7 +173,7 @@ export from the World Editor, word for word, in place of `DRAWN2_*` in `game/dra
 cells wider; a room north of the east hall (x 11-13, y 1-3) behind a barred door (B at 11,4) and a plate in it (trigger 0, *Open Back
 Room Exit*, opens the door); a second secret east of the ice (c at 15,19, its room x 16-24, y 18-19, four pieces of gold); side passage
 1's two doorways (link 0 in the east secret's room, link 1 into the plate's room, so the passage is the way into it); eight lights by
-hand (the generator's six taken off); the switch moved onto the ice (13.13, 18.88), the gate's seal to (14.38, 11.38). One change in the
+hand (the generator's six taken off); the switch moved onto the ice (13.13, 18.88). The export had the gate's seal at (14.38, 11.38), on the wall beside the gate; set back on the gate (13.50, 11.06) at the owner's word, in the fixture too. One change in the
 lessons with it: B18 turns you to the nearest secret not yet opened, not the first (the drawing has two now, and the east one is laid
 first). `data.json` extracted again. Tried: the dream from level 2 on eight seeds (1-15 odd) against the build before: level 2 cleared
 on all eight both ways, no death on it, about 309 s on the level against 311 s; none took the side passage or found a secret. A person

@@ -1108,6 +1108,6 @@ key).
   level 1: when the settings carry no lessons byte yet but someone has played here (settings of their own, or a page or progress in
   the ledger), `pl_read` counts them as given, so the title's HELP gives them back. Step 9's checks are still to do.
 - **26 November: level 2 redrawn by the owner in the World Editor** (docs/PLAN-mapedit.md, its log): the same layout with a room behind a
-  barred door and its plate, a second secret east of the ice, side passage 1's doorways, eight lights by hand, the switch on the ice and
-  the gate's seal moved. B18 now turns to the nearest secret not yet opened. The beats' places (trigger 1, x, the ice's line) are where
+  barred door and its plate, a second secret east of the ice, side passage 1's doorways, eight lights by hand, the switch on the ice; the
+  gate's seal left on the gate (the export had moved it, the owner said put it back). B18 now turns to the nearest secret not yet opened. The beats' places (trigger 1, x, the ice's line) are where
   they were. Harness only; step 9's checks still to do.

@@ -226,7 +226,7 @@ static const DrawnThing DRAWN2_THING[] = {
     { DT_MARK, 0, 5.50f, 3.50f }, { DT_MARK, 1, 11.80f, 7.60f }, { DT_MARK, 2, 2.40f, 9.50f },
     { DT_MARK, 2, 7.30f, 14.80f }, { DT_MARK, 2, 0.30f, 16.20f }, { DT_MARK, 2, 3.20f, 16.50f },
     { DT_MARK, 0, 11.70f, 23.20f }, { DT_MARK, 2, 3.70f, 26.20f }, { DT_MARK, 2, 5.50f, 31.40f },
-    { DT_MARK, 1, 11.10f, 31.60f }, { DT_SWITCH, 0, 13.13f, 18.88f }, { DT_GSEAL, 0, 14.38f, 11.38f },
+    { DT_MARK, 1, 11.10f, 31.60f }, { DT_SWITCH, 0, 13.13f, 18.88f }, { DT_GSEAL, 0, 13.50f, 11.06f },
     { DT_SIDEDOOR, 16, 23.38f, 17.63f }, { DT_SIDEDOOR, 17, 11.50f, 0.50f }, { DT_PLATE, 0, 11.63f, 3.63f },
     { DT_SGOLD, IT_CHEST, 23.38f, 19.38f }, { DT_SGOLD, IT_GEMS, 20.63f, 18.63f }, { DT_SGOLD, IT_CROWN, 18.63f, 18.63f },
     { DT_SGOLD, IT_CHALICE, 17.38f, 18.38f },
