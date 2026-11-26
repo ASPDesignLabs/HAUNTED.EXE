@@ -79,5 +79,10 @@ for line in side_body.split("\n"):
     cur += lit.group(1).encode("latin-1").decode("unicode_escape")
     if lit.group(2): sides.append({"n": len(sides), "text": cur}); cur = ""
 if not sides or not sides[0]["text"].startswith("SIDE 1"): sys.exit("no side passages found")
-json.dump({"drawn": drawn, "sides": sides, "elems": elems, "hazards": hazards, "lights": dl, "stamps": stamps, "kinds": kinds, "budget": runb, "items": dict(zip(items, vals)), "rooms": rts,
+# the side passages' tuning (docs/PLAN-side.md): TUNE[] in side_text.c, its order the game's indices
+tune_src = read(src + "game/side_text.c")
+tune = [{"name": a, "def": float(b), "lo": float(c), "hi": float(d), "step": float(e), "what": f} for a, b, c, d, e, f in
+        re.findall(r'\{ "(\w+)", ([\d.]+)f, ([\d.]+)f, ([\d.]+)f, ([\d.]+)f, "([^"]*)" \}', tune_src[tune_src.index("TUNE[NTU]"):])]
+if len(tune) < 30: sys.exit("the tuning table was not read")
+json.dump({"drawn": drawn, "sides": sides, "tune": tune, "elems": elems, "hazards": hazards, "lights": dl, "stamps": stamps, "kinds": kinds, "budget": runb, "items": dict(zip(items, vals)), "rooms": rts,
            "mapn": int(re.search(r"#define MAPN (\d+)", defs).group(1))}, sys.stdout, indent=None, separators=(",", ":"))

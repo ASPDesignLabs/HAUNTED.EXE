@@ -37,6 +37,7 @@ addEventListener("message", (e) => {
   if (Array.isArray(e.data.sides)) {                       /* side passages (docs/PLAN-side.md): each into its number; one to go straight into */
     window.HVS_SIDES = e.data.sides.filter(s => s && typeof s.text === "string" && Number.isInteger(s.n));
     if (Number.isInteger(e.data.sideNow)) { window.HVS_SIDE_NOW = e.data.sideNow; window.HVS_SIDE_LEVEL = e.data.level; }
+    if (Array.isArray(e.data.tune)) window.HVS_TUNE = e.data.tune;
   }
   const note = document.createElement("p");
   note.className = "note";

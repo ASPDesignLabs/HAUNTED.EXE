@@ -185,9 +185,10 @@ DATA.hazards.fixed.flat().concat(DATA.hazards.arise.flat(), DATA.hazards.sapper)
 /* side passages (docs/PLAN-side.md): each built in read and written back letter for letter; a new one, its export read back; the
  * crypt's side doorway; the reader refusing what the game would. The files under fixtures/ are for the harness's HOST_SIDE. */
 {
-    const SC = require('./side.js'), ids = DATA.kinds.map(k => k.id);
+    const SC = require('./side.js'), ids = DATA.kinds.map(k => k.id), tn = (DATA.tune || []).map(k => k.name);
+    if (tn.length < 30) fail(`the tuning table read ${tn.length} names`);
     for (const s of DATA.sides) {
-        const r = SC.parse(s.text, ids);
+        const r = SC.parse(s.text, ids, tn);
         if (r.error) { fail(`side passage ${s.n}: line ${r.line}: ${r.error}`); continue; }
         const out = SC.exportText(r.map);
         if (out !== s.text) { const a = s.text.split('\n'), b = out.split('\n'), i = a.findIndex((l, k) => l !== b[k]); fail(`side passage ${s.n}: line ${i + 1} "${b[i]}" was "${a[i]}"`); }
@@ -201,7 +202,11 @@ DATA.hazards.fixed.flat().concat(DATA.hazards.arise.flat(), DATA.hazards.sapper)
     SC.add(m, { k: 'fall', x: 15, y: 8, delay: 0.3, back: 2 }); SC.add(m, { k: 'fall', x: 16, y: 8, delay: SC.FALL_DELAY, back: SC.FALL_BACK });
     SC.add(m, { k: 'mob', x: 25, y: 10, kind: 'MOB_SKEL', rank: 'RK_II' }); SC.add(m, { k: 'switch', x: 30, y: 10, thing: 4, toggle: true });
     SC.add(m, { k: 'gold', x: 12, y: 10, it: 'IT_CROWN' }); SC.add(m, { k: 'key', x: 13, y: 10, c: 2 });
-    const t1 = SC.exportText(m), back = SC.parse(t1, ids);
+    SC.add(m, { k: 'gate', x: 18, y: 9, w: 1, h: 2, open: false, tag: 'g1' }); SC.add(m, { k: 'plate', x: 6, y: 10, tag: 'p1' });
+    SC.add(m, { k: 'current', x: 20, y: 5, w: 4, h: 1, dx: 1, dy: 0, speed: 3, stopped: true, poison: true, tag: 'w1' }); m.things.find(t => t.k === 'key').loose = true;
+    SC.add(m, { k: 'haz', kind: 'HZ_FIRE', x: 30, y: 10, cells: [[30, 10], [31, 10]], zone: true, safe: true, clock: { every: 4, give: 1, first: 2 }, enter: { x0: 28, y0: 9, x1: 31, y1: 10 }, harm: 20, chance: -1, warn: 1.5, stays: 6, tag: 't1' });
+    m.trigs = [{ src: 'p1', mode: 'HOLD', acts: [{ tag: 'w1', verb: 'ON' }, { tag: 'g1', verb: 'FLIP' }] }, { src: 'p1', mode: 'TIMED', secs: 2.5, acts: [{ crypt: 7 }] }]; m.tune = { walk: 80, jump: 250 };
+    const t1 = SC.exportText(m), back = SC.parse(t1, ids, tn);
     if (back.error) fail(`a new passage's export: line ${back.line}: ${back.error}`);
     else if (SC.exportText(back.map) !== t1) fail("a new passage's export does not read back the same");
     fs.writeFileSync(path.join(__dirname, 'fixtures', 'side_new.txt'), t1);

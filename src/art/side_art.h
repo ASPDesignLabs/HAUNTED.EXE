@@ -6,8 +6,8 @@
 #include <stdint.h>
 
 #define STS 16                      /* a tile, square in pixels (tall on the screen, as mode 13h's pixels are) */
-#define SF_W 32                     /* a frame of the figure: the feet at the foot, the middle at SF_W / 2 */
-#define SF_H 32
+#define SF_W 20                     /* a frame of the figure: the feet at the foot, the middle at SF_W / 2 (half height since 26 November) */
+#define SF_H 18
 
 enum {                              /* the tiles, row-major, C_CLEAR where the backdrop shows */
     ST_STONE0, ST_STONE1, ST_STONE2, ST_STONE_TOP,                 /* the stone: three looks, and with dust and moss on top */

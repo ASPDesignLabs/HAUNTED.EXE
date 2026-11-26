@@ -75,6 +75,8 @@ KEEP const char *web_side_load(int n, int len) {
     return crawl_side_text(n, g_stxt, g_serr, sizeof g_serr) ? g_serr : "";
 }
 KEEP void web_side_now(int n, int level) { crawl_side_now(n, level); }
+void crawl_side_tune(int k, float v);
+KEEP void web_side_tune(int k, float v) { crawl_side_tune(k, v); }   /* the editor's sliders while it plays */
 
 /* the generator's lights on the drawing loaded (docs/PLAN-lights.md): after web_drawn_load, with or without web_start (the editor
  * loads this module in its own page only to ask). A static array: how many, then style (DL_*), x, y for each, in the drawing's cells;
