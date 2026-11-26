@@ -384,8 +384,8 @@ C:\&gt;<span id="cmd">HAUNTED.EXE</span><span class="cursor"></span></pre>
   </section>
 
   <section aria-labelledby="new">
-    <h2 id="new">New in this release: three left</h2>
-    <p>When only three of a level's dead remain, every torch, lamp and chandelier turns a cold, pale ghost-light and breathes slowly. Underneath, the crypt has learnt to be drawn by hand: events, hazards, lights, relics and side passages for the levels to come.</p>
+    <h2 id="new">New in this release: the dead in the side passages</h2>
+    <p>The side passages, a small platformer behind crypt doorways, are not in the levels yet, but you can walk one in the browser: <a href="play/?side=0">play/?side=0</a> starts a new run straight in the first, its saves kept apart. The dead there go each their own way now: skeletons keep off and lob bones high and slow enough to step aside from, bats circle, flutter and dive, every blow flashes before it lands, and what strikes is the creature's own pixels, not a box round it.</p>
   </section>
 
   <section aria-labelledby="game">
@@ -432,11 +432,12 @@ C:\&gt;<span id="cmd">HAUNTED.EXE</span><span class="cursor"></span></pre>
 
   <section aria-labelledby="beta">
     <h2 id="beta">Beta status</h2>
-    <p>This is the twenty-first beta's eleventh point release, 1.0.0b21.11, "Three Left". The author played 1.0.0b21.7, "Drawn Rooms", and said it plays well; none of the four since has been played by hand. Everything is tested in the test harness, not under Wine, and the Windows and browser builds were compiled and smoke-tested by GitHub Actions. What each release was tested with, and how, is under <em>What has been verified</em> in the <a href="https://github.com/ASPDesignLabs/HAUNTED.EXE#what-has-been-verified">README</a>.</p>
+    <p>This is the twenty-first beta's twelfth point release, 1.0.0b21.12, "The Dead's Gallery". The author played 1.0.0b21.7, "Drawn Rooms", and said it plays well; none of the five since has been played by hand. Everything is tested in the test harness, not under Wine, and the Windows and browser builds were compiled and smoke-tested by GitHub Actions. What each release was tested with, and how, is under <em>What has been verified</em> in the <a href="https://github.com/ASPDesignLabs/HAUNTED.EXE#what-has-been-verified">README</a>.</p>
     <div class="scroll">
       <table>
         <thead><tr><th>Area</th><th>Evidence</th><th>Confidence</th></tr></thead>
         <tbody>
+          <tr><td>The dead in the side passages (1.0.0b21.12)</td><td>Not played by hand. In the harness: a scripted person seven tiles from a skeleton was struck by 5 of 6 bones standing still and 1 of 7 stepping about; each kind alone in a passage, the dream at the goal every time; the four passages before on eight seeds each, no life lost before or after; the crypt's screensaver logging the build before's lines to the line.</td><td><span class="tag low">LOW</span></td></tr>
           <tr><td>Three left, and levels drawn by hand (1.0.0b21.11)</td><td>Not played by hand. In the harness: the screensaver on eight seeds for 3,000 seconds logging the build before's lines to the line; the torches' change is drawing only. The drawn levels' events, hazards, lights, relics and side passages were tested on drawings made for the purpose; none is in this release's levels yet.</td><td><span class="tag low">LOW</span></td></tr>
           <tr><td>The new words (1.0.0b21.10)</td><td>Not played by hand. In the harness: the screensaver on two seeds for 600 seconds logging the build before's lines but for the renamed names, four more for 1,500 seconds clean under AddressSanitizer, and no text overflowing its pane. Each boss's, shop's and controller's line has been checked by the numbers and not read in place.</td><td><span class="tag low">LOW</span></td></tr>
           <tr><td>The compass</td><td>Not played by hand. In the harness: the bearing from eight places round the exit and each key on five levels, the saved page read back for every compass it can hold, scripted players who bought one, aimed it, died and woke, clean under AddressSanitizer. The screensaver on eight seeds for 3,000 seconds logged the same lines as the build before, but it cannot buy one. 2,500 gold is the author's number and is not weighed by hand.</td><td><span class="tag low">LOW</span></td></tr>

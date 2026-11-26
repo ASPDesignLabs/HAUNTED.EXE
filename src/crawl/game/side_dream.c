@@ -156,9 +156,10 @@ static void sdd_fight(void) {                                      /* the neares
     for (int i = 0; i < SD_MOBS; i++) {
         const SdMob *m = &SD.mob[i];
         if (!m->alive || m->state == SDM_DIE || ((KINDS[m->kind].flags & KF_SPIRIT) && ATK_ELEM[sp] != EL_SPIRIT)) continue;
-        float d = fabsf(m->x - SD.x), dy = (m->y - sd_mob_h(m) * 0.5f) - (SD.y - SD_HAND);
+        if (m->act == SA_STONE || m->way == SW_SAC) continue;        /* a statue, an egg: let be */
+        float d = fabsf(m->x - SD.x), dy = sd_mob_cy(m) - (SD.y - SD_HAND);
         if (d > fminf(reach, 150.0f) || fabsf(dy) > 14.0f + sd_mob_h(m) * 0.5f) continue;
-        if (!sd_line_clear(SD.x, SD.y - SD_HAND, m->x, m->y - sd_mob_h(m) * 0.5f)) continue;
+        if (!sd_line_clear(SD.x, SD.y - SD_HAND, m->x, sd_mob_cy(m))) continue;
         if (d < best) { best = d; t = m; }
     }
     if (!t) return;

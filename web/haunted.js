@@ -5,6 +5,16 @@
 (() => {
   "use strict";
 
+  // ?side=n (and ?level=l, 1 by default): a new run that goes straight into side passage n (docs/PLAN-side.md), CATACOMB alone,
+  // its saves kept apart so it never touches the run a person has going
+  const SIDE_ASK = new URLSearchParams(location.search).get("side");
+  if (!window.HVS_WANT_LEVEL && SIDE_ASK != null && /^\d$/.test(SIDE_ASK)) {
+    const lv = Number(new URLSearchParams(location.search).get("level"));
+    window.HVS_SIDE_NOW = Number(SIDE_ASK);
+    window.HVS_SIDE_LEVEL = Number.isInteger(lv) && lv >= 1 && lv <= 99 ? lv : 1;
+    window.HVS_FORCE = Object.assign({ haunt: 0, crawl: 1 }, window.HVS_FORCE || {});
+    window.HVS_PREFIX = window.HVS_PREFIX || "haunted.exe/side/";
+  }
   const PREFIX = window.HVS_PREFIX || "haunted.exe/";   // the origin is shared with the organisation's other pages (the world
                                                      // editor's PLAY keeps its own: docs/PLAN-mapedit.md)
   const VERSION = document.documentElement.dataset.version || "";

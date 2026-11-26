@@ -217,12 +217,13 @@
 /* More menus' logic: the Compendium, the Repository, the Codex, the Totem, the Portal; the map's keys; update_ui */
 #include "game/menus_hall.c"
 
-/* Side passages (docs/PLAN-side.md): those built in; what one is and its text read; the platformer itself; the dream in one */   /* side (PLAN-side) */
+/* Side passages (docs/PLAN-side.md): those built in; what one is and its text read; the platformer itself; the dead in one; the dream in one */   /* side (PLAN-side) */
 #include "game/side_levels.c"
 #include "game/side_text.c"
 #include "game/side.c"
 #include "game/side_fx.c"
 #include "game/side_works.c"
+#include "game/side_dead.c"                                         /* the dead: their masks, ways and shots */
 #include "game/side_dream.c"
 
 /* Rendering begins: shading and fog, the floor and ceiling (render_floor), secrets' cracks, the floor's marks (hazards, omens, wards, ice: fm_pixel) */

@@ -249,6 +249,48 @@ sinking to a low D minor. The rest are kept, at the owner's word, for other thin
 choose among them, 0 being what was there before (the whoosh; the groan, and nothing for the drop); the toll plays for the drop too.
 `host music none secs out.wav sfxN:gain@t` renders an effect alone.
 
+### 2h. The dead in a side passage: what they see, how each kind fights, and what strikes (session 8)
+
+The owner, 26 November: some of the dead were not moving or attacking properly in a passage; the skeletons' bones came too quick and
+true to step out of; the bats' hits did not match the bats; what flies should strike by its pixels, not a box. All in `game/side_dead.c`.
+- **Masks.** Each creature's picture is a mask made by the drawing's own rule (`sd_draw_spr`: half size, a pixel where two of its four
+  are), cached per sprite (`sd_mask`); `sd_mob_spr` is the frame shown, the same function the drawing calls, so what is tested is what
+  is drawn (checked: every drawn pixel of the bat, hound, whipper, spider and imp against its mask, none apart). The caster's figure is
+  tested by its frame's pixels (`sd_fig_px`). A shot is moved a pixel at a time and each of its pixels tried (`sd_shot_shape`: the
+  dead's bone a five-pixel stick turning, the rest round, the same pixels drawn); lightning and the drain strike the first picture their
+  line crosses; the flask's splash reaches what has a pixel within its round. A blow lands where the creature's pixels, moved its reach
+  ahead, meet the caster's (`sd_mob_touches`). The boxes were well off: the bat's covered 0 to 14 pixels over its feet while it is drawn
+  14 to 30 over them (6 to 21 on the other beat), and the hound is 30 wide where its box was 16.
+- **Sight and memory.** The dead see as before (`dead_sight`, a clear line from their picture's middle); once you are out of sight they
+  go on to where they last saw you for `dead_memory` seconds; struck, they know from where.
+- **Warnings.** Every blow, throw, leap and dive comes after a warning, the crypt's own wind-up (`ATTACKS`, `attacks.c`) times
+  `dead_wind`, never less than a quarter second; its last moment the creature flashes white, a skeleton holds its bone up, an imp's
+  ember and a wall skull's fire grow in its hand and mouth. Strength, element and wait are the crypt attack's own (`k`, `el`, `cool`).
+  Having struck, a walker steps back and gathers itself half a second.
+- **The bone.** Thrown after a half-second warning at where you stood then, never ahead of you; a high, slow lob, `bone_time` seconds
+  in the air over seven tiles (never less than 0.8 of it, near or far), under `bone_grav` (380, where the caster falls at 950), so it
+  hangs at the top some 40 pixels up; flatter under a low roof. It lands within `bone_aim` pixels of the mark (8, less for higher ranks):
+  stood still you are hit, a step aside and you are not.
+- **Each kind's way** (`sd_way_of`): walkers (the shambler, guard, drowned, hound, knight, spiderling, lightless, rat) come at you along
+  the floor, hop a step a tile high, will not walk into spikes or poison (the drowned wade it) nor off an edge but after you and not far
+  down; the quick ones (hound, ghoul, hunter, rat, spiderling, lightless) jump up to a ledge you stand on and over a gap of two or three
+  tiles. The guard charges now and then. The skeleton keeps off (40 to 110 pixels) and throws. The hunting spider and the ghoul leap at
+  where you stood, and land a moment helpless. The bat circles beside you, its middle a little over your hand so a straight bolt catches it as it
+  bobs, flutters, dives along the line to where you were and climbs away; its bite (and a spiderling's, a rat's) only nudges you, where
+  the rest throw you back as before (a bat over the Ossuary Stair's falling blocks threw the dream off them, a death the old bat, whose
+  box lay under its picture, never dealt). The spectre drifts through the stone, shrieks when close and melts away, harmless. The shade comes at you; the wraith through
+  the stone. The imp hangs off, high, and throws embers (`dead_shot`). The wall skull stays where it is set, glows a second and spits a
+  slow fireball. The spider hangs on a thread from the roof over where it is set and drops on you passing under, then climbs back. The
+  egg sac opens into three spiderlings when you come close. The brood mother lays a spiderling every five seconds, three at once at
+  most. The deacon keeps back, calls the dead near the first time he sees you, and chants the fallen of bone up again as skeletons, four
+  at most (a blow breaks the chant). The sexton keeps back and rings: the dead within fourteen tiles know where you are for eight
+  seconds (frost stops the bell). The whipper-in winds his horn when he has hounds (they come on, quicker) and lashes with his whip,
+  whose line strikes by its pixels. The gargoyle is stone till you come within three tiles, shakes itself loose and dives as a bat.
+- **Tuned** (TUNING in the World Editor, at the end of the list): `bone_time` 1.1, `bone_grav` 380, `bone_aim` 8, `dead_wind` 1.0,
+  `dead_memory` 3.0, `dead_shot` 110.
+- **Not changed:** the creatures' pictures and their size against the caster (they stand about twice its height since the caster was
+  halved; step 13 is their own art); the crypt and its dead.
+
 ## 3. Steps
 
 | Step | What | State |
@@ -258,7 +300,7 @@ choose among them, 0 being what was there before (the whoosh; the groan, and not
 | 2 | The mode: in by a doorway and out again, the caster's box and physics, the tiles, the camera, the status bar, lives and their end; a test passage built in; `CRAWL_TPSIDE` | Done |
 | 3 | Moving platforms, falling blocks, toxic flows, spikes | Done |
 | 4 | The spells, by element | Done; their numbers the owner's to tune |
-| 5 | The creatures (the run's kinds, in their bestiary pictures until their own are drawn) | A first version: walkers, fliers, throwers |
+| 5 | The creatures (the run's kinds, in their bestiary pictures until their own are drawn) | Done, harness only (2h): each kind its own way, warnings before every blow, pixel-true hits; their numbers the owner's to tune |
 | 6 | Keys, gold, lives to find, switches firing the crypt's triggers | Done; a switch on a drawn level not yet tried |
 | 7 | The dream in a side passage | Done, harness only: it finishes both built-in passages; the crypt's dream walks into a side doorway (`sd_dream_goal`, `USE_SIDE`) once a visit while early, whole and with two lives, and not again on a level where it lost its last |
 | 8 | The text format and its reader; `HOST_SIDE=file` and `HOST_SIDE_NOW` in the harness | Done |
@@ -287,7 +329,7 @@ levels it plays, against the build before on eight seeds, the same on every leve
 
 ## 6. What this branch touches that others share
 
-New files: `src/crawl/game/side.c`, `side_text.c`, `side_dream.c`, `src/crawl/draw/side.c`, `src/art/side_art.c` and
+New files: `src/crawl/game/side.c`, `side_text.c`, `side_dead.c`, `side_dream.c`, `src/crawl/draw/side.c`, `src/art/side_art.c` and
 `side_art.h`, `tools/sidemock.c`, and later `tools/mapedit/side.js`. Lines in shared files, each marked `/* side (PLAN-side) */`:
 `scene_crawl.c` (the parts' list), `Makefile` (`SRC` and the mock-up), `game/update.c` (the hand-off in `crawl_update`),
 `draw/frame.c` (the hand-off in `crawl_render`), `game/human.c` (the doorway walked into and used), `game/drawn.c` and
@@ -447,3 +489,38 @@ II's passages with a person standing at the door; under the sanitizers on run I'
 Then four jumps and three jingles to hear (2g), rendered with `host music` and sent; the owner chose the bone pipe and the toll. Each death
 sounds once (`EVENT side_death_sound`), the drop included; the sanitizers clean on three passages' worth of each; `make smoke` passed.
 Harness only, but for the owner's ear on the rendered files.
+
+**Session 8 (26 November 2026): the dead in a side passage (2h).** The owner: some of the dead did not move or attack properly in a
+passage, the skeletons' bones came too quick and true to avoid, the bats' hits did not match the bats, and what flies should strike by its
+pixels. Built as 2h says, in a new part, `game/side_dead.c` (between `side_works.c` and `side_dream.c`); the old creature and shot loops
+left `side.c`. A built-in example to meet them all, *The Dead's Gallery* (`SIDE_TEXT[4]`, a crypt doorway names none), and its frames as
+`media/sheets/side/dead_gallery.png`. Tested, harness only:
+- The masks against the drawing: every drawn pixel of the bat, hound, whipper, spider and imp, and of eight kinds together, the same as
+  the mask's (none apart; the flipped facing, as all faced the caster).
+- The bone: a scripted person at seven tiles, level 3, rank I. Standing still, 5 of 6 throws struck; stepping back and forth, 1 of 7.
+  Each throw comes after half a second's warning and is in the air about a second, rising some 40 pixels (at first it rose 7 to 22 and
+  landed within 18 pixels either way, so a person standing still was mostly missed: the arc raised and the aim tightened to 8).
+- Every kind alone in a passage of its own, the dream through it (24 kinds, level 6): at the goal each time, no life lost; and mixed
+  (the deacon and his bones, the whipper and his hounds, the sexton, spiders under a low roof with a gargoyle and a wall skull): each act
+  seen in the `side_dead` events. The deacon raised the fallen once nobody struck him (struck, his chant broke, as in the crypt).
+- The dream through the four built in, eight seeds each, 600 s, against the build before (`61b54b1`): the Cistern Key and run I's traps
+  the same, run for run; run II's hurt 15 to 32 times (17 to 30 before); the Ossuary Stair hurt 4 to 14 (6 to 10) and slaying more,
+  since its bats can be struck now; no life lost anywhere, before or after. On the way, the Ossuary Stair's bat over the falling blocks
+  threw the dream off them on two seeds (six lives, two runs ended): mended by the bat's bite nudging rather than throwing, and the
+  bats circling low enough to be struck. Two tries at teaching the dream to wait for fliers made it worse and were taken out.
+- *The Dead's Gallery* on eight seeds at level 4: at the goal each time, no life lost; levels 2 and 6 the same; at 8 and 10 the end bays
+  (the bell and the deacon's call bringing all at once) cost the dream nine lives before it got through, with a first-run flask.
+- The crypt's dream, seeds 1, 4 and 7, run 7, 1,500 s, line for line the build before's but the time-taken line. `make asan`: the gallery
+  at levels 4 and 9, the Ossuary Stair, run II's, and two mixed passages, 300 s each (`ASAN_OPTIONS=detect_leaks=0`): clean. `make
+  smoke` passed. `node tools/mapedit/test.js` passed (five built in now). The browser build (`make web`, Emscripten 6.0.13) and its
+  smoke test in Playwright's Chromium passed; the editor's page served locally opened the gallery and showed the six new sliders, no
+  page errors.
+- The World Editor republished (version 9, the same link; its maps kept, the title as the owner left it) with this build in PLAY.
+Not played by hand; nothing under Wine; the Windows build to CI. Open: the owner's word on the feel and the six numbers; the creatures
+still stand about twice the caster's height (step 13); the dream does not dodge, so a passage crowded with callers can wear it down.
+
+
+**Released (26 November 2026)** as 1.0.0b21.12, "The Dead's Gallery", at the owner's word after trying the Ossuary Stair in an artifact
+built to go straight into it. With it, the browser's page takes `?side=n` (and `&level=l`): a new run straight into passage n, CATACOMB
+alone, its saves under `haunted.exe/side/` (`web/haunted.js`, ahead of `PREFIX`); the World Editor's PLAY sets its own and is left alone.
+Tested in Playwright's Chromium: `?side=0` in the passage with its saves apart, the page without it booting HAUNT.EXE as before.
