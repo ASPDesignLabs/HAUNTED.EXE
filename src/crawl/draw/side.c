@@ -222,6 +222,59 @@ static void sd_draw_fx(Frame *f, int camx, int camy) {
                 sd_px(f, sx + 8 + d, sy + SD_TILE - 1, (uint8_t)(R_PURPLE + (open ? 13 : 8)), open ? 31 : 20);
             break;
         }
+        case HZ_BILE:                                              /* run II's: the crypt's grate, as a tile */
+            sd_draw_tile(f, side_tile[ST_HZ_GRATE], sx, sy, 21, 1.0f, 0); break;
+        case HZ_SLUICE:                                            /* the sluice gate, shut; thrown up in its turn */
+            sd_draw_tile(f, side_tile[ph == 2 ? ST_HZ_SLUICE_OPEN : ST_HZ_SLUICE], sx, sy, 21, 1.0f, 0); break;
+        case HZ_SAINT:                                             /* the saint in her alcove; her eyes alight as she weeps */
+            sd_draw_tile(f, side_tile[ph ? ST_HZ_SAINT_LIT : ST_HZ_SAINT], sx, sy, 21, 1.0f, 0); break;
+        case HZ_GALV: {                                            /* standing water over its cells, always; aglow in its warning; the bolt */
+            for (int c = 0; c < z->nc; c++) {
+                int x, y; sd_hz_cell(z, c, &x, &y);
+                int bx = x * SD_TILE - camx, by = y * SD_TILE - camy;
+                for (int yy = 9; yy < SD_TILE; yy++) for (int xx = 0; xx < SD_TILE; xx++) {
+                    if (((xx + yy) & 1) && yy > 9) continue;       /* half the pixels, the wall behind showing through */
+                    uint32_t hh = sd_hash(xx + (int)(SD.t * 6.0f), yy, c);
+                    int top = yy == 9, glow = ph == 1 ? (hh % 3 == 0) : ph == 2;
+                    sd_px(f, bx + xx, by + yy, glow ? (uint8_t)(R_GLOW + 11 + (int)(hh % 5)) : (uint8_t)(R_GHOST + (top ? 12 : 6 + (int)(hh % 3))), glow ? 31 : 22);
+                }
+                if (!ph && sd_hash(c, (int)(SD.t * 2.0f), h) % 7 == 0) sd_px(f, bx + 3 + (int)(sd_hash(c, h, 1) % 10), by + 9, (uint8_t)(R_GLOW + 14), 31);   /* a glint now and then */
+            }
+            if (FX.bolt[h] > 0.0f && z->nc) {                      /* a jagged bolt down from the roof into the first cell */
+                int x = 0, y = 0; sd_hz_cell(z, 0, &x, &y);
+                int top = y; while (top > 0 && !sd_solid(x, top - 1) && y - top < 12) top--;
+                int px = x * SD_TILE + 8 - camx;
+                for (int yy = top * SD_TILE; yy < y * SD_TILE + 10; yy++) {
+                    px += (int)(sd_hash(yy / 3, (int)(SD.t * 30.0f), h) % 3) - 1;
+                    sd_px(f, px, yy - camy, (uint8_t)C_WHITE, 31); sd_px(f, px + 1, yy - camy, (uint8_t)(R_GLOW + 13), 31);
+                }
+            }
+            break;
+        }
+        case HZ_SILT:                                              /* a mud floor over its cells, always; bubbling as it wakes */
+            for (int c = 0; c < z->nc; c++) {
+                int x, y; sd_hz_cell(z, c, &x, &y);
+                int bx = x * SD_TILE - camx, by = y * SD_TILE - camy;
+                for (int yy = 12; yy < SD_TILE; yy++) for (int xx = 0; xx < SD_TILE; xx++)
+                    sd_px(f, bx + xx, by + yy, (uint8_t)(R_WOOD + 4 + (int)(sd_hash(xx, yy, c) % 3) + (yy == 12 ? 3 : 0)), sd_lit(wx, wy, 20, 1.0f));
+                if (sd_hash(c, (int)(SD.t * (ph ? 6.0f : 1.5f)), h) % 3 == 0) {
+                    int bxx = bx + 3 + (int)(sd_hash(c, (int)(SD.t * 2.0f), 5) % 10);
+                    sd_px(f, bxx, by + 11, (uint8_t)(R_GOLD + 7), 22); sd_px(f, bxx + 1, by + 11, (uint8_t)(R_GOLD + 9), 22);
+                }
+            }
+            break;
+        case HZ_SNARE:                                             /* a web across its cells, just to be made out; gone a while once torn */
+            if (FX.web[h] > 0.0f) break;
+            for (int c = 0; c < z->nc; c++) {
+                int x, y; sd_hz_cell(z, c, &x, &y);
+                int bx = x * SD_TILE - camx, by = y * SD_TILE - camy;
+                for (int k = 0; k < 16; k++) {                     /* strands corner to corner and across, a hub in the middle */
+                    sd_px(f, bx + k, by + k, (uint8_t)(R_BONE + 8), 18); sd_px(f, bx + 15 - k, by + k, (uint8_t)(R_BONE + 8), 18);
+                    if (k % 2 == 0) { sd_px(f, bx + 8, by + k, (uint8_t)(R_BONE + 7), 16); sd_px(f, bx + k, by + 8, (uint8_t)(R_BONE + 7), 16); }
+                }
+                for (int a = 0; a < 24; a++) { float r = 5.0f, an = (float)a * 0.2618f; sd_px(f, bx + 8 + (int)lroundf(cosf(an) * r), by + 8 + (int)lroundf(sinf(an) * r), (uint8_t)(R_BONE + 9), 18); }
+            }
+            break;
         default: break;
         }
     }
@@ -258,6 +311,21 @@ static void sd_draw_fx(Frame *f, int camx, int camy) {
         case PK_HAZE: sd_px(f, px, py, (uint8_t)(R_PURPLE + (p->harm ? 11 : 8) + (int)(hh % 4)), p->harm ? 31 : 24); if (p->harm && hh % 2) sd_px(f, px + 1, py, (uint8_t)(R_PURPLE + 9), 24); break;
         case PK_SMOKE: if (hh % 4) sd_px(f, px, py, (uint8_t)(R_STONE + 10 + (int)(hh % 3)), 24); if (p->age > 0.3f && hh % 3 == 0) sd_px(f, px + 1, py - 1, (uint8_t)(R_STONE + 9), 22); break;
         case PK_GRIT: sd_px(f, px, py, (uint8_t)(R_STONE + 10), 18); break;
+        case PK_BILE: { int lt = sd_lit(p->x, p->y, 24, 1.0f); uint8_t c = (uint8_t)(R_MOSS + (p->harm ? 9 : 7) + (int)(hh % 3));
+            sd_px(f, px - 1, py - 1, c, lt); sd_px(f, px, py - 1, c, lt); sd_px(f, px - 1, py, c, lt); sd_px(f, px, py, c, lt); break; }
+        case PK_WATER: { int lt = sd_lit(p->x, p->y, 24, 1.0f); uint8_t c = p->rest ? (uint8_t)(R_GHOST + 8 + (int)(hh % 3)) : (uint8_t)(R_GHOST + 12 + (int)(hh % 4));
+            sd_px(f, px - 1, py - 1, c, lt); sd_px(f, px, py - 1, (uint8_t)(R_GHOST + 14), lt); sd_px(f, px - 1, py, c, lt); sd_px(f, px, py, c, lt); break; }
+        case PK_GAS:
+            for (int q = 0; q < 5; q++) { static const int O[5][2] = { { 0, 0 }, { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } }; if (q && (hh >> q) % 3) continue;
+                sd_px(f, px + O[q][0], py + O[q][1], (uint8_t)(p->harm ? R_GOLD + 6 + (int)(hh % 3) : R_WOOD + 8), 24); }
+            break;
+        case PK_FLAME: sd_px(f, px, py, (uint8_t)(R_FLAME + 9 + (int)(hh % 7)), 31); sd_px(f, px, py - 1, (uint8_t)(R_FLAME + 12), 31); if (hh % 2) sd_px(f, px + 1, py, (uint8_t)(R_FLAME + 10), 31); break;
+        case PK_TEAR: { int lt = sd_lit(p->x, p->y, 26, 1.0f);
+            if (p->rest) { sd_px(f, px - 1, py, (uint8_t)(R_PURPLE + 9 + (int)(hh % 2)), lt); sd_px(f, px, py, (uint8_t)(R_GHOST + 13), lt); sd_px(f, px, py - 1, (uint8_t)(R_PURPLE + 10), lt); }
+            else sd_px(f, px, py, (uint8_t)(R_GHOST + 15), 31);
+            break; }
+        case PK_SPARK: sd_px(f, px, py, (uint8_t)(R_GLOW + 12 + (int)(hh % 4)), 31); break;
+        case PK_STRAND: if (hh % 2) sd_px(f, px, py, (uint8_t)(R_BONE + 9), 20); break;
         }
     }
 }

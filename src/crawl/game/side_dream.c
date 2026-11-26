@@ -132,6 +132,9 @@ static void sdd_fight(void) {                                      /* the neares
     int sp = G.spell >= 0 && G.spell < NATK && RUN.gear.atk[G.spell] >= 0 ? G.spell : own_spell();
     if (sp < 0) return;
     if (sp == AT_BFS || sp == AT_FLASK) { int o = own_missile(); if (o >= 0) sp = o; }   /* the dream keeps to what flies straight */
+#ifdef CRAWL_DEBUG
+    if (getenv("CRAWL_SIDEFIRE")) { if (RUN.gear.atk[AT_FIRE] < 0) RUN.gear.atk[AT_FIRE] = 0; sp = AT_FIRE; }   /* testing: the fire bolt, for silt gas */
+#endif
     G.spell = sp;
     float reach = sd_reach(ATK_ELEM[sp]) * SD_TILE, best = 1e9f;
     const SdMob *t = NULL;
@@ -145,6 +148,22 @@ static void sdd_fight(void) {                                      /* the neares
     }
     if (!t) return;
     int dir = t->x > SD.x ? 1 : -1;
+    if (sp == AT_FLASK && !SD.dying) {                             /* the flask: held as long as the distance wants (sd_flask_way) */
+        float dx = fabsf(t->x - SD.x), dy = (t->y - 2.0f) - (SD.y - SD_HAND), best = 1e9f, bk = -1.0f, near = 1e9f;
+        for (float k = 0.2f; k <= 1.001f; k += 0.05f) {
+            float vx = SDT[TU_FLASK_NEAR] + (SDT[TU_FLASK_FAR] - SDT[TU_FLASK_NEAR]) * k, vy = -SDT[TU_FLASK_LIFT] - 60.0f * k, disc = vy * vy + 2.0f * SD_G * dy;
+            if (disc < 0.0f) continue;
+            float land = vx * (-vy + sqrtf(disc)) / SD_G + 6.0f;
+            if (k < 0.21f) near = land;
+            if (fabsf(land - dx) < best) { best = fabsf(land - dx); bk = k; }
+        }
+        if (dx < near - 14.0f && !SD.holding) bk = 0.2f;           /* too near to lob at: the shortest throw, at once (backing off walked it into worse) */
+        if (SD.face != dir && !SD.holding) { in->left = dir < 0; in->right = dir > 0; return; }
+        if (bk < 0.0f) return;
+        if (!SD.holding) { if (SD.cd <= 0.0f) { in->cast = 1; in->cast_hit = 1; } }
+        else if (sd_flask_k() < bk) in->cast = 1;                  /* still drawing back; let go at the length */
+        return;
+    }
     if (SD.face != dir) { in->left = dir < 0; in->right = dir > 0; }
     else if (SD.cd <= 0.0f) { in->cast = 1; in->cast_hit = 1; }
 }
@@ -182,8 +201,10 @@ static void sd_dream(float dt) {
     }
     if (sd_door_here() == SDD.goal && SD.ground) { in->up_hit = 1; return; }
     int fy = sd_floor_px(SD.y - 1.0f);                             /* (any of it inside a flow's box: keep going) */
-    int in_flow = sdd_flow_soon(sd_floor_px(SD.x - SD_HW), fy, 1e9f) || sdd_flow_soon(sd_floor_px(SD.x + SD_HW - 0.01f), fy, 1e9f);
+    int in_flow = sdd_flow_soon(sd_floor_px(SD.x - SD_HW), fy, 1e9f) || sdd_flow_soon(sd_floor_px(SD.x + SD_HW - 0.01f), fy, 1e9f)
+                  || sd_fx_harm(sd_floor_px(SD.x), fy) || sd_fx_harm(sd_floor_px(SD.x), fy - 1);   /* or a trap's harm about it: out first, then fight */
     if (!in_flow) sdd_fight();
+    else if (SD.holding) in->cast = 0;                             /* a flask drawn back as harm comes: let it go now */
     if (in->cast || in->left || in->right) return;                 /* turning to cast, or casting: a moment */
     if ((SDD.plan_t -= dt) <= 0.0f || SDD.at >= SDD.npath) {
         if (SD.ground) { sdd_plan(); SDD.plan_t = 0.25f; }
@@ -192,8 +213,8 @@ static void sd_dream(float dt) {
     if (SD.ground && !sdd_stand(cx, cy) && SD.on_plat < 0) {       /* somewhere it shouldn't be (the poison): out, to the nearest place to stand */
         int bx = -1, by = -1, bd = 99;
         for (int y = cy - 4; y <= cy + 1; y++) for (int x = cx - 6; x <= cx + 6; x++) if (sdd_stand(x, y) && abs(x - cx) + abs(y - cy) < bd) { bd = abs(x - cx) + abs(y - cy); bx = x; by = y; }
-        if (bx >= 0) { in->left = bx < cx; in->right = bx > cx; in->jump = in->jump_hit = 1; in->run = 1; SDD.jumping = 1; SDD.jdir = bx < cx ? -1 : 1; (void)by; }
-        return;
+        if (bx >= 0 && bx != cx) { in->left = bx < cx; in->right = bx > cx; in->jump = in->jump_hit = 1; in->run = 1; SDD.jumping = 1; SDD.jdir = bx < cx ? -1 : 1; (void)by; return; }
+        /* (nowhere dry beside it: on along its way, through it, rather than hop where it stands) */
     }
     if (SD.ground) while (SDD.at < SDD.npath && SDD.path[SDD.at] == sdd_node(cx, cy)) SDD.at++;
     if (SDD.at >= SDD.npath) {                                     /* no way now: wait where it stands (a platform, a block coming back) */

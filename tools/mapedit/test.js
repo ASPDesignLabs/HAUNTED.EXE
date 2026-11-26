@@ -256,5 +256,25 @@ DATA.hazards.fixed.flat().concat(DATA.hazards.arise.flat(), DATA.hazards.sapper)
         console.log(`run I's traps: read back; emitters written and read; the censer's clearance refused short and into stone; preview wax ${sv.parts.filter(p => p.rest).length} settled, haze ${sq.parts.length}`);
     }
 }
+/* run II's (2e): the fixture read and written back; each one's PREVIEW makes its own; a web or a pool with no cells refused */
+{
+    const SC = require('./side.js'), ids = DATA.kinds.map(k => k.id);
+    const txt = fs.readFileSync(path.join(__dirname, 'fixtures', 'side_traps2.txt'), 'utf8'), r = SC.parse(txt, ids);
+    if (r.error) fail(`side_traps2: line ${r.line}: ${r.error}`);
+    else {
+        if (SC.exportText(r.map) !== txt) fail('side_traps2 does not read back letter for letter');
+        const errs = SC.check(r.map).filter(c => c.sev === 'error'); if (errs.length) fail('side_traps2: ' + errs[0].msg);
+        const want = { HZ_BILE: 'bile', HZ_SLUICE: 'water', HZ_GALV: 'spark', HZ_SILT: 'gas', HZ_SAINT: 'tear' }, got = [];
+        r.map.things.filter(t => t.k === 'haz' && want[t.kind]).forEach(t => {
+            const S = SC.fxSim(r.map, t, 4); let n = 0;
+            for (let i = 0; i < 4 * 120; i++) { S.step(1 / 120); n = Math.max(n, S.parts.filter(p => p.kind === want[t.kind]).length); }
+            got.push(`${want[t.kind]} ${n}`);
+            if (!n) fail(`the preview of ${t.kind} made no ${want[t.kind]}`);
+        });
+        ['HZ_SNARE', 'HZ_GALV', 'HZ_SILT'].forEach(k => { const t = JSON.parse(JSON.stringify(r.map.things.find(o => o.kind === k))); t.cells = [];
+            if (!SC.check(Object.assign({}, r.map, { things: [t] })).some(c => c.sev === 'error' && /no cells/.test(c.msg))) fail(`${k} with no cells should be refused`); });
+        console.log(`run II's traps: read back; previews ${got.join(', ')}; a web, a pool and a mud with no cells refused`);
+    }
+}
 console.log(bad ? `${bad} FAILED` : 'all passed');
 process.exit(bad ? 1 : 0);

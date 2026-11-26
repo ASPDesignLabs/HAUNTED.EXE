@@ -27,6 +27,7 @@ enum {                              /* the tiles, row-major, C_CLEAR where the b
     ST_TORCH0, ST_TORCH1, ST_TORCH2,                               /* a sconce on the back wall, burning */
     ST_CHAIN,                                                      /* a chain hanging, for the platforms and the dressing */
     ST_HZ_SLAB, ST_HZ_SLAB_OPEN, ST_HZ_COLD,                       /* 2e: the crypt's breath slab, cracked open, and its cold crack, as tiles */
+    ST_HZ_GRATE, ST_HZ_SLUICE, ST_HZ_SLUICE_OPEN, ST_HZ_SAINT, ST_HZ_SAINT_LIT,   /* run II's: the bile's grate, the sluice shut and up, the saint */
     NST
 };
 

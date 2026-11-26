@@ -221,6 +221,7 @@ static void sd_traps(float dt) {
         int h = t->a;
         const SdHaz *z = &L->hz[h];
         if (z->kind == HZ_CENSER || (!z->nc && !sd_fx_kind(z->kind))) continue;   /* the censer swings on its own (side_fx.c) */
+        if (z->kind == HZ_SNARE) { if (SD.st[i]) sd_fx_snare(i, h, dt); continue; }   /* the web, walked into */
         /* what sets it off: its clock, its box walked into, a trigger's waking (neither of the first two: at once) */
         if (SD.st[i] && SD.hz_ph[h] == 0) {
             int go = 0;

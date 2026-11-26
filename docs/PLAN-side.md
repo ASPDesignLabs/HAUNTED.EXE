@@ -195,6 +195,22 @@ cools and fades; a crack in the roof that stays, with rubble after that is walke
 - **The editor**: on a trap's CHOSEN, THE EMITTER (rate, speed, spread, life, its way, the reliquary's reach; -1 or *its own* for the game's)
   or THE SWING (chain, hang, swing); ITS OWN puts them back; PREVIEW runs `SideCore.fxSim`, the game's rules over again, on the map, round
   and round, and follows each change. The map shows the censer's arc, the sconce's way and the reliquary's reach.
+- **Run II's** (session 6, the owner having approved run I's sheet; my defaults, the sheet `media/sheets/side/traps_run2.png` to approve):
+  **bile**, the crypt's `T_GRATE` as a tile, a green fluid from its open side (up and slow from a grate in the floor) that runs and pools,
+  poison and a fifth slower, dripping while idle; **the sluice**, `T_HZ_SLUICE` shut and open, a surge of water toward the side more cells
+  are painted on, carrying the caster along and chilling; **the galvanic pool**, standing water over its painted cells always shown,
+  crackling in its warning, then a bolt from the roof and all in the water struck once; **silt**, mud over its cells, bubbling, a sallow
+  gas that rises a little and hangs and poisons, set alight by a fire spell through it (`sd_fx_ignite` from `sd_shots`), burning out in a
+  second; **the weeping saint**, `T_HZ_SAINT` and lit, tears falling from her alcove to a pool that drinks a soul with each bite; **the
+  snare**, a web across its cells: walked into, it holds a second and a half (CHANCE), tears, sends the dead within eight tiles toward
+  the caster, and is spun again after STAYS seconds. `SIDE_TEXT[3]`, *Run II's Traps*, one of each (`fixtures/side_traps2.txt`).
+- **The dream and the traps** (session 6): it keeps out only of what burns (hot wax, flames, a galvanic pool in its warning, the censer's
+  way) and walks through the rest as a person would, taking a few bites; it does not stop to fight while any harm is on it, and lets a
+  drawn flask go when harm comes. It now holds the flask as long as the distance wants (`sdd_fight`).
+- **A fault found and mended** (session 6): the flask's hold and the poison's bite shared one clock (`SD.held`), which the poison set back
+  to four tenths every step, so every flask, a person's too, flew as if barely held. The poison has its own clock now (`SD.pois_t`), and
+  the flask's throw follows how long it is held, as TUNING's flask_near, flask_far and flask_hold say. Throws held long now go further
+  than they did: numbers tuned by hand since may want looking at again.
 
 ## 3. Steps
 
@@ -360,4 +376,14 @@ was republished with that game before this began, so the other agent on the edit
   breath previewed; the export carried each; PLAY of it with the browser build made here, the dream struck by the censer. No page errors.
 Not played by hand; nothing under Wine. Open: the owner's word on the art; runs II to IV's traps the same way; the editor's PREVIEW is the
 game's rules written again in JavaScript, near but not the same frame for frame.
+
+**Session 6 (26 November 2026): the owner's Map 3, run II's traps (2e).** The owner approved run I's sheet. Their level *Storage* went
+into `game/drawn.c` as the Compass, `DRAWN[2]` (docs/PLAN-mapedit.md's log). Run II's six built as 2e says; the dream's ways round the traps
+and the flask's clock mended. Tested: every built-in passage (the Ossuary Stair, the Cistern Key, run I's, run II's) by the dream on eight
+seeds, thirty-two of thirty-two at the goal with no life lost (before the dream's change run II's took all three lives each time, and the
+first two failed for a while as it was mended); a fire bolt through silt gas lit 48 of its particles (a small passage, `CRAWL_SIDEFIRE`);
+`make asan` clean on two passages for 300 s and the silt's; `make smoke` passed; the crypt's dream, seeds 1, 4 and 7, 1,500 s, line for
+line the build before's (the Compass already in it). `node tools/mapedit/test.js`: run II's passage read back, each PREVIEW making its
+own, a web, a pool and a mud with no cells refused. Playwright: run II's example opened and each emitter's PREVIEW run, no page errors.
+Harness and Playwright only; nothing by hand, nothing under Wine. Open: the owner's word on run II's sheet; runs III and IV's traps.
 

@@ -43,7 +43,7 @@ static struct {
     uint32_t rs;                                                   /* its own dice: the crypt's are left as they were */
     float x, y, vx, vy;                                            /* the caster: the middle of its feet, in pixels */
     int face, ground, crouch, on_plat, drop;
-    float coyote, jbuf, anim, cast_t, cd, inv_t, hurt_t, pois_k, held, in_t;
+    float coyote, jbuf, anim, cast_t, cd, inv_t, hurt_t, pois_k, held, in_t, pois_t;   /* held: the flask drawn back; pois_t: the poison's clock */
     int frame, dying, leaving, out_link, out_goal, holding;
     float die_t, fade, mark_x, mark_y;
     float beam_t, bx0, by0, bx1, by1;                              /* lightning, a moment */
@@ -152,6 +152,7 @@ static int sd_fall_at(int tx, int ty) {                            /* a falling 
 }
 static int sd_gate_at(int tx, int ty);                             /* side_works.c */
 static int sd_in_current_poison(float x, float y);
+static void sd_fx_ignite(float x, float y);                     /* side_fx.c */
 static void sd_works_build(void); static void sd_waters(float dt); static void sd_items(float dt); static void sd_trigs(float dt); static void sd_traps(float dt);
 static int sd_solid(int tx, int ty) { return sd_solid_ch(sd_tile(tx, ty)) || sd_fall_at(tx, ty) >= 0 || sd_gate_at(tx, ty); }
 static int sd_floor_px(float px) { return (int)floorf(px / SD_TILE); }
@@ -340,14 +341,15 @@ static void sd_place_harm(float dt) {
     int in = sd_in_poison(SD.x, SD.y, top);
     SD.pois_k = in ? 1.0f : 0.0f;
     if (in) {
-        SD.held += dt;
-        if (SD.held >= SDT[TU_BITE_EVERY]) {                       /* a share of your health each while */
-            SD.held = 0.0f;
+        SD.pois_t += dt;
+        if (SD.pois_t >= SDT[TU_BITE_EVERY]) {                     /* a share of your health each while */
+            SD.pois_t = 0.0f;
             int n = imax(1, (int)(SDT[TU_BITE] * (float)G.max_hp * (1.0f - el_resist(&RUN.gear, EL_POISON)) + 0.5f));
             G.hp -= n; snd_sfx_ex(SFX_HURT, 0.5f, 0.5f);
             if (G.hp <= 0) { G.hp = 0; SD.dying = 1; SD.die_t = 0.0f; snd_sfx(SFX_DEATH); }
         }
-    } else SD.held = SDT[TU_BITE_EVERY] * 0.8f;                   /* the first bite comes quick */
+    } else SD.pois_t = SDT[TU_BITE_EVERY] * 0.8f;                 /* the first bite comes quick (its own clock: it shared the flask's
+                                                                      till 26 November, and every flask flew at four tenths) */
     if (SD.y > (float)(SD.L->h * SD_TILE + 48)) {                  /* down past the foot: gone */
         G.hp = imax(0, G.hp); SD.dying = 1; SD.die_t = 1.0f;
 #ifdef CRAWL_DEBUG
@@ -526,6 +528,7 @@ static void sd_shots(float dt) {
         float ox = s->x, oy = s->y;
         s->x += s->vx * dt; s->y += s->vy * dt;
         s->life -= dt;
+        if (!s->foe && s->el == EL_FIRE) sd_fx_ignite(s->x, s->y);  /* fire through silt gas sets it alight (side_fx.c, 2e) */
         if (s->life <= 0.0f) { if (s->kind == SS_FLASK) sd_burst(s); else s->alive = 0; continue; }
         if (sd_solid(sd_floor_px(s->x), sd_floor_px(s->y))) {
             if (s->kind == SS_FLASK) { s->x = ox; s->y = oy; sd_burst(s); } else s->alive = 0;

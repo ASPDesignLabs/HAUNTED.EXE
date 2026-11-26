@@ -457,6 +457,9 @@ function fxPane(t) {
       <div class="field"><label for="fHang">Hang s</label>${numIn('fHang', own(t.hang, d.hang), 0, 30, 0.1)}</div>
       <div class="field"><label for="fSwing">Swing s</label>${numIn('fSwing', own(t.swing, d.swing), 0.2, 30, 0.05)}</div>
       <p class="note">Paint its two ends: the first cell and the second (PAINT ITS CELLS). Chain in tiles, -1 to reach its ends (now ${(c.r / 16).toFixed(1)}); three at the least, and the room clear along its arc (CHECKS says where it is not). Hang: still at each end; swing: a pass from one to the other. Crouched, the caster goes under a bowl at head height.</p>`;
+  } else if (!SC.FX_EMITS.has(t.kind)) {
+    h += t.kind === 'HZ_SNARE' ? `<p class="note">Holds %: CHANCE above (-1: always). Torn, it is spun again after STAYS seconds. The dream walks into it as a person might.</p>` : '';
+    if (t.kind === 'HZ_SNARE') return h;
   } else {
     const rate = t.kind === 'HZ_VOTIVE' ? (e.rate != null && e.rate >= 0 ? e.rate : -1) : own(e.rate, d.rate);
     h += `<div class="field"><label for="fRate">Rate /s</label>${numIn('fRate', rate, -1, 400, 1)}</div>
@@ -496,12 +499,18 @@ function previewStart(t) {
 function previewStop() { if (T.pv) cancelAnimationFrame(T.pv.raf); T.pv = null; }
 function drawPreview(z) {                          /* the particles, the chain and the bowl, in the editor's pixels */
   const S = T.pv && T.pv.sim; if (!S) return;
-  const k = z / 16, C = { wax: p => p.heat > 0.6 ? '#ffd27a' : p.heat > 0.3 ? '#e89a3a' : '#cbbf9e', vapour: () => 'rgba(160,200,120,0.7)', rime: () => '#d8f4ff', haze: () => 'rgba(199,155,240,0.85)', smoke: () => 'rgba(190,186,196,0.6)' };
+  const k = z / 16, C = { wax: p => p.heat > 0.6 ? '#ffd27a' : p.heat > 0.3 ? '#e89a3a' : '#cbbf9e', vapour: () => 'rgba(160,200,120,0.7)', rime: () => '#d8f4ff', haze: () => 'rgba(199,155,240,0.85)', smoke: () => 'rgba(190,186,196,0.6)',
+    bile: () => '#79c15a', water: () => '#9fd6ec', gas: () => 'rgba(214,180,80,0.8)', tear: p => (p.rest ? '#b08ad8' : '#eef6ff'), spark: () => '#fff3a0' };
   S.parts.forEach(p => { g.fillStyle = (C[p.kind] || C.smoke)(p); const s = Math.max(1.5, (p.kind === 'wax' ? 2 : p.kind === 'vapour' ? 3 : 1.5) * k); g.fillRect(p.x * k - s / 2, p.y * k - s / 2, s, s); });
   if (S.cen) {
     g.strokeStyle = '#b8bcc4'; g.lineWidth = Math.max(1, k); g.beginPath(); S.links.forEach((l, i) => (i ? g.lineTo(l.x * k, l.y * k) : g.moveTo(l.x * k, l.y * k))); g.stroke();
     g.fillStyle = '#5c5a66'; g.beginPath(); g.ellipse(S.ball[0] * k, (S.ball[1] + 2.5) * k, 6 * k, 3.5 * k, 0, 0, Math.PI * 2); g.fill();
     g.fillStyle = '#f0742a'; g.fillRect((S.ball[0] - 4) * k, (S.ball[1] - 1) * k, 8 * k, Math.max(1, k));
+  }
+  if (S.bolt > 0) {                                /* the galvanic bolt, down into the first cell */
+    const t = T.map.things.find(o => o.id === T.pv.id);
+    if (t && (t.cells || []).length) { const [cx, cy] = t.cells[0]; g.strokeStyle = '#ffffff'; g.lineWidth = 2; g.beginPath(); g.moveTo((cx + 0.5) * z, (cy - 5) * z);
+      for (let i = 1; i <= 8; i++) g.lineTo((cx + 0.5 + (Math.random() - 0.5) * 0.6) * z, (cy - 5 + i * 5.6 / 8) * z); g.stroke(); }
   }
   if (S.kind === 'wax') {                          /* the candle, as far over as it is */
     const t = T.map.things.find(o => o.id === T.pv.id); if (!t) return;
@@ -520,6 +529,13 @@ function drawFxMarks(t, z) {                       /* what a trap that pours or 
   } else if (t.kind === 'HZ_RELIQ') {
     const r = (t.radial != null && t.radial >= 0 ? t.radial : 1) + 0.5;
     g.strokeStyle = 'rgba(199,155,240,0.8)'; g.setLineDash([3, 3]); g.lineWidth = 1.5; g.beginPath(); g.arc((t.x + 0.5) * z, (t.y + 1 - 10 / 16) * z, r * z, 0, Math.PI * 2); g.stroke(); g.setLineDash([]);
+  } else if (t.kind === 'HZ_SLUICE') {          /* its surge's way */
+    const sides = (t.cells || []).reduce((a, [x]) => (x < t.x ? [a[0] + 1, a[1]] : x > t.x ? [a[0], a[1] + 1] : a), [0, 0]), d = sides[1] >= sides[0] ? 1 : -1;
+    g.strokeStyle = '#9fd6ec'; g.lineWidth = 2; g.beginPath(); g.moveTo((t.x + 0.5) * z, (t.y + 0.7) * z); g.lineTo((t.x + 0.5 + d * 2) * z, (t.y + 0.7) * z); g.stroke();
+    g.fillStyle = '#9fd6ec'; g.fillRect((t.x + 0.5 + d * 2) * z - 3, (t.y + 0.7) * z - 3, 6, 6);
+  } else if (t.kind === 'HZ_SNARE') {            /* the web over its cells */
+    g.strokeStyle = 'rgba(216,208,189,0.7)'; g.lineWidth = 1;
+    (t.cells || []).forEach(([cx, cy]) => { g.beginPath(); g.moveTo(cx * z, cy * z); g.lineTo((cx + 1) * z, (cy + 1) * z); g.moveTo((cx + 1) * z, cy * z); g.lineTo(cx * z, (cy + 1) * z); g.stroke(); });
   } else if (t.kind === 'HZ_VOTIVE') {
     const sides = (t.cells || []).reduce((a, [x]) => (x < t.x ? [a[0] + 1, a[1]] : x > t.x ? [a[0], a[1] + 1] : a), [0, 0]), d = sides[1] >= sides[0] ? 1 : -1;
     g.strokeStyle = '#f0742a'; g.lineWidth = 2; g.beginPath(); g.moveTo((t.x + 0.5) * z, (t.y + 0.3) * z); g.quadraticCurveTo((t.x + 0.5 + d) * z, (t.y + 0.1) * z, (t.x + 0.5 + d * 1.4) * z, (t.y + 1) * z); g.stroke();
