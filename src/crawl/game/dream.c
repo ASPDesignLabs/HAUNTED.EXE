@@ -129,11 +129,13 @@ static int dream_looks(void) {                                     /* at a lane 
     return 0;
 }
 
+static int sd_dream_goal(int x, int y, int *gx, int *gy), sd_dream_in(void);   /* side.c */   /* side (PLAN-side) */
 static int pick_goal(int x, int y, int *gx, int *gy) {
     if (boss_goal(x, y, gx, gy)) return 1;
     if (tri_goal(x, y, gx, gy)) return 1;                          /* a trial: in, and through it */
     if (corner_goal(x, y, gx, gy)) return 1;                       /* hurt, a pack on it: a corner to fight from */
     if (chain_goal(x, y, gx, gy)) return 1;
+    if (sd_dream_goal(x, y, gx, gy)) return 1;                     /* a side passage's doorway (docs/PLAN-side.md, step 7) */   /* side (PLAN-side) */
     if (pz_goal(x, y, gx, gy)) return 1;                           /* a puzzle, when there is time or the way on lies beyond */
     if (ev_goal(x, y, gx, gy)) return 1;                           /* a drawn level's events, which may stand before the way on */
     if (rest_goal(x, y, gx, gy)) return 1;                         /* hurt and nothing after it: a place to mend */
@@ -699,12 +701,14 @@ static void update_player(float dt) {
         if (k >= 0.3f && !G.fired) {
             G.fired = 1;
 #ifdef CRAWL_DEBUG
-            fprintf(stderr, "EVENT chain_use %s (%d,%d) link %d t=%.2f\n", G.use_kind == USE_DOOR ? "door" : G.use_kind == USE_THING ? "thing" : "vis", G.use_x, G.use_y, PK.depth, G.t);
+            fprintf(stderr, "EVENT chain_use %s (%d,%d) link %d t=%.2f\n", G.use_kind == USE_DOOR ? "door" : G.use_kind == USE_THING ? "thing" : G.use_kind == USE_SIDE ? "side" : "vis", G.use_x, G.use_y, PK.depth, G.t);
 #endif
             if (G.use_kind == USE_THING) {                         /* a puzzle's piece, touched */
                 if (G.use_thing >= 0 && G.use_thing < G.nthing) thing_use(G.use_thing);
                 G.pz_wait = G.use_thing >= 0 && (G.thing[G.use_thing].role == TR_STRIKE || G.pz == PZ_VENTS) ? 0.3f + 0.4f * rndf() : 0.8f + 1.4f * rndf();   /* slowly, as if thinking; a phrase, quicker */
                 if (G.use_thing >= 0 && G.use_thing < G.nthing && G.thing[G.use_thing].tri) G.pz_wait = 0.0f;   /* a trial's: no time to think */
+            } else if (G.use_kind == USE_SIDE) {                   /* a side passage's doorway: in (side (PLAN-side)) */
+                if (sd_dream_in()) break;
             } else if (G.use_kind == USE_DOOR) {                   /* through it: a new place, and G with it */
                 if (!PK.depth) for (int i = 0; i < G.nsecrets; i++) if (G.secrets[i].door_x == G.use_x && G.secrets[i].door_y == G.use_y) PK.auto_done[i] = 1;
                 if (pocket_go(G.use_x, G.use_y)) break;

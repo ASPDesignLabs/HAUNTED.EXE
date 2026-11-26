@@ -339,6 +339,7 @@ enum {
      * relic, the socket empty and holding it, the lever up and pulled down */
     SP_CORONA0, SP_CORONA2 = SP_CORONA0 + 2, SP_SANCT0, SP_SANCT1, SP_BONELAB0, SP_BONELAB2 = SP_BONELAB0 + 2, SP_CAGE0, SP_CAGE2 = SP_CAGE0 + 2,
     SP_EV_RELIC, SP_EV_SOCKET0, SP_EV_SOCKET1, SP_EV_LEVER0, SP_EV_LEVER1,
+    SP_LIFEWARE,                                /* side (PLAN-side): a life for the side passages, a votive lamp floating in her room */
     NSPR
 };
 

@@ -8,6 +8,7 @@ static void render_xp(Frame *f) {
     int bar = (G.shop || G.player) ? H - 44 + (int)((1.0f - smoothstepf(0.0f, 1.0f, G.bar)) * 46.0f + 0.5f) : H;
     int dream = !G.player && !G.shop;                              /* the dream: at the lower right, clear of the face */
     int base = dream ? H - 30 - (int)(G.lift * 40.0f + 0.5f) - (runes_shown() ? 6 : 0) : imin(bar, H - 24) - 12 - (sockets_shown() && bar < H ? 14 : 0);
+    if (SD.on) base = SD_VIEW_H - 12;                              /* a side passage: over its own bar */   /* side (PLAN-side) */
     for (int i = 0; i < XPF.n; i++) {
         float a = XPF.t[i];
         int y = base - i * 10;

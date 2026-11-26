@@ -64,12 +64,13 @@ static struct {
 } SD;
 static struct {                                                    /* what stays done for the rest of the crypt level's visit */
     int stamp;
-    uint8_t taken[SD_SIDES][SD_THINGS], thrown[SD_SIDES][SD_THINGS], slain[SD_SIDES][SD_THINGS], done[SD_SIDES];
+    uint8_t taken[SD_SIDES][SD_THINGS], thrown[SD_SIDES][SD_THINGS], slain[SD_SIDES][SD_THINGS], done[SD_SIDES], tried[SD_SIDES];   /* tried: the dream went in */
 } SDP;
 static struct { uint8_t taken[SD_THINGS], thrown[SD_THINGS], slain[SD_THINGS]; int keys[NKEYS], treasure, level_treasure; } SD0;   /* as it was when you came in */
 #define SDX_DOORS 16
 static struct { int n; struct { int x, y, side, link; } d[SDX_DOORS]; } SDX;   /* the crypt level's side doorways */
 static int sd_stamp;                                               /* a level laid */
+static int sd_dream_lost = -1;                                     /* the level the dream lost its last life on: not again there */
 
 static int sd_lives(void) { return SD_LIVES - clampi(RUN.sd_lost, 0, SD_LIVES); }
 static float sd_rndf(void) { return (float)(rng_next(&SD.rs) & 0xFFFFFF) / 16777216.0f; }
@@ -110,6 +111,30 @@ static void sd_level_laid(void) {                                  /* start_leve
 static int sd_crypt_door(int x, int y) {                           /* the side doorway at (x, y), -1 none */
     for (int i = 0; i < SDX.n; i++) if (SDX.d[i].x == x && SDX.d[i].y == y) return i;
     return -1;
+}
+
+/* ---- the crypt's dream and the doorways (step 7): the nearest doorway to a passage not yet tried this visit, while it is early,
+ * whole and has two lives or more; it stands on the lane beside it, turns and goes in, as into a chain's doorway (PS_USE) ---- */
+static int sd_dream_goal(int x, int y, int *gx, int *gy) {         /* pick_goal; bfs_dist is from (x, y) already (chain_goal) */
+    if (!SDX.n || G.player || G.shop || PK.depth || G.level == sd_dream_lost || G.leaving || G.level_t > 200.0 || G.hp * 3 < G.max_hp * 2 || sd_lives() < 2) return 0;
+    int best = -1, bd = 61, sx, sy;
+    for (int i = 0; i < SDX.n; i++) {
+        int s = SDX.d[i].side;
+        if (s < 0 || s >= SD_SIDES || SDP.done[s] || SDP.tried[s] || !use_spot(SDX.d[i].x, SDX.d[i].y, &sx, &sy)) continue;
+        int d = bfs_dist[sy][sx];
+        if (d >= 0 && d < bd) { bd = d; best = i; *gx = sx; *gy = sy; }
+    }
+    if (best < 0) return 0;
+    G.use_x = SDX.d[best].x; G.use_y = SDX.d[best].y; G.use_kind = USE_SIDE;
+    return 1;
+}
+static int sd_walk_in(int x, int y);
+static int sd_dream_in(void) {                                     /* PS_USE: through it */
+    int k = sd_crypt_door(G.use_x, G.use_y);
+    G.use_kind = USE_NONE;
+    if (k < 0) return 0;
+    if (SDX.d[k].side >= 0 && SDX.d[k].side < SD_SIDES) SDP.tried[SDX.d[k].side] = 1;
+    return sd_walk_in(G.use_x, G.use_y);
 }
 
 /* ---- the world as it stands ---- */
@@ -439,8 +464,8 @@ static void sd_mobs(float dt) {
         float mh = sd_mob_h(m), dx = SD.x - m->x, dy = (SD.y - SD_HT * 0.5f) - (m->y - mh * 0.5f);
         int sees = !SD.dying && fabsf(dx) < SDT[TU_DEAD_SIGHT] && fabsf(dy) < 80.0f && sd_line_clear(m->x, m->y - mh * 0.6f, SD.x, SD.y - SD_HT * 0.6f);
         m->cool -= dt;
-        if (m->fly) {                                              /* drift about home; seen, come at you and swoop */
-            float tx = sees ? SD.x : m->home_x + 30.0f * sinf(m->t * 0.7f + (float)i), ty = sees ? SD.y - 14.0f : m->home_y + 10.0f * sinf(m->t * 1.3f);
+        if (m->fly) {                                              /* drift about home; seen, come at you and swoop (its middle at the caster's) */
+            float tx = sees ? SD.x : m->home_x + 30.0f * sinf(m->t * 0.7f + (float)i), ty = sees ? SD.y - SD_HT * 0.5f + mh * 0.5f : m->home_y + 10.0f * sinf(m->t * 1.3f);
             float ax = tx - m->x, ay = ty - m->y, d = fmaxf(1.0f, hypotf(ax, ay));
             m->vx += (ax / d * sp * 1.2f - m->vx) * fminf(1.0f, dt * 2.5f);
             m->vy += (ay / d * sp * 1.2f - m->vy) * fminf(1.0f, dt * 2.5f);
@@ -781,6 +806,7 @@ static void sd_life_lost(void) {
         SD.on = 0; snd_set_room(0);
         stand_at_door(SD.cx, SD.cy);
         RUN.sd_lost = 0;                                           /* a new run's three */
+        if (!G.player) sd_dream_lost = G.level;
         G.blame = (Blame){ BL_NONE, 0, 0 };
         int wind = RUN.wind_spent; RUN.wind_spent = 1; G.lb_spent = 1;
         G.hp = 1; G.level_t = fmax(G.level_t, 2.0);
@@ -831,6 +857,19 @@ static void sd_person(void) {
             for (int n = 0; n < 7; n++) { at = (at + (rb ? 1 : 6)) % 7; if (RUN.gear.atk[ORDER[at]] >= 0) { pick_spell(ORDER[at]); break; } }
         }
         up_was = up; lb_was = lb; rb_was = rb;
+    }
+    if (IN.touch && TCH.used) {                                    /* touch (step 12): the left stick walks, a finger on the right of the
+                                                                      picture jumps, held for higher; the right strip casts, a tap at the
+                                                                      left uses (E), as in the crypt */
+        static int up_was, jump_was;
+        int up = IN.ly > 0.6f, jump = 0;
+        in->left |= IN.lx < -0.3f; in->right |= IN.lx > 0.3f;
+        in->run |= fabsf(IN.lx) > 0.92f;
+        in->down |= IN.ly < -0.6f;
+        in->up_hit |= up && !up_was;
+        for (int k = 0; k < TCH.nf; k++) jump |= TCH.f[k].role == TF_TURN && !TCH.f[k].spent;
+        in->jump |= jump; in->jump_hit |= jump && !jump_was;
+        up_was = up; jump_was = jump;
     }
 }
 static void sd_update(float dt) {

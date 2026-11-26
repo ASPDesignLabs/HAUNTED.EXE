@@ -345,6 +345,27 @@ static void spr_compassware(void) {
     cv_store(SP_COMPASSWARE);
 }
 
+/* side (PLAN-side): a life for the side passages, as the passages draw one: a clay votive bowl and its flame, a draft */
+static void spr_lifeware(void) {
+    cv_begin(cv_sprite, TS, TS);
+    for (int y = 34; y <= 46; y++) for (int x = 16; x <= 48; x++) {   /* the bowl, a half round of fired clay, lit from the upper left */
+        float nx = (x + 0.5f - 32.0f) / 15.0f, ny = (y + 0.5f - 34.0f) / 12.0f;
+        if (nx * nx + ny * ny > 1.0f) continue;
+        float v = 0.62f - nx * 0.22f - ny * 0.25f + (h01(x, y, 631) - 0.5f) * 0.08f;
+        cv_px(x, y, y <= 35 ? sh(R_WARM, 0.82f) : sh(R_WARM, v));
+    }
+    for (int x = 19; x <= 45; x++) cv_px(x, 35, sh(R_WARM, 0.25f));   /* the oil, dark under the lip */
+    for (int y = 14; y <= 35; y++) for (int x = 24; x <= 40; x++) {   /* the flame */
+        float ax = x + 0.5f - 32.0f, h = (35.0f - y) / 21.0f, wd = 6.5f * (1.0f - h * h) * (0.75f + 0.25f * h);
+        if (fabsf(ax) > wd) continue;
+        float k = fabsf(ax) / (wd + 0.01f);
+        cv_px(x, y, (uint8_t)(R_FLAME + (k < 0.35f && h < 0.6f ? 15 : k < 0.7f ? 11 - (int)(h * 3) : 7 - (int)(h * 3))));
+    }
+    cv_px(32, 33, sh(R_STONE, 0.05f)); cv_px(32, 34, sh(R_STONE, 0.05f));   /* the wick */
+    cv_outline(0);
+    cv_store(SP_LIFEWARE);
+}
+
 /* Severance: four desks pushed together behind low green partitions, an old terminal on each, numbers
  * on their dark screens. Drawn in R_FLOOR and R_CEIL, so only a Severance pocket shows it true. */
 static void spr_desks(void) {

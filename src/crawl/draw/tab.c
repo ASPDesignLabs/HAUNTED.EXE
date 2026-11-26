@@ -117,7 +117,7 @@ static int abil_count(const Gear *g, int ab) { int c = 0; for (int s = 0; s < NS
 static const char *stat_short(int st);
 static void render_buy(Frame *f) {
     dim_view(f);
-    int i = G.shop_buy, more = buy_live(BUY_MAP) + buy_live(BUY_COMPASS);
+    int i = G.shop_buy, more = buy_live(BUY_MAP) + buy_live(BUY_COMPASS) + buy_live(BUY_LIFE);
     for (int j = 0; j < G.ped_n; j++) more += buy_live(j);
     char line[400], keys[96], right[32];
     snprintf(right, sizeof right, "YOU HAVE $%d", RUN.treasure);
@@ -148,6 +148,21 @@ static void render_buy(Frame *f) {
         ui_compass(f, 272, 100, 30, 300.0f, 345.0f, UI_CT_EXIT, R_GLOW, 0, 0);   /* as it will turn: the exit, north by west, you facing north-west */
         if (G.sh_note_t > 0.0f) gfx_text8(f, 14, 166, G.sh_note, R_GOLD + 11, 1);
         else if (COMPASS_PRICE > RUN.treasure) { snprintf(line, sizeof line, "YOU ARE $%d SHORT", COMPASS_PRICE - RUN.treasure); gfx_text8(f, 14, 166, line, R_BLOOD + 13, 1); }
+        snprintf(keys, sizeof keys, "E BUY  %sESC CLOSE", more > 1 ? "A/D WARES  " : "");
+        hall_keys(f, 184, keys);
+        return;
+    }
+    if (i == BUY_LIFE) {                                           /* side (PLAN-side): a life for the side passages */
+        ui_well(f, 9, 26, 302, 153);
+        gfx_text8(f, 14, 31, "A LIFE FOR THE PASSAGES", R_BONE + 13, 1);
+        snprintf(line, sizeof line, "$%d", LIFE_PRICE);
+        gfx_text8(f, 306 - gfx_text_width(line, 1), 31, line, LIFE_PRICE <= RUN.treasure ? (uint8_t)(R_GOLD + 12) : (uint8_t)(R_BLOOD + 12), 1);
+        snprintf(line, sizeof line, "A LAMP LIT FOR YOU IN THE SIDE PASSAGES, WHERE YOU HAVE THREE LIVES OF YOUR OWN AND THE LAST LOST ENDS "
+                 "THE RUN. YOU HAVE %s OF THREE. A PASSAGE FINISHED GIVES ONE BACK; A DEATH THAT COSTS GIVES ALL THREE.",
+                 (const char *const[]){ "NONE", "ONE", "TWO", "THREE" }[clampi(3 - RUN.sd_lost, 0, 3)]);
+        text_wrap_ex(f, 14, 45, line, 36, R_STONE + 13, 8, 9);
+        if (G.sh_note_t > 0.0f) gfx_text8(f, 14, 166, G.sh_note, R_GOLD + 11, 1);
+        else if (LIFE_PRICE > RUN.treasure) { snprintf(line, sizeof line, "YOU ARE $%d SHORT", LIFE_PRICE - RUN.treasure); gfx_text8(f, 14, 166, line, R_BLOOD + 13, 1); }
         snprintf(keys, sizeof keys, "E BUY  %sESC CLOSE", more > 1 ? "A/D WARES  " : "");
         hall_keys(f, 184, keys);
         return;
