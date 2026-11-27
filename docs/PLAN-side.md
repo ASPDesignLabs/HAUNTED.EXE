@@ -291,6 +291,44 @@ true to step out of; the bats' hits did not match the bats; what flies should st
 - **Not changed:** the creatures' pictures and their size against the caster (they stand about twice its height since the caster was
   halved; step 13 is their own art); the crypt and its dead.
 
+### 2i. The builder's kit (session 10, 27 November 2026)
+
+The owner asked for more to build with: ten pieces, some fixed and some moved or changed by logic, all drawn in the World Editor; the
+dream left out of them till the owner has played them. All in `game/side_kit.c` (after `side_works.c`), with hooks where the caster
+moves, where shots fly and where triggers act; drawn in `draw/side.c` (`sd_draw_kit`); their draft tiles in `side_art.c` (`ST_SLATE`
+to `ST_CLIMB`), on the sheet `media/sheets/side/kit_draft.png` for the owner's word. The text (2b) gains two letters and nine things:
+
+```
+S                              ; wet slate: solid; on it, starting and stopping are slow (TUNE slate, 0.15 of the floor's grip)
+W                              ; cobweb, over the back wall: the caster's pace, its jump and fall, and what flies through it, held
+                               ; (TUNE web, 0.35); fire through it catches, and the fire runs from tile to tile; gone for the visit
+CHAIN x y h [OFF]              ; a chain hanging h tiles: up beside it takes it, up and down climb (TUNE climb, 64), jump lets go;
+                               ; OFF: hauled up till a trigger drops it
+SPRING x y [OFF]               ; a springboard on the floor of (x, y): landed or stepped on, it throws (TUNE spring 430 with jump held,
+                               ; seven tenths without); OFF: flat
+CRACK x y w h                  ; cracked masonry, solid till a spell, a flask's splash or a trigger's ON breaks it; a trigger's source,
+                               ; pressed once broken
+STONE x y w h A|B              ; bell stones; A's up at the start; a bell, or any trigger on any stone, swaps them (ON: A's, OFF: B's,
+                               ; FLIP: the other); one rising waits for room
+BELL x y [CLOCK s] [OFF]       ; a bell on the back wall: a spell, a flask, up beside it, a trigger or its clock rings it; each ring swaps
+                               ; the stones, and it is a source the moment it rings
+GHOST x y w h [CLOCK on off [AT s]] [OFF]   ; ghost stone, solid while it shows; on its clock it shimmers its last 0.6 s; without,
+                               ; ON shows and OFF hides
+PRESS x y w h [CLOCK every [AT s]] [OFF]    ; a head in a slot w by h (h 2 or more, w 8 at most), raised; it warns 0.7 s with dust,
+                               ; comes down at 520 px/s, holds 0.6 s, rises at 44; on its clock, or once each ON or FLIP; under it: TUNE
+                               ; press (half your health) and thrown clear, or all of it with no room; the dead under it slain; ridden
+TOMB x y                       ; a sarcophagus two tiles wide: pushed walking into it at under half the walk, it falls, rides water and
+                               ; belts, presses plates, is stood on
+BELT x y w dir speed [OFF]     ; a belt of w tiles in row y, solid, carrying the caster, the dead that walk and what lies loose dir at
+                               ; speed tiles a second; ON runs, OFF stops, FLIP turns it about
+```
+
+A press's head and a sarcophagus are bodies, boxes solid on every side (`KB`), stood on and carried (`SD.on_body`); the stones, ghost
+stone, masonry and belts are tiles solid now (`KSOL`, laid each step). Shots stop on a body; a bell under a spell rings; lightning rings
+the bells along it and breaks masonry where it ends. `SdIn.up` (up held) is new, for the chain. Not done: the dream does not know the
+kit (the owner's word: play them first); the dead walk through bodies, and only belts and presses touch them; the figure has no
+climbing frames; the art is a draft for the sheet.
+
 ## 3. Steps
 
 | Step | What | State |
@@ -320,7 +358,9 @@ true to step out of; the bats' hits did not match the bats; what flies should st
 - `CRAWL_TPSIDE=n` (debug build): a side doorway to built-in side passage n in the first wall ahead of the start, every link of
   it going to that one doorway; `CRAWL_SIDE=n` straight into it as the level opens.
 - Events: `EVENT side_in`, `side_out`, `side_life`, `side_done`, `side_over`; `side_works` (a gate, current, flow, platform or trap
-  turned on or off by a trigger) and `side_trap` (a trap going off, its cells).
+  turned on or off by a trigger) and `side_trap` (a trap going off, its cells); `side_kit` (2i: a chain taken, a spring throwing, masonry
+  broken, a bell rung and the stones that rose, a press warning, landing, striking or crushing, a web catching, a belt turned).
+- `CRAWL_SIDESTILL=1`: the dream stands still in a passage, for a scripted person to try something before it has walked past.
 
 ## 5. Tests
 
@@ -329,7 +369,7 @@ levels it plays, against the build before on eight seeds, the same on every leve
 
 ## 6. What this branch touches that others share
 
-New files: `src/crawl/game/side.c`, `side_text.c`, `side_dead.c`, `side_dream.c`, `src/crawl/draw/side.c`, `src/art/side_art.c` and
+New files: `src/crawl/game/side.c`, `side_text.c`, `side_dead.c`, `side_kit.c`, `side_dream.c`, `src/crawl/draw/side.c`, `src/art/side_art.c` and
 `side_art.h`, `tools/sidemock.c`, and later `tools/mapedit/side.js`. Lines in shared files, each marked `/* side (PLAN-side) */`:
 `scene_crawl.c` (the parts' list), `Makefile` (`SRC` and the mock-up), `game/update.c` (the hand-off in `crawl_update`),
 `draw/frame.c` (the hand-off in `crawl_render`), `game/human.c` (the doorway walked into and used), `game/drawn.c` and
@@ -554,3 +594,21 @@ Tested, harness only:
   into WhereAmI at level 2.
 Not played by hand; nothing under Wine. Open: the owner's play of WhereAmI and of level 2's doorways; the dream still does not time
 what moves (it waits for a lift at its end), and does not open level 2's secrets.
+
+**Session 10 (27 November 2026): the builder's kit (2i).** The owner asked for ten more pieces to build with, fixed and moved by logic,
+for the World Editor, the dream not to know them till they have played them. Built as 2i says: wet slate and cobweb as letters; chain,
+springboard, cracked masonry, bell stones and their bell, ghost stone, press, sarcophagus and belt as things; each in the editor (its own
+section, THE BUILDER'S KIT, a pane each, five new sliders in TUNING), read and written back, checked; a built-in passage with each once,
+*The Builder's Kit* (`SIDE_TEXT[6]`). Tested, harness only, by a scripted person in a small passage for each (`CRAWL_SIDESTILL`):
+- Slate: let go at a walk, 16 pixels' slide against 3 on stone, and slower to start. Cobweb: the walk 72 to 25 inside it; a fire bolt
+  through it (the dream's, `CRAWL_SIDEFIRE`) caught it.
+- The springboard: landed on with jump held, a throw of 121 pixels against a jump's 53; stepped on without, a jump's height. The chain:
+  taken, climbed from the floor to its top, jumped from onto a ledge. Masonry: a flask broke it, and its trigger opened a gate.
+- The bell rung by hand: A's wall sank, B's bridge rose, walked across; a flask's splash near the bell rang it. Ghost stone on its
+  clock went from under the caster, who fell (a life). The press struck once as it came down on the caster (half its health, thrown
+  clear). The sarcophagus, pushed, lay on a plate and opened its gate, and pushed past it, shut it. The belt carried the caster at
+  its speed; a lever turned it about.
+- `node tools/mapedit/test.js` passed (seven built in, the kit's letter for letter); the editor in Playwright's Chromium opened *The
+  Builder's Kit*, chose each piece and drew its pane, five new sliders, no checks failed, no page errors.
+Not played by hand; nothing under Wine. Open: the owner's play and their word on the sheet; the dream in the kit; climbing frames.
+

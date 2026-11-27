@@ -58,9 +58,91 @@ static int sd_back_tile(int tx, int ty) {                          /* what shows
     return l == '.' || r == '.' ? -1 : ST_BACK0;
 }
 
+static uint32_t sd_hash(int a, int b, int c) { uint32_t h = (uint32_t)a * 73856093u ^ (uint32_t)b * 19349663u ^ (uint32_t)c * 83492791u; return h ^ (h >> 13); }
+/* ---- the builder's kit (side_kit.c) ---- */
+static void sd_dots(Frame *f, int x0, int y0, int w, int h, uint8_t c) {   /* a box's outline, dotted: where something will be */
+    for (int k = 0; k < w; k += 3) { sd_px(f, x0 + k, y0, c, 16); sd_px(f, x0 + k, y0 + h - 1, c, 16); }
+    for (int k = 0; k < h; k += 3) { sd_px(f, x0, y0 + k, c, 16); sd_px(f, x0 + w - 1, y0 + k, c, 16); }
+}
+static void sd_draw_kit(Frame *f, int camx, int camy) {
+    const SdLevel *L = SD.L;
+    for (int i = 0; i < L->nth; i++) {
+        const SdThing *t = &L->th[i];
+        int sx = t->x * SD_TILE - camx, sy = t->y * SD_TILE - camy, W2 = t->w * SD_TILE, H2 = t->h * SD_TILE;
+        switch (t->kind) {
+        case SDT_CHAIN:                                            /* hanging; hauled up, a coil at its top */
+            if (SD.st[i]) for (int k = 0; k < t->h; k++) sd_draw_tile(f, side_tile[ST_CLIMB], sx, sy + k * SD_TILE, 16, 1.0f, 0);
+            else for (int k = 0; k < 6; k++) sd_px(f, sx + 5 + k, sy + 2 + (k & 1), (uint8_t)(R_IRON + 10), 18);
+            break;
+        case SDT_SPRING: sd_draw_tile(f, side_tile[SD.st[i] && KT[i] < 0.15f ? ST_SPRING0 : ST_SPRING1], sx, sy, SD.st[i] ? 18 : 12, 1.0f, 0); break;
+        case SDT_CRACK:
+            if (!KBRK[i]) { for (int y = 0; y < t->h; y++) for (int x = 0; x < t->w; x++) sd_draw_tile(f, side_tile[ST_CRACK], sx + x * SD_TILE, sy + y * SD_TILE, 17, 1.0f, 0); }
+            else if (KT[i] < 1.2f)                                 /* its rubble, falling and gone */
+                for (int y = 0; y < t->h; y++) for (int x = 0; x < t->w; x++)
+                    for (int k = 0; k < 5; k++) {
+                        uint32_t r = sd_hash(x + t->x, y + t->y, k);
+                        float px = (float)(x * SD_TILE + (int)(r % 14)) + ((float)((r >> 4) % 9) - 4.0f) * KT[i] * 10.0f;
+                        float py = (float)(y * SD_TILE + (int)((r >> 8) % 14)) + 260.0f * KT[i] * KT[i];
+                        int c = R_STONE + 5 + (int)((r >> 12) % 6);
+                        for (int q = 0; q < 4; q++) sd_px(f, sx + (int)px + (q & 1), sy + (int)py + (q >> 1), (uint8_t)c, 18);
+                    }
+            break;
+        case SDT_STONE:
+            if (KUP[i]) for (int y = 0; y < t->h; y++) for (int x = 0; x < t->w; x++) sd_draw_tile(f, side_tile[t->a ? ST_STONE_B : ST_STONE_A], sx + x * SD_TILE, sy + y * SD_TILE, 17, 1.0f, 0);
+            else sd_dots(f, sx, sy, W2, H2, (uint8_t)(t->a ? R_PURPLE + 9 : R_GOLD + 6));
+            break;
+        case SDT_GHOST: {
+            if (!KUP[i]) { sd_dots(f, sx, sy, W2, H2, (uint8_t)(R_GHOST + 7)); break; }
+            float left = 9.0f;                                     /* how long it shows yet, on its clock */
+            if (t->f[0] > 0.0f) { float per = t->f[0] + t->f[1]; left = t->f[0] - fmodf(KT[i], per); }
+            int gone = left < 0.6f ? (int)((0.6f - left) / 0.6f * 8.0f) : 0;   /* the shimmer: more of it lets the dark through */
+            for (int y = 0; y < t->h; y++) for (int x = 0; x < t->w; x++)
+                for (int py = 0; py < STS; py++) for (int px = 0; px < STS; px++) {
+                    uint8_t c = side_tile[ST_GHOST][py * STS + px];
+                    if (c == C_CLEAR || (gone && (int)(sd_hash(px + x * 16, py + y * 16, (int)(SD.t * 12.0f)) % 9) < gone)) continue;
+                    sd_px(f, sx + x * SD_TILE + px, sy + y * SD_TILE + py, c, 22);
+                }
+            break;
+        }
+        case SDT_BELL: {
+            int fr = ST_BELL0;
+            if (KRING[i] > 0.0f) fr = sinf(KRING[i] * 18.0f) > 0.0f ? ST_BELL1 : ST_BELL2;
+            sd_draw_tile(f, side_tile[fr], sx, sy, 20, 1.0f, 0);
+            break;
+        }
+        case SDT_PRESS: {                                          /* its chains up to the slot's top, its head; dust before it comes down */
+            int shake = KPH[i] == 1 ? (((int)(SD.t * 40.0f)) & 1 ? 1 : -1) : 0, hy = sy + (int)KY[i];
+            for (int y = sy; y < hy; y += SD_TILE) {
+                int cut = hy - y < SD_TILE ? SD_TILE - (hy - y) : 0;
+                sd_draw_tile(f, side_tile[ST_CHAIN], sx + 0, y - cut, 14, 1.0f, 0);
+                sd_draw_tile(f, side_tile[ST_CHAIN], sx + W2 - SD_TILE, y - cut, 14, 1.0f, 0);
+            }
+            for (int x = 0; x < t->w; x++) sd_draw_tile(f, side_tile[ST_PRESS], sx + x * SD_TILE + shake, hy, 17, 1.0f, 0);
+            if (KPH[i] == 1)
+                for (int k = 0; k < 8; k++) {
+                    uint32_t r = sd_hash(i, k, 7);
+                    float fall = fmodf(KT[i] * 3.0f + (float)(r % 100) / 100.0f, 1.0f);
+                    sd_px(f, sx + (int)(r % (uint32_t)W2), hy + SD_TILE + (int)(fall * (float)(H2 - (int)KY[i] - SD_TILE)), (uint8_t)(R_STONE + 10), 20);
+                }
+            break;
+        }
+        case SDT_TOMB: {
+            int tx = (int)floorf(KTX[i]) - camx, ty = (int)floorf(KTY[i]) - SD_TILE - camy;
+            sd_draw_tile(f, side_tile[ST_TOMB_L], tx, ty, 17, 1.0f, 0); sd_draw_tile(f, side_tile[ST_TOMB_R], tx + SD_TILE, ty, 17, 1.0f, 0);
+            break;
+        }
+        case SDT_BELT: {
+            int fr = ((int)floorf(KRUN[i] / 4.0f) % 4 + 4) % 4;
+            for (int x = 0; x < t->w; x++) sd_draw_tile(f, side_tile[ST_BELT0 + fr], sx + x * SD_TILE, sy, SD.st[i] ? 17 : 13, 1.0f, 0);
+            break;
+        }
+        default: break;
+        }
+    }
+}
+
 /* ---- the works (side_works.c) ---- */
 static int sd_el_ramp(int el) { return el == EL_FIRE ? R_FLAME : el == EL_FROST ? R_GHOST : el == EL_LIGHT ? R_GLOW : el == EL_POISON ? R_MOSS : el == EL_SPIRIT ? R_PURPLE : R_BONE; }
-static uint32_t sd_hash(int a, int b, int c) { uint32_t h = (uint32_t)a * 73856093u ^ (uint32_t)b * 19349663u ^ (uint32_t)c * 83492791u; return h ^ (h >> 13); }
 static void sd_draw_fx(Frame *f, int camx, int camy);
 static void sd_draw_works(Frame *f, int camx, int camy) {
     const SdLevel *L = SD.L;
@@ -421,6 +503,16 @@ static void sd_render(Frame *f) {
             case '=': t = ST_LEDGE; break;
             case '^': t = ST_SPIKES; break;
             case '~': t = sd_tile(tx, ty - 1) == '~' ? ST_WATER_DEEP : ST_WATER0 + ((int)(SD.t * 6.0f) + tx) % 4; break;
+            case 'S': t = !sd_solid_ch(sd_tile(tx, ty - 1)) ? ST_SLATE_TOP : ST_SLATE; break;
+            case 'W':                                              /* a cobweb: whole, burning, or gone */
+                if (tx < 0 || ty < 0 || tx >= L->w || ty >= L->h || KWEB[ty][tx] == 2) break;
+                t = ST_WEB;
+                if (KWEB[ty][tx] == 1)
+                    for (int k = 0; k < 10; k++) {
+                        uint32_t r = sd_hash(tx, ty, k + (int)(SD.t * 20.0f));
+                        sd_px(f, tx * SD_TILE - camx + (int)(r % 16), ty * SD_TILE - camy + (int)((r >> 4) % 16), (uint8_t)(R_FLAME + 6 + (int)((r >> 8) % 10)), 31);
+                    }
+                break;
             default: break;
             }
             if (t >= 0) sd_draw_tile(f, side_tile[t], tx * SD_TILE - camx, ty * SD_TILE - camy, ch == '~' ? 20 : 17, 1.0f, 0);
@@ -441,6 +533,7 @@ static void sd_render(Frame *f) {
             }
     }
     sd_draw_works(f, camx, camy);                                  /* water running, gates, plates, the traps */
+    sd_draw_kit(f, camx, camy);                                    /* the builder's kit (side_kit.c) */
     /* the falling blocks, shaking and falling */
     for (int i = 0; i < L->nth; i++) {
         const SdThing *t = &L->th[i];

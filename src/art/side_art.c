@@ -261,6 +261,150 @@ static void torch(uint8_t *t, int frame) {
     }
 }
 
+/* ---- the builder's kit (27 November): drafts, to go to the owner as a sheet ---- */
+static void slate(uint8_t *t, int top) {                           /* thin dark slabs, wet: a sheen running down them */
+    for (int y = 0; y < STS; y++)
+        for (int x = 0; x < STS; x++) {
+            int row = y / 4, ry = y % 4;
+            uint8_t c = ry == 3 ? rc(R_STONE, 2) : rc(R_STONE, 6 + (int)(hs(x / 5 + row * 3, row, 91) % 3) - (ry == 2));
+            if (ry < 3 && (x + y * 2 + (int)(hs(row, 0, 92) % 7)) % 11 == 0) c = rc(R_GHOST, 8 + (ry == 0) * 2);
+            t[y * STS + x] = c;
+        }
+    if (top)
+        for (int x = 0; x < STS; x++) {
+            tp(t, x, 0, rc(R_GHOST, hs(x, 1, 93) % 3 == 0 ? 10 : 13));
+            if (hs(x, 2, 94) % 5 == 0) { tp(t, x, 1, rc(R_GHOST, 10)); tp(t, x, 2, rc(R_GHOST, 7)); }
+        }
+}
+static void web(uint8_t *t) {                                      /* strands out from a middle, and rings between them, broken here and there */
+    tclear(t);
+    for (int a = 0; a < 8; a++) {
+        float an = (float)a * 0.7854f + 0.3f;
+        for (float r = 0.0f; r < 12.0f; r += 0.5f) tp(t, (int)floorf(8.0f + cosf(an) * r), (int)floorf(8.0f + sinf(an) * r), rc(R_BONE, 12 - (int)(r / 6.0f)));
+    }
+    for (int ring = 0; ring < 3; ring++) {
+        float rr = 2.5f + (float)ring * 2.8f;
+        for (float an = 0.0f; an < 6.2832f; an += 0.06f)
+            if (hs((int)(an * 10.0f), ring, 95) % 5) tp(t, (int)floorf(8.0f + cosf(an) * rr), (int)floorf(8.0f + sinf(an) * rr * 0.9f), rc(R_BONE, 10 - ring));
+    }
+}
+static void crack(uint8_t *t) {                                    /* the stone, split through: dark seams and a chip or two loose */
+    stone(t, R_STONE, 8, 8, 8, 1, 96);
+    static const int8_t seam[][2] = { { 2, 0 }, { 3, 1 }, { 3, 2 }, { 4, 3 }, { 6, 4 }, { 7, 5 }, { 7, 6 }, { 6, 7 }, { 7, 8 }, { 9, 9 }, { 10, 10 },
+                                      { 10, 11 }, { 12, 12 }, { 13, 13 }, { 13, 14 }, { 14, 15 }, { 8, 5 }, { 9, 4 }, { 11, 3 }, { 12, 2 }, { 7, 9 }, { 5, 10 }, { 4, 11 }, { 3, 13 } };
+    for (unsigned i = 0; i < sizeof seam / sizeof seam[0]; i++) { tp(t, seam[i][0], seam[i][1], rc(R_STONE, 1)); tp(t, seam[i][0] + 1, seam[i][1], rc(R_STONE, 11)); }
+    for (int k = 0; k < 3; k++) { int x = 2 + (int)(hs(k, 4, 97) % 12), y = 2 + (int)(hs(k, 5, 97) % 12); tp(t, x, y, rc(R_STONE, 3)); }
+}
+static void bell_stone(uint8_t *t, int set) {                      /* a dressed block, a bell cut in its face */
+    int ramp = set ? R_PURPLE : R_GOLD;
+    for (int y = 0; y < STS; y++)
+        for (int x = 0; x < STS; x++) {
+            int k = 9 + (int)(hs(x, y, 98 + set) % 3) - 1;
+            if (y == 0 || x == 0) k = 13; else if (y == 15 || x == 15) k = 4; else if (y == 1 || x == 1) k = 11; else if (y == 14 || x == 14) k = 6;
+            t[y * STS + x] = rc(R_STONE, k);
+        }
+    for (int y = 4; y <= 11; y++)                                  /* the bell: a dome, flared at the foot, its clapper under */
+        for (int x = 4; x <= 11; x++) {
+            float ax = (float)x - 7.5f, half = y < 6 ? 1.5f + (float)(y - 4) : y < 10 ? 2.6f + (float)(y - 6) * 0.25f : 3.6f;
+            if (fabsf(ax) <= half) tp(t, x, y, set ? rc(ramp, 12 - (ax > 0.0f) * 3) : (uint8_t)(ramp + 9 - (ax > 0.0f) * 3));
+        }
+    tp(t, 7, 12, rc(R_STONE, 2)); tp(t, 8, 12, rc(R_STONE, 2));
+    for (int x = 3; x <= 12; x++) tp(t, x, 3, rc(R_STONE, 5));    /* the cut's shadow */
+}
+static void ghost_stone(uint8_t *t) {                              /* pale stone, half there: a third of its pixels let the dark through */
+    for (int y = 0; y < STS; y++)
+        for (int x = 0; x < STS; x++) {
+            int k = 9 + (int)(hs(x / 4, y / 4, 99) % 3) - 1;
+            if (y % 8 == 7 || (x + (y / 8) * 4) % 8 == 7) k = 5;
+            if (y == 0 || x == 0) k = 13;
+            t[y * STS + x] = hs(x, y, 100) % 3 == 0 && y > 0 && x > 0 ? C_CLEAR : rc(R_GHOST, k);
+        }
+}
+static void belt(uint8_t *t, int frame) {                          /* links of bone along the top, over an iron frame with its rollers */
+    tclear(t);
+    for (int x = 0; x < STS; x++) {
+        int along = (x + frame * 2) % 8;
+        for (int y = 0; y < 4; y++) {
+            int k = along == 7 ? 4 : y == 0 ? 13 : y == 3 ? 6 : 10 - (along == 0);
+            tp(t, x, y, rc(R_BONE, k));
+        }
+        if (along == 3) tp(t, x, 1, rc(R_BONE, 7));                /* a knuckle's mark */
+    }
+    for (int y = 4; y < STS; y++) for (int x = 0; x < STS; x++) tp(t, x, y, rc(R_IRON, y == 4 ? 9 : y == 15 ? 2 : 4 + (int)(hs(x, y, 101) % 2)));
+    for (int r = 0; r < 2; r++) {                                  /* the rollers, their spokes turning */
+        int cx = r ? 12 : 4, cy = 9;
+        for (int y = -3; y <= 3; y++) for (int x = -3; x <= 3; x++) if (x * x + y * y <= 10) tp(t, cx + x, cy + y, rc(R_IRON, x * x + y * y >= 7 ? 10 : 6));
+        float an = (float)frame * 0.785f;
+        for (int k = -2; k <= 2; k++) tp(t, cx + (int)lroundf(cosf(an) * (float)k), cy + (int)lroundf(sinf(an) * (float)k), rc(R_IRON, 13));
+    }
+}
+static void press_head(uint8_t *t) {                               /* a block of stone in iron bands, its foot dark and worn */
+    for (int y = 0; y < STS; y++)
+        for (int x = 0; x < STS; x++) {
+            int k = 9 + (int)(hs(x, y, 102) % 3) - 1;
+            if (x == 0) k = 11; else if (x == 15) k = 5;
+            uint8_t c = rc(R_STONE, k);
+            if (y <= 1 || y == 8 || y == 9) c = rc(R_IRON, y == 0 || y == 8 ? 11 : 6);
+            if (y >= 14) c = rc(R_STONE, y == 15 ? 2 : 4);
+            t[y * STS + x] = c;
+        }
+    for (int x = 2; x < STS; x += 6) { tp(t, x, 1, rc(R_IRON, 14)); tp(t, x, 9, rc(R_IRON, 14)); }   /* rivets */
+}
+static void tomb(uint8_t *t, int half) {                           /* a lid over a carved chest; the left half a cross, the right a line of letters */
+    tclear(t);
+    for (int y = 2; y < STS; y++)
+        for (int x = 0; x < STS; x++) {
+            int edge = half ? x == 15 : x == 0, k;
+            if (y <= 4) k = y == 2 ? 13 : y == 4 ? 6 : 11;         /* the lid, over the chest a pixel each side */
+            else k = 8 + (int)(hs(x, y, 103 + half) % 2) - (y == 15) * 3;
+            if (edge && y > 4) k -= 2;
+            t[y * STS + x] = rc(R_STONE, k);
+        }
+    for (int x = half ? 0 : 1; x < (half ? 15 : 16); x++) tp(t, x, 1, rc(R_STONE, 10));
+    if (!half) { for (int y = 6; y <= 13; y++) tp(t, 9, y, rc(R_STONE, 4)); for (int x = 6; x <= 12; x++) tp(t, x, 8, rc(R_STONE, 4)); }
+    else for (int x = 2; x <= 12; x++) if (hs(x, 0, 104) % 3) { tp(t, x, 9, rc(R_STONE, 4)); if (hs(x, 1, 104) % 2) tp(t, x, 11, rc(R_STONE, 5)); }
+}
+static void springboard(uint8_t *t, int down) {                    /* a board on three ribs of bone over a wooden foot; thrown down, the ribs squashed */
+    tclear(t);
+    int top = down ? 10 : 6;
+    for (int x = 1; x < 15; x++) { tp(t, x, 14, rc(R_WOOD, 8)); tp(t, x, 15, rc(R_WOOD, 4)); }
+    for (int x = 2; x < 14; x++) { tp(t, x, top, rc(R_WOOD, 12)); tp(t, x, top + 1, rc(R_WOOD, 7)); }
+    int span = 13 - (top + 2);
+    for (int r = 0; r < 3; r++) {
+        int y = top + 2 + (span * r) / 3 + 1;
+        for (int x = 3; x < 13; x++) {
+            float bow = 1.5f * sinf((float)(x - 3) / 9.0f * 3.1416f);
+            tp(t, x, y + (int)lroundf(down ? bow * 0.4f : bow), rc(R_BONE, 12 - r));
+        }
+    }
+}
+static void bell_hung(uint8_t *t, int swing) {                     /* a bronze bell on an iron bracket from the wall; swung, it leans */
+    tclear(t);
+    for (int x = 3; x <= 12; x++) tp(t, x, 0, rc(R_IRON, 10));
+    tp(t, 7, 1, rc(R_IRON, 12)); tp(t, 8, 1, rc(R_IRON, 8));
+    int lean = swing == 1 ? -1 : swing == 2 ? 1 : 0;
+    for (int y = 2; y <= 13; y++) {
+        float half = y < 5 ? 1.5f + (float)(y - 2) * 0.7f : y < 11 ? 3.6f + (float)(y - 5) * 0.2f : 5.4f;
+        int shift = lean * (y - 2) / 6;
+        for (int x = 1; x <= 14; x++) {
+            float ax = (float)x - 7.5f - (float)shift;
+            if (fabsf(ax) > half) continue;
+            int k = y == 11 ? 7 : 9 - (ax > 0.0f) * 3 + (fabsf(ax) < 1.0f) * 2 - (y > 11) * 3;
+            tp(t, x, y, (uint8_t)(R_GOLD + (k < 0 ? 0 : k > 12 ? 12 : k)));
+        }
+    }
+    tp(t, 7 + lean * 2, 14, rc(R_IRON, 11)); tp(t, 8 + lean * 2, 14, rc(R_IRON, 7)); tp(t, 7 + lean * 2, 15, rc(R_IRON, 9));   /* the clapper */
+}
+static void climb_chain(uint8_t *t) {                              /* heavy links, side on and face on in turn */
+    tclear(t);
+    for (int y = 0; y < STS; y++) {
+        int link = (y / 4) & 1, ry = y % 4;
+        if (link) { tp(t, 7, y, rc(R_IRON, 12)); tp(t, 8, y, rc(R_IRON, 8)); tp(t, 9, y, rc(R_IRON, 5)); }
+        else if (ry == 0 || ry == 3) for (int x = 6; x <= 9; x++) tp(t, x, y, rc(R_IRON, 11 - (x > 7) * 3));
+        else { tp(t, 5, y, rc(R_IRON, 12)); tp(t, 6, y, rc(R_IRON, 9)); tp(t, 9, y, rc(R_IRON, 7)); tp(t, 10, y, rc(R_IRON, 4)); }
+    }
+}
+
 /* ---- the figure: a hooded caster in a robe, from a rig ---- */
 
 typedef struct { float x, y; } V2;
@@ -503,5 +647,16 @@ void side_art_init(void) {
     life(side_tile[ST_LIFE]);
     for (int f = 0; f < 3; f++) torch(side_tile[ST_TORCH0 + f], f);
     chain(side_tile[ST_CHAIN]);
+    slate(side_tile[ST_SLATE], 0); slate(side_tile[ST_SLATE_TOP], 1);
+    web(side_tile[ST_WEB]);
+    crack(side_tile[ST_CRACK]);
+    bell_stone(side_tile[ST_STONE_A], 0); bell_stone(side_tile[ST_STONE_B], 1);
+    ghost_stone(side_tile[ST_GHOST]);
+    for (int f = 0; f < 4; f++) belt(side_tile[ST_BELT0 + f], f);
+    press_head(side_tile[ST_PRESS]);
+    tomb(side_tile[ST_TOMB_L], 0); tomb(side_tile[ST_TOMB_R], 1);
+    springboard(side_tile[ST_SPRING0], 0); springboard(side_tile[ST_SPRING1], 1);
+    for (int k = 0; k < 3; k++) bell_hung(side_tile[ST_BELL0 + k], k);
+    climb_chain(side_tile[ST_CLIMB]);
     make_figure();
 }

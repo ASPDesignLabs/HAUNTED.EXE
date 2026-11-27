@@ -223,6 +223,7 @@
 #include "game/side.c"
 #include "game/side_fx.c"
 #include "game/side_works.c"
+#include "game/side_kit.c"                                          /* the builder's kit: ten pieces for the World Editor */
 #include "game/side_dead.c"                                         /* the dead: their masks, ways and shots */
 #include "game/side_dream.c"
 

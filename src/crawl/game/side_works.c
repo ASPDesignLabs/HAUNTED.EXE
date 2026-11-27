@@ -72,6 +72,8 @@ static void sd_items(float dt) {
 static int sd_pressed(int i) {
     const SdThing *t = &SD.L->th[i];
     if (t->kind == SDT_SWITCH) return SD.thrown[i];
+    int kit = 0, kp = sd_kit_pressed(i, &kit);                     /* masonry broken, a bell ringing, a plate under a sarcophagus */
+    if (kit) return kp;
     if (t->kind == SDT_ZONE) {
         float x0 = (float)(t->x * SD_TILE), x1 = (float)((t->x + t->w) * SD_TILE), y0 = (float)(t->y * SD_TILE), y1 = (float)((t->y + t->h) * SD_TILE);
         return !SD.dying && SD.x + SD_HW > x0 && SD.x - SD_HW < x1 && SD.y > y0 && SD.y - sd_box_h() < y1;
@@ -79,6 +81,7 @@ static int sd_pressed(int i) {
     if (t->kind != SDT_PLATE) return 0;
     float x0 = (float)(t->x * SD_TILE), x1 = x0 + SD_TILE, top = (float)((t->y + 1) * SD_TILE);   /* it lies in its tile's foot */
     if (!SD.dying && SD.ground && SD.x + SD_HW > x0 + 2.0f && SD.x - SD_HW < x1 - 2.0f && fabsf(SD.y - top) < 3.0f) return 1;
+    if (kp) return 1;
     const SdLevel *L = SD.L;
     for (int k = 0; k < L->nth; k++)
         if (sd_loose(&L->th[k]) && !SD.taken[k] && SD.ivy[k] == 0.0f && SD.ix[k] > x0 && SD.ix[k] < x1 && fabsf(SD.iy[k] + 5.0f - top) < 3.0f) return 1;
@@ -92,6 +95,7 @@ static void sd_act(int target, int verb, int arg, int back) {
         return;
     }
     if (target < 0 || target >= SD.L->nth) return;
+    if (sd_kit_act(target, verb, back)) return;                    /* the kit's own ways with ON, OFF and FLIP (side_kit.c) */
     int was = SD.st[target], now = verb == TRV_ON ? !back : verb == TRV_OFF ? back : !was;
     SD.st[target] = (uint8_t)now;
     if (was != now) {
@@ -328,4 +332,5 @@ static void sd_works_build(void) {
     for (int i = 0; i < L->nth; i++)
         if (L->th[i].kind == SDT_LEDGE) for (int k = 0; k < L->th[i].w; k++) if (L->th[i].x + k < SD_W && L->th[i].y < SD_H) SDLG[L->th[i].y][L->th[i].x + k] = (uint8_t)(i + 1);
     sd_fx_build();
+    sd_kit_build();
 }

@@ -24,6 +24,9 @@ const TILE = {
   '=': tileCanvas((g, r) => { speckle(g, r, BACK, [0.7, 0.15, 0.15]); g.fillStyle = '#8a5530'; g.fillRect(0, 1, 16, 5); g.fillStyle = '#b07040'; g.fillRect(0, 1, 16, 1); g.fillStyle = '#4d2e18'; g.fillRect(0, 5, 16, 1); g.fillStyle = '#7a7f88'; g.fillRect(2, 6, 3, 3); g.fillRect(11, 6, 3, 3); }),
   '^': tileCanvas((g, r) => { speckle(g, r, BACK, [0.7, 0.15, 0.15]); for (let s = 0; s < 4; s++) { const cx = s * 4 + 2; for (let y = 6; y < 16; y++) { const h = ((y - 6) * 2 / 9) | 0; g.fillStyle = '#b8bcc4'; g.fillRect(cx - h - 1, y, h + 1, 1); g.fillStyle = '#6a6e76'; g.fillRect(cx, y, h + 1, 1); } } g.fillStyle = '#d2473b'; g.fillRect(6, 7, 1, 2); }),
   '~': tileCanvas((g, r) => { speckle(g, r, ['#3d6a26', '#4a7a2e', '#335a20'], [0.6, 0.2, 0.2]); g.fillStyle = '#9fd06a'; for (let x = 0; x < 16; x++) g.fillRect(x, 2 + Math.round(Math.sin(x * 0.8)), 1, 1); g.fillStyle = '#c6f2a8'; g.fillRect(4, 9, 1, 1); g.fillRect(11, 12, 1, 1); }),
+  /* the kit's two letters (27 November): wet slate, a cobweb over the back wall */
+  S: tileCanvas((g, r) => { speckle(g, r, ['#3a3946', '#43424f', '#33323d'], [0.6, 0.2, 0.2]); g.fillStyle = '#1e1d24'; for (let y = 3; y < 16; y += 4) g.fillRect(0, y, 16, 1); g.fillStyle = '#9fc7d8'; g.fillRect(0, 0, 16, 1); [[3, 1], [9, 5], [5, 9], [12, 13]].forEach(([x, y]) => g.fillRect(x, y, 2, 1)); }),
+  W: tileCanvas((g, r) => { speckle(g, r, BACK, [0.7, 0.15, 0.15]); g.strokeStyle = 'rgba(232,222,196,0.85)'; g.lineWidth = 0.7; g.beginPath(); for (let a = 0; a < 8; a++) { const an = a * Math.PI / 4 + 0.3; g.moveTo(8, 8); g.lineTo(8 + Math.cos(an) * 9, 8 + Math.sin(an) * 9); } g.stroke(); g.beginPath(); g.arc(8, 8, 3, 0, 7); g.moveTo(14, 8); g.arc(8, 8, 6, 0, 7); g.stroke(); }),
 };
 function icon(draw) { const c = document.createElement('canvas'); c.width = c.height = 16; const g = c.getContext('2d'); draw(g); return c; }
 const ICON = {
@@ -47,6 +50,17 @@ ICON.ledge = icon(g => { g.fillStyle = '#8a8f99'; g.fillRect(0, 6, 16, 3); g.fil
 ICON.power_RAPID = icon(g => { g.fillStyle = '#3a6fb0'; g.beginPath(); g.arc(8, 8, 7, 0, 7); g.fill(); g.fillStyle = '#c8f6ff'; g.beginPath(); g.moveTo(9, 2); g.lineTo(4, 9); g.lineTo(8, 9); g.lineTo(7, 14); g.lineTo(12, 7); g.lineTo(8, 7); g.closePath(); g.fill(); });
 ICON.power_MIGHT = icon(g => { g.fillStyle = '#9c2a22'; g.beginPath(); g.arc(8, 8, 7, 0, 7); g.fill(); g.fillStyle = '#ffd34d'; g.fillRect(7, 3, 2, 8); g.fillRect(5, 9, 6, 2); g.fillRect(7, 11, 2, 3); });
 ICON.power_WARD = icon(g => { g.fillStyle = '#c9ccd4'; g.beginPath(); g.moveTo(3, 2); g.lineTo(13, 2); g.lineTo(13, 8); g.lineTo(8, 15); g.lineTo(3, 8); g.closePath(); g.fill(); g.fillStyle = '#5a5e66'; g.fillRect(7, 4, 2, 8); g.fillRect(5, 6, 6, 2); });
+/* the builder's kit (27 November): after the game's draft tiles */
+ICON.chain = icon(g => { for (let y = 0; y < 16; y += 4) { g.fillStyle = '#9a9ea8'; if ((y / 4) & 1) g.fillRect(7, y, 2, 4); else { g.fillRect(5, y, 2, 4); g.fillRect(9, y, 2, 4); g.fillRect(5, y, 6, 1); g.fillRect(5, y + 3, 6, 1); } } });
+ICON.spring = icon(g => { g.fillStyle = '#7a5530'; g.fillRect(1, 14, 14, 2); g.fillStyle = '#c4a070'; g.fillRect(2, 6, 12, 2); g.strokeStyle = '#e6dcc4'; g.lineWidth = 1; for (let k = 0; k < 3; k++) { g.beginPath(); g.moveTo(3, 9 + k * 2); g.quadraticCurveTo(8, 7 + k * 2, 13, 9 + k * 2); g.stroke(); } });
+ICON.crack = icon(g => { g.fillStyle = '#645e6d'; g.fillRect(0, 0, 16, 16); g.fillStyle = '#2b2830'; g.fillRect(0, 7, 16, 1); g.fillRect(7, 0, 1, 7); g.fillStyle = '#121016'; [[2, 0], [3, 2], [5, 4], [7, 6], [8, 8], [10, 10], [12, 12], [13, 14], [9, 4], [11, 2]].forEach(([x, y]) => g.fillRect(x, y, 2, 2)); });
+['A', 'B'].forEach(set => { ICON['stone' + set] = icon(g => { g.fillStyle = '#736c7c'; g.fillRect(0, 0, 16, 16); g.fillStyle = '#a49cb0'; g.fillRect(0, 0, 16, 1); g.fillRect(0, 0, 1, 16); g.fillStyle = '#3a3640'; g.fillRect(0, 15, 16, 1); g.fillRect(15, 0, 1, 16);
+  g.fillStyle = set === 'A' ? '#e9c24c' : '#b77ae8'; g.beginPath(); g.moveTo(8, 4); g.quadraticCurveTo(12, 5, 12, 11); g.lineTo(4, 11); g.quadraticCurveTo(4, 5, 8, 4); g.fill(); g.fillRect(7, 11, 2, 2); }); });
+ICON.bell = icon(g => { g.fillStyle = '#6a6e76'; g.fillRect(3, 0, 10, 1); g.fillRect(7, 1, 2, 2); g.fillStyle = '#d6a440'; g.beginPath(); g.moveTo(8, 3); g.quadraticCurveTo(14, 4, 14, 13); g.lineTo(2, 13); g.quadraticCurveTo(2, 4, 8, 3); g.fill(); g.fillStyle = '#8a6420'; g.fillRect(2, 12, 12, 1); g.fillStyle = '#4a4e56'; g.fillRect(7, 14, 2, 2); });
+ICON.ghost = icon(g => { g.fillStyle = 'rgba(160,215,230,0.75)'; g.fillRect(0, 0, 16, 16); g.fillStyle = 'rgba(230,250,255,0.9)'; g.fillRect(0, 0, 16, 1); g.fillRect(0, 0, 1, 16); g.fillStyle = 'rgba(14,12,18,0.7)'; for (let k = 0; k < 14; k++) g.fillRect((k * 7) % 15 + 1, (k * 5) % 15 + 1, 1, 1); });
+ICON.press = icon(g => { g.fillStyle = '#6a6e76'; g.fillRect(3, 0, 1, 6); g.fillRect(12, 0, 1, 6); g.fillStyle = '#736c7c'; g.fillRect(0, 6, 16, 10); g.fillStyle = '#9a9ea8'; g.fillRect(0, 6, 16, 2); g.fillRect(0, 11, 16, 1); g.fillStyle = '#2b2830'; g.fillRect(0, 15, 16, 1); });
+ICON.tomb = icon(g => { g.fillStyle = '#8a8394'; g.fillRect(0, 3, 16, 3); g.fillStyle = '#645e6d'; g.fillRect(1, 6, 14, 10); g.fillStyle = '#3a3640'; g.fillRect(7, 8, 2, 6); g.fillRect(5, 10, 6, 2); });
+ICON.belt = icon(g => { g.fillStyle = '#e6dcc4'; g.fillRect(0, 0, 16, 4); g.fillStyle = '#8a8070'; for (let x = 7; x < 16; x += 8) g.fillRect(x, 0, 1, 4); g.fillStyle = '#4a4e56'; g.fillRect(0, 4, 16, 12); g.fillStyle = '#9a9ea8'; g.beginPath(); g.arc(4, 10, 3, 0, 7); g.arc(12, 10, 3, 0, 7); g.fill(); });
 const GOLD_NAMES = { IT_COINS: 'Coins', IT_CHALICE: 'Chalice', IT_GEMS: 'Gems', IT_CROWN: 'Crown', IT_CHEST: 'Chest' };
 ICON.gate = icon(g => { g.fillStyle = '#6a6e76'; g.fillRect(0, 1, 16, 2); for (let x = 1; x < 16; x += 4) { g.fillStyle = '#b8bcc4'; g.fillRect(x, 1, 1, 14); g.fillStyle = '#5a5e66'; g.fillRect(x + 1, 1, 1, 14); } g.fillStyle = '#8a8f99'; g.fillRect(0, 8, 16, 1); });
 ICON.plate = icon(g => { g.fillStyle = '#736c7c'; g.fillRect(2, 11, 12, 3); g.fillStyle = '#a49cb0'; g.fillRect(2, 11, 12, 1); g.fillStyle = '#e9c24c'; g.fillRect(6, 9, 4, 1); });
@@ -64,7 +78,11 @@ const PROTO = {
   ledge: { k: 'ledge', w: 3, stopped: true }, power: { k: 'power', kind: 'RAPID', secs: 10 },
   gate: { k: 'gate', w: 1, h: 2, open: false }, plate: { k: 'plate' }, zone: { k: 'zone', w: 2, h: 2 },
   current: { k: 'current', w: 4, h: 1, dx: 1, dy: 0, speed: 3 }, pcurrent: { k: 'current', w: 4, h: 1, dx: 1, dy: 0, speed: 3, poison: true },
+  chain: { k: 'chain', h: 5 }, spring: { k: 'spring' }, crack: { k: 'crack', w: 1, h: 3 }, stoneA: { k: 'stone', w: 1, h: 3, set: 'A' }, stoneB: { k: 'stone', w: 3, h: 1, set: 'B' },
+  bell: { k: 'bell', clock: 0 }, ghost: { k: 'ghost', w: 3, h: 1, on: 2.5, off: 1.5, at: 0 }, press: { k: 'press', w: 2, h: 5, clock: 3, at: 0 }, tomb: { k: 'tomb' },
+  belt: { k: 'belt', w: 5, dir: 1, speed: 2 },
 };
+const KIT = ['chain', 'spring', 'crack', 'stone', 'bell', 'ghost', 'press', 'tomb', 'belt'];
 
 /* ---- history ---- */
 const snap = () => JSON.stringify(T.map);
@@ -98,6 +116,7 @@ function build() {
       <details open><summary>WAYS AND HAZARDS</summary><div class="tools" id="sdWays" style="margin-top:6px"></div></details>
       <details open><summary>THINGS</summary><div class="tools" id="sdThings" style="margin-top:6px"></div></details>
       <details open><summary>GATES, PLATES, WATER</summary><div class="tools" id="sdWorks" style="margin-top:6px"></div></details>
+      <details open><summary>THE BUILDER'S KIT</summary><div class="tools" id="sdKit" style="margin-top:6px"></div></details>
       <details><summary>THE CRYPT'S TRAPS</summary><div id="sdTraps" style="margin-top:6px;display:flex;flex-direction:column;gap:8px"></div></details>
     </aside>
     <section class="mapwrap slab" aria-label="Side passage">
@@ -130,7 +149,7 @@ function build() {
   };
   T.selectBtn = tb('sdMode', 'Select', ICON.select, { kind: 'select' }, 'Choose a thing to change it; drag it to move it. Choose nothing for the passage itself.');
   tb('sdMode', 'Erase', ICON.erase, { kind: 'erase' }, 'Click a thing to take it away.');
-  SC.TILES.split('').forEach(ch => tb('sdTiles', SC.TILE_NAMES[ch], TILE[ch], { kind: 'tile', ch }, 'Paint ' + SC.TILE_NAMES[ch].toLowerCase() + '. Shift and drag for a box of it.'));
+  SC.TILES.split('').filter(ch => ch !== 'S' && ch !== 'W').forEach(ch => tb('sdTiles', SC.TILE_NAMES[ch], TILE[ch], { kind: 'tile', ch }, 'Paint ' + SC.TILE_NAMES[ch].toLowerCase() + '. Shift and drag for a box of it.'));
   tb('sdWays', 'Doorway', ICON.door, { kind: 'thing', p: 'door' }, 'Click the tile a doorway stands on its foot in; it is two tiles high. Up goes through it.');
   tb('sdWays', 'Goal doorway', ICON.goal, { kind: 'thing', p: 'goal' }, 'Leaving by the goal finishes the passage: a life back.');
   tb('sdWays', 'Platform', ICON.plat, { kind: 'thing', p: 'plat' }, 'A platform that goes back and forth. Its way, distance and speed are in CHOSEN.');
@@ -152,6 +171,18 @@ function build() {
   tb('sdWorks', 'Unseen zone', ICON.zone, { kind: 'thing', p: 'zone' }, 'A box never seen: pressed while the caster is in it. Bind it in TRIGGERS.');
   tb('sdWorks', 'Water', ICON.current, { kind: 'thing', p: 'current' }, 'Water running through a box: it carries what is loose and pushes the caster. Its way is in CHOSEN.');
   tb('sdWorks', 'Poisoned water', ICON.pcurrent, { kind: 'thing', p: 'pcurrent' }, 'The same, and it bites.');
+  tb('sdKit', 'Hanging chain', ICON.chain, { kind: 'thing', p: 'chain' }, SC.KIT_SAYS.chain + ' Click its top tile.');
+  tb('sdKit', 'Springboard', ICON.spring, { kind: 'thing', p: 'spring' }, SC.KIT_SAYS.spring);
+  tb('sdKit', 'Wet slate', TILE.S, { kind: 'tile', ch: 'S' }, 'Paint wet slate: a floor slow to start on and slow to stop (TUNING: slate). Shift and drag for a box of it.');
+  tb('sdKit', 'Cobweb', TILE.W, { kind: 'tile', ch: 'W' }, 'Paint cobweb: it slows the caster and what flies through it (TUNING: web); fire burns it away, and it runs from strand to strand. Shift and drag for a box of it.');
+  tb('sdKit', 'Cracked masonry', ICON.crack, { kind: 'thing', p: 'crack' }, SC.KIT_SAYS.crack);
+  tb('sdKit', 'Bell stones A', ICON.stoneA, { kind: 'thing', p: 'stoneA' }, SC.KIT_SAYS.stone);
+  tb('sdKit', 'Bell stones B', ICON.stoneB, { kind: 'thing', p: 'stoneB' }, SC.KIT_SAYS.stone);
+  tb('sdKit', 'Bell', ICON.bell, { kind: 'thing', p: 'bell' }, SC.KIT_SAYS.bell);
+  tb('sdKit', 'Ghost stone', ICON.ghost, { kind: 'thing', p: 'ghost' }, SC.KIT_SAYS.ghost);
+  tb('sdKit', 'Press', ICON.press, { kind: 'thing', p: 'press' }, SC.KIT_SAYS.press + ' Click the top left tile of its slot.');
+  tb('sdKit', 'Sarcophagus', ICON.tomb, { kind: 'thing', p: 'tomb' }, SC.KIT_SAYS.tomb + ' Click the left of the two tiles it stands in.');
+  tb('sdKit', 'Bone-mill belt', ICON.belt, { kind: 'thing', p: 'belt' }, SC.KIT_SAYS.belt + ' Click its left end, in the floor row.');
   const runs = (E.DATA.hazards && E.DATA.hazards.fixed) || [], RUNS = ['THE CRYPTS', 'THE CATACOMBS', 'THE HOLLOWS', 'THE DEEP'];
   runs.forEach((fixed, r) => {
     const kinds = [...fixed, ...(E.DATA.hazards.arise[r] || []), E.DATA.hazards.sapper[r]].filter(k => k && SC.HAZ_FAMILY[k]);
@@ -178,8 +209,10 @@ function zoom(d) { const i = Math.max(0, Math.min(ZOOMS.length - 1, ZOOMS.indexO
 function bounds(t) {                              /* the tiles a thing covers: x, y, w, h */
   switch (t.k) {
   case 'door': return [t.x, t.y - 1, 1, 2];
-  case 'plat': case 'ledge': return [t.x, t.y, t.w, 1];
-  case 'flow': case 'gate': case 'zone': case 'current': return [t.x, t.y, t.w, t.h];
+  case 'plat': case 'ledge': case 'belt': return [t.x, t.y, t.w, 1];
+  case 'flow': case 'gate': case 'zone': case 'current': case 'crack': case 'stone': case 'ghost': case 'press': return [t.x, t.y, t.w, t.h];
+  case 'chain': return [t.x, t.y, 1, t.h];
+  case 'tomb': return [t.x, t.y, 2, 1];
   default: return [t.x, t.y, 1, 1];
   }
 }
@@ -254,6 +287,7 @@ function draw() {
       if (z >= 16) { g.fillStyle = '#e9c24c'; g.font = Math.max(9, z * 0.4) + 'px VT323, monospace'; g.fillText((t.stopped ? 'OFF ' : '') + (t.tag || ''), t.x * z + 2, t.y * z - 2); }
       return;
     }
+    if (KIT.includes(t.k)) { drawKit(t, z); return; }
     if (t.k === 'power') { g.drawImage(ICON['power_' + t.kind] || ICON.power_RAPID, bx * z, by * z, z, z); if (z >= 16) { g.fillStyle = '#d8d0bd'; g.font = Math.max(9, z * 0.4) + 'px VT323, monospace'; g.fillText(t.secs + 's', bx * z + 1, by * z + z - 1); } return; }
     if (t.k === 'fall' && t.stopped) g.globalAlpha = 0.35;
     const ic = t.k === 'gold' ? ICON.gold : t.k === 'key' ? ICON['key' + t.c] : ICON[t.k];
@@ -271,6 +305,34 @@ function draw() {
   if (s) { const [bx, by, bw, bh] = bounds(s); g.strokeStyle = '#e9c24c'; g.lineWidth = 2; g.strokeRect(bx * z + 1, by * z + 1, bw * z - 2, bh * z - 2); }
   if (T.drag && T.drag.rect) { const r = T.drag.rect; g.strokeStyle = '#e9c24c'; g.setLineDash([4, 3]); g.lineWidth = 2; g.strokeRect(Math.min(r.x0, r.x1) * z, Math.min(r.y0, r.y1) * z, (Math.abs(r.x1 - r.x0) + 1) * z, (Math.abs(r.y1 - r.y0) + 1) * z); g.setLineDash([]); }
   if (T.hover) { g.strokeStyle = 'rgba(233,194,76,0.6)'; g.lineWidth = 1; g.strokeRect(T.hover[0] * z + 0.5, T.hover[1] * z + 0.5, z - 1, z - 1); }
+}
+
+function drawKit(t, z) {                           /* the builder's kit, as it stands at the start */
+  const x = t.x * z, y = t.y * z, lbl = (s, dx, dy, col) => { if (z < 16) return; g.fillStyle = col || '#e9c24c'; g.font = Math.max(9, z * 0.4) + 'px VT323, monospace'; g.fillText(s, x + (dx || 2), y + (dy == null ? -2 : dy)); };
+  const tiled = (ic, w, h, a) => { g.globalAlpha = a == null ? 1 : a; for (let j = 0; j < h; j++) for (let k = 0; k < w; k++) g.drawImage(ic, x + k * z, y + j * z, z, z); g.globalAlpha = 1; };
+  const dash = (w, h, col) => { g.setLineDash([4, 3]); g.strokeStyle = col; g.lineWidth = 1.5; g.strokeRect(x + 1, y + 1, w * z - 2, h * z - 2); g.setLineDash([]); };
+  switch (t.k) {
+  case 'chain': tiled(ICON.chain, 1, t.h, t.stopped ? 0.35 : 1); if (t.stopped) lbl('OFF'); break;
+  case 'spring': tiled(ICON.spring, 1, 1, t.stopped ? 0.35 : 1); break;
+  case 'crack': tiled(ICON.crack, t.w, t.h); break;
+  case 'stone': tiled(t.set === 'B' ? ICON.stoneB : ICON.stoneA, t.w, t.h, t.set === 'B' ? 0.35 : 1); if (t.set === 'B') dash(t.w, t.h, '#b77ae8'); lbl(t.set === 'B' ? 'B: SUNK' : 'A', 2, z * 0.7, t.set === 'B' ? '#d8b6f6' : '#17141b'); break;
+  case 'bell': tiled(ICON.bell, 1, 1); if (+t.clock > 0) lbl(t.clock + 's', 2, z - 1, '#d8d0bd'); break;
+  case 'ghost': tiled(ICON.ghost, t.w, t.h, t.stopped && !(+t.on > 0) ? 0.3 : 0.8); if (+t.on > 0) lbl(`${t.on}s / ${t.off}s`, 2, z * 0.7, '#17141b'); break;
+  case 'press': {
+    dash(t.w, t.h, '#9a9ea8'); tiled(ICON.press, t.w, 1);
+    g.strokeStyle = '#d2473b'; g.lineWidth = 2; g.beginPath(); const cx = x + t.w * z / 2; g.moveTo(cx, y + z * 1.2); g.lineTo(cx, y + t.h * z - z * 0.3); g.stroke();
+    g.fillStyle = '#d2473b'; g.beginPath(); g.moveTo(cx - 5, y + t.h * z - z * 0.5); g.lineTo(cx + 5, y + t.h * z - z * 0.5); g.lineTo(cx, y + t.h * z - z * 0.1); g.fill();
+    lbl(+t.clock > 0 ? t.clock + 's' : (t.stopped ? 'OFF' : 'TRIGGER'), 2, -2); break;
+  }
+  case 'tomb': g.drawImage(ICON.tomb, x, y, 2 * z, z); break;
+  case 'belt': {
+    tiled(ICON.belt, t.w, 1, t.stopped ? 0.45 : 1);
+    g.strokeStyle = '#e9c24c'; g.lineWidth = 2; const yy = y - z * 0.3, x0 = x + z * 0.4, x1 = x + t.w * z - z * 0.4, tip = t.dir < 0 ? x0 : x1;
+    g.beginPath(); g.moveTo(x0, yy); g.lineTo(x1, yy); g.stroke(); g.fillStyle = '#e9c24c'; g.beginPath(); g.moveTo(tip, yy - 4); g.lineTo(tip, yy + 4); g.lineTo(tip + (t.dir < 0 ? -6 : 6), yy); g.fill();
+    lbl(t.speed + '/s' + (t.stopped ? ' OFF' : ''), 2, -z * 0.45); break;
+  }
+  }
+  if (t.tag && z >= 16 && ['crack', 'bell', 'stone', 'ghost', 'press', 'belt', 'chain', 'spring'].includes(t.k)) { g.fillStyle = '#e9c24c'; g.font = Math.max(9, z * 0.4) + 'px VT323, monospace'; g.fillText(t.tag, x + 2, y + bounds(t)[3] * z + z * 0.45); }
 }
 
 /* ---- the pointer ---- */
@@ -310,8 +372,11 @@ function down(e) {
     if (proto.k === 'door') { const used = new Set(T.map.things.filter(t => t.k === 'door').map(t => t.link)); let l = proto.goal ? proto.link : 0; while (used.has(l) && l < 15) l++; proto.link = l; }
     if (proto.k === 'flow') { proto.w = Math.min(proto.w, T.map.w - x); proto.h = Math.min(proto.h, T.map.h - y); }
     if (proto.k === 'plat' || proto.k === 'ledge') proto.w = Math.min(proto.w, T.map.w - x);
-    if (['gate', 'zone', 'current'].includes(proto.k)) { proto.w = Math.min(proto.w, T.map.w - x); proto.h = Math.min(proto.h, T.map.h - y); }
-    if (['gate', 'plate', 'zone', 'current', 'switch', 'ledge'].includes(proto.k)) proto.tag = SC.newTag(T.map, proto.k === 'current' ? 'water' : proto.k);
+    if (['gate', 'zone', 'current', 'crack', 'stone', 'ghost', 'press'].includes(proto.k)) { proto.w = Math.min(proto.w, T.map.w - x); proto.h = Math.min(proto.h, T.map.h - y); }
+    if (proto.k === 'belt') proto.w = Math.min(proto.w, T.map.w - x);
+    if (proto.k === 'chain') proto.h = Math.min(proto.h, T.map.h - y);
+    if (proto.k === 'tomb' && x + 2 > T.map.w) { E.toast('A SARCOPHAGUS IS TWO TILES WIDE'); return; }
+    if (['gate', 'plate', 'zone', 'current', 'switch', 'ledge', 'crack', 'bell', 'stone', 'ghost', 'press', 'belt', 'chain'].includes(proto.k)) proto.tag = SC.newTag(T.map, proto.k === 'current' ? 'water' : proto.k);
     change(() => { const o = SC.add(T.map, Object.assign(proto, { x, y })); T.sel = o.id; });
     setTab('inspect'); return;
   }
@@ -434,6 +499,26 @@ function paneThing(t) {
       <div class="field"><label for="tSecs">Lasts</label>${numIn('tSecs', t.secs, 0.5, 120, 0.5)}</div>
       <p class="note">Taken in passing, once. Quickened hands: casting twice as quick. Might: harm doubled, the caster glowing red. Ward: nothing harms the caster. Its time shows by the lives; another of the same kind starts it again.</p>`; break;
   case 'life': h += '<p class="note">Picked up, a life, never more than three; with three already, five souls.</p>'; break;
+  /* the builder's kit (27 November) */
+  case 'chain': h += `<div class="field"><label for="tChainH">Long</label>${numIn('tChainH', t.h, 1, T.map.h - t.y)}</div><p class="note">${esc(SC.KIT_SAYS.chain)} Climbing pace: TUNING, climb.</p>`; break;
+  case 'spring': h += `<p class="note">${esc(SC.KIT_SAYS.spring)}</p>`; break;
+  case 'crack': h += `<div class="row"><label>Across</label>${numIn('tFw', t.w, 1, T.map.w)}<label>Down</label>${numIn('tFh', t.h, 1, T.map.h)}</div><p class="note">${esc(SC.KIT_SAYS.crack)}</p>`; break;
+  case 'stone': h += `<div class="row"><label>Across</label>${numIn('tFw', t.w, 1, T.map.w)}<label>Down</label>${numIn('tFh', t.h, 1, T.map.h)}</div>
+      <div class="field"><label for="tSet">Set</label><select id="tSet">${opt('A', 'A: standing at the start', t.set)}${opt('B', 'B: sunk at the start', t.set)}</select></div><p class="note">${esc(SC.KIT_SAYS.stone)}</p>`; break;
+  case 'bell': h += `<div class="field"><label for="tBClk">Rings every</label>${numIn('tBClk', t.clock || 0, 0, 120, 0.5)}</div><p class="note">Seconds, 0 for never on its own. ${esc(SC.KIT_SAYS.bell)}</p>`; break;
+  case 'ghost': h += `<div class="row"><label>Across</label>${numIn('tFw', t.w, 1, T.map.w)}<label>Down</label>${numIn('tFh', t.h, 1, T.map.h)}</div>
+      <div class="row"><label><input type="checkbox" id="tGClk"${+t.on > 0 ? ' checked' : ''}> On a clock</label></div>
+      ${+t.on > 0 ? `<div class="field"><label for="tOn">Shows</label>${numIn('tOn', t.on, 0.5, 60, 0.5)}</div><div class="field"><label for="tOff">Gone</label>${numIn('tOff', t.off, 0.5, 60, 0.5)}</div><div class="field"><label for="tAt">Begins at</label>${numIn('tAt', t.at || 0, 0, 120, 0.5)}</div>` : ''}
+      <p class="note">${esc(SC.KIT_SAYS.ghost)} With a clock, OFF at the start stops the clock till a trigger's ON; without one, OFF at the start hides it.</p>`; break;
+  case 'press': h += `<div class="row"><label>Across</label>${numIn('tFw', t.w, 1, 8)}<label>Down</label>${numIn('tFh', t.h, 2, T.map.h)}</div>
+      <div class="field"><label for="tPClk">Every</label>${numIn('tPClk', t.clock || 0, 0, 120, 0.5)}</div>
+      ${+t.clock > 0 ? `<div class="field"><label for="tAt">Begins at</label>${numIn('tAt', t.at || 0, 0, 120, 0.5)}</div>` : ''}
+      <p class="note">Seconds between falls, 0 for none: then only a trigger's ON or FLIP brings it down, once each. ${esc(SC.KIT_SAYS.press)}</p>`; break;
+  case 'tomb': h += `<p class="note">${esc(SC.KIT_SAYS.tomb)}</p>`; break;
+  case 'belt': h += `<div class="field"><label for="tW">Long</label>${numIn('tW', t.w, 1, T.map.w - t.x)}</div>
+      <div class="field"><label for="tBDir">Runs</label><select id="tBDir">${opt(1, 'east', t.dir)}${opt(-1, 'west', t.dir)}</select></div>
+      <div class="field"><label for="tSpd">Speed</label>${numIn('tSpd', t.speed, 0.1, 20, 0.1)}</div>
+      <p class="note">Tiles a second. It is floor: lay it in the floor's row. ${esc(SC.KIT_SAYS.belt)}</p>`; break;
   case 'torch': h += '<p class="note">Light on the back wall, and on all about it.</p>'; break;
   case 'gate': h += `<div class="row"><label>Across</label>${numIn('tFw', t.w, 1, T.map.w)}<label>Down</label>${numIn('tFh', t.h, 1, T.map.h)}</div>
       <div class="row"><label><input type="checkbox" id="tOpen"${t.open ? ' checked' : ''}> Open at the start</label></div>
@@ -469,7 +554,8 @@ function paneThing(t) {
     break;
   }
   }
-  if (['plat', 'flow', 'current', 'haz'].includes(t.k)) h += `<div class="row"><label><input type="checkbox" id="tStop"${t.stopped ? ' checked' : ''}> OFF at the start: still till a trigger's ON</label></div>`;
+  if (['plat', 'flow', 'current', 'haz', 'press', 'belt', 'bell'].includes(t.k)) h += `<div class="row"><label><input type="checkbox" id="tStop"${t.stopped ? ' checked' : ''}> OFF at the start: still till a trigger's ON</label></div>`;
+  if (['chain', 'spring', 'ghost'].includes(t.k)) h += `<div class="row"><label><input type="checkbox" id="tStop"${t.stopped ? ' checked' : ''}> OFF at the start: ${t.k === 'chain' ? 'hauled up' : t.k === 'spring' ? 'flat' : +t.on > 0 ? 'its clock stopped' : 'hidden'} till a trigger's ON</label></div>`;
   if (['ledge', 'fall'].includes(t.k)) h += `<div class="row"><label><input type="checkbox" id="tStop"${t.stopped ? ' checked' : ''}> OFF at the start: not there till a trigger's ON</label></div>`;
   if (['gold', 'key', 'life'].includes(t.k)) h += `<div class="row"><label><input type="checkbox" id="tLoose"${t.loose ? ' checked' : ''}> Loose: it falls, and water carries it</label></div>`;
   h += `<div class="field"><label for="tTag">Name</label><input type="text" id="tTag" maxlength="15" value="${esc(t.tag || '')}" placeholder="for the triggers"></div>`;
@@ -575,12 +661,18 @@ function wireThing(t) {
   const n = (id, f) => on(id, 'change', e => change(() => f(+e.target.value)));
   n('tX', v => { t.x = Math.max(0, Math.min(T.map.w - 1, v | 0)); }); n('tY', v => { t.y = Math.max(t.k === 'door' ? 1 : 0, Math.min(T.map.h - 1, v | 0)); });
   n('tLink', v => { t.link = Math.max(0, Math.min(15, v | 0)); }); on('tGoal', 'change', e => change(() => { t.goal = e.target.checked; }));
-  n('tW', v => { t.w = Math.max(1, Math.min(t.k === 'ledge' ? T.map.w - t.x : 8, v | 0)); });
+  n('tW', v => { t.w = Math.max(1, Math.min(t.k === 'ledge' || t.k === 'belt' ? T.map.w - t.x : 8, v | 0)); });
+  n('tChainH', v => { t.h = Math.max(1, Math.min(T.map.h - t.y, v | 0)); });
+  on('tSet', 'change', e => change(() => { t.set = e.target.value; }));
+  n('tBClk', v => { t.clock = v > 0 ? Math.max(0.5, Math.min(120, v)) : 0; });
+  on('tGClk', 'change', e => change(() => { if (e.target.checked) { t.on = 2.5; t.off = 1.5; } else { t.on = 0; t.off = 0; } }));
+  n('tPClk', v => { t.clock = v > 0 ? Math.max(1.5, Math.min(120, v)) : 0; });
+  on('tBDir', 'change', e => change(() => { t.dir = +e.target.value < 0 ? -1 : 1; }));
   on('tWay', 'change', e => change(() => { const [dx, dy] = e.target.value.split(',').map(Number); t.dx = dx; t.dy = dy; }));
   n('tDist', v => { t.dist = Math.max(0.5, v); }); n('tSpd', v => { t.speed = Math.max(0.1, v); }); n('tWait', v => { t.wait = Math.max(0, v); });
   n('tAt', v => { t.at = Math.max(0, t.k === 'plat' ? Math.min(1, v) : v); }); on('tLoop', 'change', e => change(() => { t.loop = e.target.checked; }));
   n('tDel', v => { t.delay = Math.max(0, v); }); n('tBack', v => { t.back = Math.max(0.5, v); });
-  n('tFw', v => { t.w = Math.max(1, Math.min(T.map.w - t.x, v | 0)); }); n('tFh', v => { t.h = Math.max(1, Math.min(T.map.h - t.y, v | 0)); });
+  n('tFw', v => { t.w = Math.max(1, Math.min(t.k === 'press' ? 8 : T.map.w - t.x, v | 0)); }); n('tFh', v => { t.h = Math.max(t.k === 'press' ? 2 : 1, Math.min(T.map.h - t.y, v | 0)); });
   n('tOn', v => { t.on = Math.max(0.5, v); }); n('tOff', v => { t.off = Math.max(0.5, v); });
   on('tKind', 'change', e => change(() => { t.kind = e.target.value; }));
   on('tRank', 'change', e => change(() => { t.rank = e.target.value === '-1' ? -1 : e.target.value; }));

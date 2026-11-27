@@ -37,7 +37,7 @@ typedef struct { int alive, kind, rank, thing, face, fly, state, way, act, next,
 typedef struct { int alive, kind, sp, el, tier, foe, from; float x, y, vx, vy, life, dmg, g; } SdShot;   /* from: the kind that threw it */
 typedef struct { float x, y, px, py, s; int dir; float wait; } SdPlat;   /* where it is (its top's left), where it was; s along its way */
 typedef struct { int state; float t, dy, vy; } SdFall;             /* 0 in place, 1 shaking, 2 falling, 3 gone */
-typedef struct { int left, right, run, jump, jump_hit, down, up_hit, cast, cast_hit; } SdIn;
+typedef struct { int left, right, run, jump, jump_hit, down, up_hit, cast, cast_hit, up; } SdIn;   /* up: held (a chain climbed) */
 
 static SdLevel SDL[SD_SIDES];                                      /* each read once, when first walked into */
 static int sdl_read[SD_SIDES];
@@ -47,7 +47,7 @@ static struct {
     float t;                                                       /* its own clock: the crypt's waits */
     uint32_t rs;                                                   /* its own dice: the crypt's are left as they were */
     float x, y, vx, vy;                                            /* the caster: the middle of its feet, in pixels */
-    int face, ground, crouch, on_plat, drop;
+    int face, ground, crouch, on_plat, drop, on_body, climb;      /* on_body: a press or a sarcophagus stood on; climb: the chain held, -1 */
     float coyote, jbuf, anim, cast_t, cd, inv_t, hurt_t, pois_k, held, in_t, pois_t;   /* held: the flask drawn back; pois_t: the poison's clock */
     int frame, dying, leaving, out_link, out_goal, holding;
     float aim_d, aim_dy;                                           /* the flask held: how far ahead it lands, and how far below the hand */
@@ -188,7 +188,20 @@ static int sd_gate_at(int tx, int ty);                             /* side_works
 static int sd_in_current_poison(float x, float y);
 static void sd_fx_ignite(float x, float y);                     /* side_fx.c */
 static void sd_works_build(void); static void sd_waters(float dt); static void sd_items(float dt); static void sd_trigs(float dt); static void sd_traps(float dt);
-static int sd_solid(int tx, int ty) { return sd_solid_ch(sd_tile(tx, ty)) || sd_fall_at(tx, ty) >= 0 || sd_gate_at(tx, ty); }
+/* the kit (side_kit.c): its tiles solid now (bell stones, ghost stone, cracked masonry, belts), and what is solid and moves (a press's
+ * head, a sarcophagus), each a box in pixels */
+static uint8_t KSOL[SD_H][SD_W];
+#define SD_BODIES 32
+static struct { int n; struct { int thing, tomb; float x, y, w, h, px, py; } b[SD_BODIES]; } KB;
+static int sd_body_at(float x0, float y0, float x1, float y1, int skip);
+static void sd_kit_build(void); static void sd_kit(float dt); static void sd_kit_after(float dt); static int sd_kit_act(int target, int verb, int back);
+static void sd_kit_block_x(float dx); static void sd_kit_block_y(float prev, float dy); static int sd_kit_on_body(void); static void sd_kit_ride(void);
+static int sd_kit_climb(float dt); static float sd_kit_belt_under(float x, float y); static int sd_kit_slate_under(void); static int sd_kit_web(float x, float y, float h);
+static int sd_kit_web_at(float x, float y); static void sd_kit_burn(float x, float y); static void sd_kit_struck(int tx, int ty); static void sd_kit_burst(float x, float y);
+static int sd_kit_bell_hit(float x, float y); static void sd_kit_beam(float x0, float y, float x1); static int sd_kit_use(void); static int sd_kit_pressed(int i, int *is_kit);
+static int sd_solid(int tx, int ty) {
+    return sd_solid_ch(sd_tile(tx, ty)) || sd_fall_at(tx, ty) >= 0 || sd_gate_at(tx, ty) || (tx >= 0 && ty >= 0 && tx < SD.L->w && ty < SD.L->h && KSOL[ty][tx]);
+}
 static int sd_floor_px(float px) { return (int)floorf(px / SD_TILE); }
 static float sd_flow_k(const SdThing *t) { return SD.fk[t - SD.L->th]; }   /* how full a flow is now (side_works.c keeps it) */
 static float sd_flow_top(const SdThing *t) { return (float)((t->y + t->h) * SD_TILE) - sd_flow_k(t) * (float)(t->h * SD_TILE); }
@@ -286,6 +299,7 @@ static void sd_move_x(float dx) {
         int c = sd_floor_px(SD.x - SD_HW);
         for (int r = r0; r <= r1; r++) if (sd_solid(c, r)) { SD.x = (float)((c + 1) * SD_TILE) + SD_HW; SD.vx = 0.0f; break; }
     }
+    if (dx != 0.0f && KB.n) sd_kit_block_x(dx);                    /* a press's head, a sarcophagus (pushed) */
 }
 static void sd_move_y(float dy) {
     float prev = SD.y, h = sd_box_h();
@@ -297,15 +311,16 @@ static void sd_move_y(float dy) {
         for (int c = c0; c <= c1; c++) {
             int ch = sd_tile(c, r);
             if (sd_solid(c, r) || (ch == '=' && !SD.drop && prev <= top + 0.5f)) {
-                if (prev <= top + 0.5f || sd_solid(c, r)) { SD.y = top; SD.vy = 0.0f; SD.ground = 1; SD.on_plat = -1; break; }
+                if (prev <= top + 0.5f || sd_solid(c, r)) { SD.y = top; SD.vy = 0.0f; SD.ground = 1; SD.on_plat = -1; SD.on_body = -1; break; }
             }
         }
         int pi; float pt;
-        if (!SD.ground && sd_on_plat(SD.x, SD.y, prev, &pi, &pt)) { SD.y = pt; SD.vy = 0.0f; SD.ground = 1; SD.on_plat = pi; }
+        if (!SD.ground && sd_on_plat(SD.x, SD.y, prev, &pi, &pt)) { SD.y = pt; SD.vy = 0.0f; SD.ground = 1; SD.on_plat = pi; SD.on_body = -1; }
     } else if (dy < 0.0f) {
         int r = sd_floor_px(SD.y - h);
         for (int c = c0; c <= c1; c++) if (sd_solid(c, r)) { SD.y = (float)((r + 1) * SD_TILE) + h; SD.vy = 0.0f; break; }
     }
+    if (KB.n && !SD.ground) sd_kit_block_y(prev, dy);               /* onto a press's head or a sarcophagus, or its foot overhead */
 }
 static int sd_stands(void) {                                       /* something under the feet now */
     int c0 = sd_floor_px(SD.x - SD_HW + 0.01f), c1 = sd_floor_px(SD.x + SD_HW - 0.01f), r = sd_floor_px(SD.y + 0.5f);
@@ -315,6 +330,7 @@ static int sd_stands(void) {                                       /* something 
         const SdThing *t = &SD.L->th[SD.on_plat]; const SdPlat *p = &SD.plat[SD.on_plat];
         if (SD.x + SD_HW > p->x && SD.x - SD_HW < p->x + (float)(t->w * SD_TILE) && fabsf(SD.y - p->y) < 1.5f) return 1;
     }
+    if (SD.on_body >= 0 && sd_kit_on_body()) return 1;
     return 0;
 }
 static void sd_cast(int held_release);
@@ -325,8 +341,12 @@ static void sd_caster(float dt) {
         sd_move_x(SD.vx * dt); SD.ground = 0; sd_move_y(SD.vy * dt);
         return;
     }
+    if (sd_kit_climb(dt)) return;                                  /* on a chain: its own way of moving (side_kit.c) */
     /* riding: carried by what is under you */
     if (SD.ground && SD.on_plat >= 0) { const SdPlat *p = &SD.plat[SD.on_plat]; sd_move_x(p->x - p->px); SD.y += p->y - p->py; }
+    if (SD.ground && SD.on_body >= 0) sd_kit_ride();
+    if (SD.ground) { float carry = sd_kit_belt_under(SD.x, SD.y); if (carry != 0.0f) sd_move_x(carry * dt); }   /* a belt running */
+    int webbed = sd_kit_web(SD.x, SD.y, sd_box_h());
     int want_crouch = in->down && SD.ground;
     if (!want_crouch && SD.crouch) {                               /* up again, if there is room */
         int r = sd_floor_px(SD.y - SD_HT), c0 = sd_floor_px(SD.x - SD_HW + 0.01f), c1 = sd_floor_px(SD.x + SD_HW - 0.01f), room = 1;
@@ -338,7 +358,9 @@ static void sd_caster(float dt) {
     if (dir) SD.face = dir;
     float top = SD.crouch ? SD_CREEP : in->run ? SD_RUN : SD_WALK;
     if (SD.pois_k > 0.0f) top *= SDT[TU_WADE];                      /* wading in poison */
+    if (webbed) top *= SDT[TU_WEB];                                /* caught in a cobweb */
     float want = (float)dir * top, acc = SD.ground ? (dir ? SDT[TU_ACCEL] : SDT[TU_BRAKE]) : SDT[TU_AIR];
+    if (SD.ground && sd_kit_slate_under()) acc *= SDT[TU_SLATE];    /* wet slate: slow to start and slow to stop */
     if (SD.vx < want) SD.vx = fminf(want, SD.vx + acc * dt); else if (SD.vx > want) SD.vx = fmaxf(want, SD.vx - acc * dt);
     /* the jump: a short grace off an edge, and one pressed just before landing still counts */
     SD.coyote = SD.ground ? SD_COYOTE : SD.coyote - dt;
@@ -353,6 +375,7 @@ static void sd_caster(float dt) {
         sd_jump_sfx();
     }
     if (!SD.ground) SD.vy = fminf(SD_FALL_MAX, SD.vy + (in->jump && SD.vy < 0.0f ? SD_G_HELD : SD_G) * dt);
+    if (webbed) SD.vy = clampf(SD.vy, -SD_JUMP * 0.55f, SD_FALL_MAX * SDT[TU_WEB] * 0.5f);   /* (it holds: a weak jump, a slow fall) */
     int was = SD.ground;
     sd_move_x(SD.vx * dt);
     SD.ground = 0;
@@ -360,7 +383,7 @@ static void sd_caster(float dt) {
     if (!SD.ground && was && SD.vy >= 0.0f) {                      /* walking: still on something? */
         if (sd_stands()) SD.ground = 1; else if (SD.vy == 0.0f) SD.vy = 1.0f;
     }
-    if (!SD.ground) SD.on_plat = -1;
+    if (!SD.ground) { SD.on_plat = -1; SD.on_body = -1; }
     if (SD.ground && !was && SD.vy == 0.0f) snd_sfx_ex(SFX_STEP, 0.3f, 0.5f);
 }
 
@@ -599,6 +622,7 @@ static void sd_cast(int release) {
             if (d < best) { best = d; first = m; fx = px; fy = py; }
         }
         SD.beam_t = 0.14f; SD.bx0 = hx; SD.by0 = hy; SD.bx1 = fx; SD.by1 = fy;
+        sd_kit_beam(hx, hy, fx);                                   /* a bell on its way rung; masonry where it stops broken */
         if (first) {
             sd_mob_hit(first, dmg, sp, el);
             for (int hop = 0, done = 0; hop < SD_MOBS && done < 2; hop++) {   /* and on, to two whose pictures are near where it struck */
@@ -718,7 +742,7 @@ static void sd_place_at(int link) {
     for (int i = 0; i < L->nth; i++) if (L->th[i].kind == SDT_DOOR && (d < 0 || L->th[i].a == link)) { if (L->th[i].a == link) { d = i; break; } if (d < 0) d = i; }
     const SdThing *t = &L->th[d];
     SD.x = (float)(t->x * SD_TILE) + 8.0f; SD.y = (float)((t->y + 1) * SD_TILE);
-    SD.vx = SD.vy = 0.0f; SD.ground = 1; SD.on_plat = -1; SD.crouch = 0; SD.face = t->x < L->w / 2 ? 1 : -1;
+    SD.vx = SD.vy = 0.0f; SD.ground = 1; SD.on_plat = -1; SD.on_body = -1; SD.climb = -1; SD.crouch = 0; SD.face = t->x < L->w / 2 ? 1 : -1;
     SD.dying = 0; SD.die_t = 0.0f; SD.inv_t = 1.0f; SD.cd = 0.4f; SD.in_t = 0.0f; SD.held = 0.0f; SD.holding = 0;
     SD.camx = clampf(SD.x - 160.0f, 0.0f, fmaxf(0.0f, (float)(L->w * SD_TILE - W)));
     SD.camy = clampf(SD.y - 100.0f, 0.0f, fmaxf(0.0f, (float)(L->h * SD_TILE - SD_VIEW_H)));
@@ -816,6 +840,7 @@ static void sd_person(void) {
     memset(in, 0, sizeof *in);
     in->left = IN.down[KEY_A] || IN.down[KEY_LEFT];
     in->right = IN.down[KEY_D] || IN.down[KEY_RIGHT];
+    in->up = IN.down[KEY_W] || IN.down[KEY_UP];
     in->run = IN.down[KEY_SHIFT];
     in->jump = IN.down[KEY_SPACE]; in->jump_hit = IN.hit[KEY_SPACE];
     in->down = IN.down[KEY_S] || IN.down[KEY_DOWN];
@@ -826,6 +851,7 @@ static void sd_person(void) {
         static int up_was, lb_was, rb_was;
         const uint8_t *d = IN.pad_down, *h = IN.pad_hit;
         int up = IN.ly > 0.6f || d[PAD_UP];
+        in->up |= up;
         in->left |= IN.lx < -0.3f || d[PAD_LEFT];                  /* the left stick or the pad to walk; pushed hard, or B held, to run */
         in->right |= IN.lx > 0.3f || d[PAD_RIGHT];
         in->run |= d[PAD_B] || fabsf(IN.lx) > 0.92f;
@@ -847,6 +873,7 @@ static void sd_person(void) {
                                                                       left uses (E), as in the crypt */
         static int up_was, jump_was;
         int up = IN.ly > 0.6f, jump = 0;
+        in->up |= up;
         in->left |= IN.lx < -0.3f; in->right |= IN.lx > 0.3f;
         in->run |= fabsf(IN.lx) > 0.92f;
         in->down |= IN.ly < -0.6f;
@@ -860,6 +887,9 @@ static void sd_update(float dt) {
     if (!SD.on) return;
     if (G.player && IN.hit[KEY_ESC]) { open_ui(UI_QUIT); return; }
     if (G.player) sd_person(); else sd_dream(dt);
+#ifdef CRAWL_DEBUG
+    if (!G.player && getenv("CRAWL_SIDESTILL")) memset(&SD.in, 0, sizeof SD.in);   /* testing: the dream stands still, for a scripted person */
+#endif
 #ifdef CRAWL_DEBUG
     static float trace_t;                                          /* CRAWL_SIDETRACE: where the caster is, twice a second */
     if (getenv("CRAWL_SIDETRACE") && (trace_t += dt) >= 0.5f) {
@@ -897,7 +927,9 @@ static void sd_update(float dt) {
         sd_plats(st);
         sd_falls(st);
         sd_waters(st);                                             /* gates, flows, currents (side_works.c) */
+        sd_kit(st);                                                /* the kit's stones, presses, belts, sarcophagi (side_kit.c) */
         sd_caster(st);
+        sd_kit_after(st);                                          /* and the springs, landed on */
         sd_items(st);
         sd_trigs(st);
         sd_place_harm(st);
@@ -922,6 +954,7 @@ static void sd_update(float dt) {
             int done = 0;
             for (int i = 0; i < SD.L->nth && !done; i++)
                 if (SD.L->th[i].kind == SDT_SWITCH && sd_at_thing(i, 12.0f, 10.0f)) { sd_throw(i); done = 1; }
+            if (!done && sd_kit_use()) done = 1;                    /* a bell rung by hand */
             int d = done ? -1 : sd_door_here();
             if (d >= 0 && SD.in_t > 0.3f) { sd_leave(SD.L->th[d].a, (SD.L->th[d].flags & SDF_GOAL) != 0); return; }
         }
@@ -938,6 +971,7 @@ static void sd_update(float dt) {
     /* the figure's frame */
     SD.anim += dt * (fabsf(SD.vx) / 14.0f);
     if (SD.dying) SD.frame = SF_DIE0 + imin(4, (int)(SD.die_t / 0.18f));
+    else if (SD.climb >= 0) SD.frame = ((int)SD.anim & 1) ? SF_RISE : SF_APEX;   /* on a chain (a draft: the figure has no climbing frames yet) */
     else if (SD.hurt_t > 0.0f) SD.frame = SF_HURT;
     else if (SD.cast_t > 0.0f || SD.holding) SD.frame = SD.cast_t > 0.15f ? SF_CAST1 : SF_CAST0;
     else if (!SD.ground) SD.frame = SD.vy < -60.0f ? SF_RISE : SD.vy < 60.0f ? SF_APEX : SF_FALL;

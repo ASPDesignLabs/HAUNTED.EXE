@@ -717,6 +717,7 @@ static void sd_burst(SdShot *s) {                                  /* the flask:
         if (sd_mob_near(m, s->x, s->y) < 26.0f) sd_mob_hit(m, s->dmg, s->sp, EL_POISON);
     }
     sd_sfx_at(SFX_SPLASH, 0.7f, s->x, s->y);
+    sd_kit_burst(s->x, s->y);                                      /* masonry broken, a bell rung (side_kit.c) */
     s->alive = 0;
 }
 static int sd_shot_meets(SdShot *s) {                              /* 1: it struck something (and is spent, or burst) */
@@ -754,14 +755,22 @@ static void sd_shots(float dt) {
         SdShot *s = &SD.shot[i];
         if (!s->alive) continue;
         s->vy += s->g * dt;
-        float ox = s->x, oy = s->y, mx = s->vx * dt, my = s->vy * dt;
+        float slow = sd_kit_web_at(s->x, s->y) ? SDT[TU_WEB] : 1.0f;   /* a cobweb holds what flies through it */
+        float ox = s->x, oy = s->y, mx = s->vx * dt * slow, my = s->vy * dt * slow;
         int n = imax(1, (int)ceilf(fmaxf(fabsf(mx), fabsf(my))));  /* a pixel a time, so nothing thin is passed through */
         s->life -= dt;
         for (int k = 1; k <= n && s->alive; k++) {
             float px = s->x, py = s->y;
             s->x = ox + mx * (float)k / (float)n; s->y = oy + my * (float)k / (float)n;
-            if (!s->foe && s->el == EL_FIRE) sd_fx_ignite(s->x, s->y);   /* fire through silt gas sets it alight (side_fx.c, 2e) */
+            if (!s->foe && s->el == EL_FIRE) { sd_fx_ignite(s->x, s->y); sd_kit_burn(s->x, s->y); }   /* fire through silt gas sets it alight
+                                                                      (side_fx.c, 2e); through a cobweb, burns it */
+            int body = KB.n ? sd_body_at(s->x, s->y, s->x, s->y, -1) : -1, bell = !s->foe && sd_kit_bell_hit(s->x, s->y);
+            if (body >= 0 || bell) {                               /* a press's head, a sarcophagus; a bell, rung */
+                if (s->kind == SS_FLASK) { s->x = px; s->y = py; sd_burst(s); } else s->alive = 0;
+                break;
+            }
             if (sd_solid(sd_floor_px(s->x), sd_floor_px(s->y))) {
+                if (!s->foe) sd_kit_struck(sd_floor_px(s->x), sd_floor_px(s->y));   /* cracked masonry: broken */
                 if (s->kind == SS_FLASK) { s->x = px; s->y = py; sd_burst(s); }
                 else {
                     if (s->kind == SS_BONE) sd_sfx_at(SFX_BONES, 0.25f, s->x, s->y);

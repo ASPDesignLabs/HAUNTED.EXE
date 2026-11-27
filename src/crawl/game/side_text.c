@@ -7,7 +7,25 @@
 #define SD_THINGS 160
 #define SD_TILE 16                                                 /* STS: a tile, in pixels */
 enum { SDT_DOOR, SDT_PLAT, SDT_FALL, SDT_FLOW, SDT_MOB, SDT_GOLD, SDT_KEY, SDT_LIFE, SDT_SWITCH, SDT_TORCH,
-       SDT_GATE, SDT_PLATE, SDT_ZONE, SDT_CURRENT, SDT_HAZ, SDT_LEDGE, SDT_POWER, NSDT };   /* LEDGE, POWER: 26 November */
+       SDT_GATE, SDT_PLATE, SDT_ZONE, SDT_CURRENT, SDT_HAZ, SDT_LEDGE, SDT_POWER,   /* LEDGE, POWER: 26 November */
+       SDT_CHAIN, SDT_SPRING, SDT_CRACK, SDT_STONE, SDT_BELL, SDT_GHOST, SDT_PRESS, SDT_TOMB, SDT_BELT, NSDT };   /* the kit: 27 November */
+/* The builder's kit (the owner, 27 November; side_kit.c), with the letters S (wet slate: a floor slow to start on and slow to stop)
+ * and W (cobweb: slows the caster and what flies through it; fire burns it away for the visit).
+ * CHAIN x y h: a chain hanging h tiles from (x, y), climbed with up and down, jumped from; OFF: hauled up till a trigger drops it.
+ * SPRING x y: a bone bellows on the floor of (x, y) that throws what lands on it high, higher with jump held; OFF: flat.
+ * CRACK x y w h: cracked masonry, solid till a spell or a flask breaks it; a trigger's source, pressed once broken; ON breaks it.
+ * STONE x y w h A|B: bell stones, a 0 or b 1; A's stand at the start and B's are sunk; a bell, or any trigger on a stone, swaps them
+ * (ON: A's up, OFF: B's up, FLIP: the other).
+ * BELL x y [CLOCK s]: a bell on the back wall; struck by a spell, rung with up beside it, by a trigger, or every s seconds (f0): it swaps
+ * the stones, and is a trigger's source the moment it rings.
+ * GHOST x y w h [CLOCK on off [AT s]]: ghost stone, solid while it shows; on its clock (f0 on, f1 off, f2 where it begins) it shimmers
+ * before it goes; without, triggers show (ON) and hide it.
+ * PRESS x y w h [CLOCK every [AT s]]: a stone head in the slot w by h tiles, raised to its top; it slams to the foot and rises again,
+ * every f0 seconds (f1 where it begins), or once each time a trigger's ON or FLIP comes; it can be ridden. OFF: its clock stopped.
+ * TOMB x y: a sarcophagus two tiles wide on the floor of (x, y): pushed by walking into it, it falls, rides water and belts, weighs on
+ * plates, and is stood on.
+ * BELT x y w dir speed: a bone-mill belt w tiles along row y, carrying what is on it dir (a) at speed tiles a second (f0); ON runs,
+ * OFF stops, FLIP turns it about. */
 /* LEDGE x y w: a ledge w tiles wide (as '='), off at the start with OFF, a trigger's ON laying it. POWER x y RAPID|MIGHT|WARD [secs]: a
  * powerup, taken in passing, a: 0 casting twice as quick, 1 harm doubled, 2 untouchable; f0 seconds (10). SWITCH ... TIMER s: thrown,
  * it goes back by itself after f0 seconds, a metronome quickening the while. FALL ... OFF: no block there till a trigger's ON. */
@@ -46,7 +64,8 @@ enum { TU_WALK, TU_RUN, TU_CREEP, TU_ACCEL, TU_BRAKE, TU_AIR, TU_JUMP, TU_GRAV_H
        TU_FIRE_REACH, TU_FROST_REACH, TU_LIGHT_REACH, TU_SPIRIT_REACH, TU_FIRE_SPEED, TU_FROST_SPEED, TU_SPIRIT_SPEED, TU_BOLT_SPEED,
        TU_FLASK_NEAR, TU_FLASK_FAR, TU_FLASK_LIFT, TU_FLASK_HOLD, TU_DEAD_PACE, TU_DEAD_SIGHT, TU_CAM_LEAD,
        TU_CAST_EVERY, TU_FLASK_AIM, TU_JUMP_SND, TU_DEATH_SND,
-       TU_BONE_TIME, TU_BONE_GRAV, TU_BONE_AIM, TU_DEAD_WIND, TU_DEAD_MEMORY, TU_DEAD_SHOT, NTU };   /* CAST_EVERY and FLASK_AIM: 26 November, the owner's (fire rate doubled; the flask aimed while held); the last six
+       TU_BONE_TIME, TU_BONE_GRAV, TU_BONE_AIM, TU_DEAD_WIND, TU_DEAD_MEMORY, TU_DEAD_SHOT,
+       TU_CLIMB, TU_SPRING, TU_SLATE, TU_WEB, TU_PRESS, NTU };     /* the kit's (27 November) */   /* CAST_EVERY and FLASK_AIM: 26 November, the owner's (fire rate doubled; the flask aimed while held); the last six
                                                                the dead's (2h) */
 static const struct { const char *name; float def, lo, hi, step; const char *what; } TUNE[NTU] = {
     { "walk", 72.0f, 20.0f, 200.0f, 1.0f, "walking pace, pixels a second" },
@@ -95,6 +114,11 @@ static const struct { const char *name; float def, lo, hi, step; const char *wha
     { "dead_wind", 1.0f, 0.2f, 3.0f, 0.05f, "the warning before each of the dead's blows, throws and leaps: the crypt's own times this" },
     { "dead_memory", 3.0f, 0.0f, 10.0f, 0.25f, "seconds the dead go on after you once you are out of their sight" },
     { "dead_shot", 110.0f, 30.0f, 400.0f, 5.0f, "the flight of an imp's ember and a wall skull's fireball, pixels a second" },
+    { "climb", 64.0f, 10.0f, 200.0f, 1.0f, "climbing a chain, pixels a second" },
+    { "spring", 430.0f, 150.0f, 900.0f, 5.0f, "a springboard's throw upward, jump held (seven tenths of it, not held)" },
+    { "slate", 0.15f, 0.02f, 1.0f, 0.01f, "the grip on wet slate, of the floor's (less: slower to start and to stop)" },
+    { "web", 0.35f, 0.05f, 1.0f, 0.01f, "pace kept in a cobweb, and what flies through it" },
+    { "press", 0.5f, 0.0f, 1.0f, 0.01f, "a press coming down takes this share of health (and, with no room to be thrown clear, all of it)" },
 };
 static int sd_tune_of(const char *name) { for (int k = 0; k < NTU; k++) if (!strcmp(TUNE[k].name, name)) return k; return -1; }
 typedef struct { char name[40]; int w, h; uint8_t t[SD_H][SD_W]; SdThing th[SD_THINGS]; int nth; float tune[NTU]; uint64_t tuned;
@@ -109,7 +133,7 @@ static int sd_haz_family(int k) {
     }
 }
 
-static int sd_solid_ch(int c) { return c == '#' || c == '%'; }
+static int sd_solid_ch(int c) { return c == '#' || c == '%' || c == 'S'; }
 static int sd_name(const char *s, const char *prefix, int *v) {    /* a name in drawn_text.c's table, of the kind asked */
     if (strncmp(s, prefix, strlen(prefix))) return 0;
     for (unsigned i = 0; i < sizeof DXT_NAMES / sizeof DXT_NAMES[0]; i++) if (!strcmp(DXT_NAMES[i].n, s)) { *v = DXT_NAMES[i].v; return 1; }
@@ -168,7 +192,7 @@ static int sd_read(const char *text, SdLevel *L, char *err, int nerr) {
             if (rows >= L->h) SDBAD("more ROWs than SIZE gives (%d)", L->h);
             for (int x = 0; x < L->w; x++) {
                 int c = w[1][1 + x];
-                if (!strchr("#%,.=^~F", c)) SDBAD("a letter the game has no tile for: %c", c);
+                if (!strchr("#%,.=^~FSW", c)) SDBAD("a letter the game has no tile for: %c", c);
                 if (c == 'F') {                                     /* a falling block: a thing, the dark behind it */
                     if (L->nth >= SD_THINGS) SDBAD("more than %d things", SD_THINGS);
                     L->th[L->nth++] = (SdThing){ SDT_FALL, x, rows, 1, 1, 0, 0, 0, { 0.45f, 4.0f, 0.0f, 0.0f }, "" };
@@ -221,8 +245,9 @@ static int sd_read(const char *text, SdLevel *L, char *err, int nerr) {
             continue;
         }
         static const char *const OPS[NSDT] = { "DOOR", "PLAT", "FALL", "FLOW", "MOB", "GOLD", "KEY", "LIFE", "SWITCH", "TORCH",
-                                               "GATE", "PLATE", "ZONE", "CURRENT", "HAZ", "LEDGE", "POWER" };
-        static const int NEED[NSDT] = { 4, 8, 3, 7, 4, 4, 4, 3, 4, 3, 5, 3, 5, 8, 4, 4, 4 };
+                                               "GATE", "PLATE", "ZONE", "CURRENT", "HAZ", "LEDGE", "POWER",
+                                               "CHAIN", "SPRING", "CRACK", "STONE", "BELL", "GHOST", "PRESS", "TOMB", "BELT" };
+        static const int NEED[NSDT] = { 4, 8, 3, 7, 4, 4, 4, 3, 4, 3, 5, 3, 5, 8, 4, 4, 4, 4, 3, 5, 6, 3, 5, 5, 3, 6 };
         int k = 0;
         while (k < NSDT && strcmp(op, OPS[k])) k++;
         if (k == NSDT) SDBAD("a word the game doesn't know: %.40s", op);
@@ -304,9 +329,43 @@ static int sd_read(const char *text, SdLevel *L, char *err, int nerr) {
             if (t.f[0] > 120.0f) SDBAD("a powerup lasts 120 seconds at the most");
             break;
         }
-        case SDT_GATE: case SDT_ZONE:
+        case SDT_GATE: case SDT_ZONE: case SDT_CRACK:
             t.w = iv[3]; t.h = iv[4];
             if (t.w < 1 || t.h < 1 || t.x + t.w > L->w || t.y + t.h > L->h) SDBAD("%.10s's box is outside the map", op);
+            break;
+        case SDT_CHAIN:
+            t.h = iv[3];
+            if (t.h < 1 || t.y + t.h > L->h) SDBAD("a chain hangs 1 tile at the least, and not off the map");
+            break;
+        case SDT_STONE:
+            t.w = iv[3]; t.h = iv[4];
+            if (t.w < 1 || t.h < 1 || t.x + t.w > L->w || t.y + t.h > L->h) SDBAD("STONE's box is outside the map");
+            if (strcmp(w[5], "A") && strcmp(w[5], "B")) SDBAD("a bell stone is of set A or set B");
+            t.a = w[5][0] == 'B';
+            break;
+        case SDT_BELL:
+            for (int i = 3; i + 1 < n; i++) if (!strcmp(w[i], "CLOCK")) t.f[0] = (float)atof(w[++i]);
+            if (t.f[0] != 0.0f && (t.f[0] < 0.5f || t.f[0] > 120.0f)) SDBAD("a bell's clock is half a second to 120");
+            break;
+        case SDT_GHOST: case SDT_PRESS:
+            t.w = iv[3]; t.h = iv[4];
+            if (t.w < 1 || t.h < 1 || t.x + t.w > L->w || t.y + t.h > L->h) SDBAD("%.10s's box is outside the map", op);
+            if (k == SDT_PRESS && (t.h < 2 || t.w > 8)) SDBAD("a press's slot is 2 tiles high at the least and 8 wide at the most");
+            for (int i = 5; i < n; i++) {
+                if (!strcmp(w[i], "CLOCK") && k == SDT_GHOST && i + 2 < n) { t.f[0] = (float)atof(w[i + 1]); t.f[1] = (float)atof(w[i + 2]); i += 2; }
+                else if (!strcmp(w[i], "CLOCK") && k == SDT_PRESS && i + 1 < n) t.f[0] = (float)atof(w[++i]);
+                else if (!strcmp(w[i], "AT") && i + 1 < n) t.f[k == SDT_GHOST ? 2 : 1] = (float)atof(w[++i]);
+            }
+            if (k == SDT_GHOST && t.f[0] > 0.0f && (t.f[0] < 0.5f || t.f[1] < 0.5f)) SDBAD("a ghost stone shows and goes half a second each at the least");
+            if (k == SDT_PRESS && t.f[0] != 0.0f && t.f[0] < 1.5f) SDBAD("a press's clock is a second and a half at the least");
+            break;
+        case SDT_TOMB:
+            if (t.x + 2 > L->w) SDBAD("a sarcophagus is two tiles wide: not on the map's last column");
+            break;
+        case SDT_BELT:
+            t.w = iv[3]; t.a = iv[4]; t.f[0] = fv[5];
+            if (t.w < 1 || t.x + t.w > L->w) SDBAD("a belt runs off the map");
+            if ((t.a != -1 && t.a != 1) || t.f[0] <= 0.0f || t.f[0] > 20.0f) SDBAD("a belt runs -1 or 1, at 0 to 20 tiles a second");
             break;
         case SDT_CURRENT:
             t.w = iv[3]; t.h = iv[4]; t.a = iv[5]; t.b = iv[6]; t.f[0] = fv[7];
@@ -360,8 +419,9 @@ static int sd_read(const char *text, SdLevel *L, char *err, int nerr) {
         SdTrig *g = &L->tr[k];
         int src = -1;
         for (int i = 0; i < L->nth; i++) if (L->th[i].tag[0] && !strcmp(L->th[i].tag, trsrc[k])) src = i;
-        if (src < 0 || (L->th[src].kind != SDT_PLATE && L->th[src].kind != SDT_ZONE && L->th[src].kind != SDT_SWITCH))
-            { snprintf(err, (size_t)nerr, "a trigger's source is no plate, zone or switch named %s", trsrc[k]); return 0; }
+        if (src < 0 || (L->th[src].kind != SDT_PLATE && L->th[src].kind != SDT_ZONE && L->th[src].kind != SDT_SWITCH
+                        && L->th[src].kind != SDT_CRACK && L->th[src].kind != SDT_BELL))
+            { snprintf(err, (size_t)nerr, "a trigger's source is no plate, zone, switch, cracked masonry or bell named %s", trsrc[k]); return 0; }
         g->src = src;
         for (int a = 0; a < g->nact; a++) {
             if (g->verb[a] == TRV_CRYPT) continue;

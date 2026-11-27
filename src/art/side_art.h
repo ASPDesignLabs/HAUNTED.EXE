@@ -28,6 +28,18 @@ enum {                              /* the tiles, row-major, C_CLEAR where the b
     ST_CHAIN,                                                      /* a chain hanging, for the platforms and the dressing */
     ST_HZ_SLAB, ST_HZ_SLAB_OPEN, ST_HZ_COLD,                       /* 2e: the crypt's breath slab, cracked open, and its cold crack, as tiles */
     ST_HZ_GRATE, ST_HZ_SLUICE, ST_HZ_SLUICE_OPEN, ST_HZ_SAINT, ST_HZ_SAINT_LIT,   /* run II's: the bile's grate, the sluice shut and up, the saint */
+    /* the builder's kit (27 November, side_kit.c; drafts for the owner's sheet) */
+    ST_SLATE, ST_SLATE_TOP,                                        /* wet slate, and with its gloss on top */
+    ST_WEB,                                                        /* a cobweb, over the back wall */
+    ST_CRACK,                                                      /* cracked masonry */
+    ST_STONE_A, ST_STONE_B,                                        /* the bell stones: a gold bell cut in A's, a violet in B's */
+    ST_GHOST,                                                      /* ghost stone */
+    ST_BELT0, ST_BELT1, ST_BELT2, ST_BELT3,                        /* the bone-mill belt, four frames of its run */
+    ST_PRESS,                                                      /* a press's head */
+    ST_TOMB_L, ST_TOMB_R,                                          /* a sarcophagus, its two halves */
+    ST_SPRING0, ST_SPRING1,                                        /* the bone springboard, and thrown down */
+    ST_BELL0, ST_BELL1, ST_BELL2,                                  /* a bell on its bracket: at rest, swung one way, the other */
+    ST_CLIMB,                                                      /* a chain to climb: heavier than the platforms' */
     NST
 };
 

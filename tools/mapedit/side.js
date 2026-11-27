@@ -4,13 +4,28 @@
 (function (root) {
 'use strict';
 const LIM = { minW: 20, maxW: 256, minH: 10, maxH: 64, things: 160, platW: 8, links: 16, evThings: 256 };
-const TILES = '#%,.=^~';                          /* F is a falling block: a thing, laid with the dark behind it */
-const SOLID = new Set(['#', '%']);
-const TILE_NAMES = { '#': 'Stone', '%': 'Brick', ',': 'Back wall', '.': 'The dark', '=': 'Ledge', '^': 'Spikes', '~': 'Standing poison' };
-const KINDS = ['door', 'plat', 'fall', 'flow', 'mob', 'gold', 'key', 'life', 'switch', 'torch', 'gate', 'plate', 'zone', 'current', 'haz', 'ledge', 'power'];
+const TILES = '#%,.=^~SW';                        /* F is a falling block: a thing, laid with the dark behind it. S and W: the kit's (27 November) */
+const SOLID = new Set(['#', '%', 'S']);
+const TILE_NAMES = { '#': 'Stone', '%': 'Brick', ',': 'Back wall', '.': 'The dark', '=': 'Ledge', '^': 'Spikes', '~': 'Standing poison', S: 'Wet slate', W: 'Cobweb' };
+const KINDS = ['door', 'plat', 'fall', 'flow', 'mob', 'gold', 'key', 'life', 'switch', 'torch', 'gate', 'plate', 'zone', 'current', 'haz', 'ledge', 'power',
+               'chain', 'spring', 'crack', 'stone', 'bell', 'ghost', 'press', 'tomb', 'belt'];
 const OPS = { door: 'DOOR', plat: 'PLAT', fall: 'FALL', flow: 'FLOW', mob: 'MOB', gold: 'GOLD', key: 'KEY', life: 'LIFE', switch: 'SWITCH', torch: 'TORCH',
-              gate: 'GATE', plate: 'PLATE', zone: 'ZONE', current: 'CURRENT', haz: 'HAZ', ledge: 'LEDGE', power: 'POWER' };
-const NEED = { door: 4, plat: 8, fall: 3, flow: 7, mob: 4, gold: 4, key: 4, life: 3, switch: 4, torch: 3, gate: 5, plate: 3, zone: 5, current: 8, haz: 4, ledge: 4, power: 4 };
+              gate: 'GATE', plate: 'PLATE', zone: 'ZONE', current: 'CURRENT', haz: 'HAZ', ledge: 'LEDGE', power: 'POWER',
+              chain: 'CHAIN', spring: 'SPRING', crack: 'CRACK', stone: 'STONE', bell: 'BELL', ghost: 'GHOST', press: 'PRESS', tomb: 'TOMB', belt: 'BELT' };
+const NEED = { door: 4, plat: 8, fall: 3, flow: 7, mob: 4, gold: 4, key: 4, life: 3, switch: 4, torch: 3, gate: 5, plate: 3, zone: 5, current: 8, haz: 4, ledge: 4, power: 4,
+               chain: 4, spring: 3, crack: 5, stone: 6, bell: 3, ghost: 5, press: 5, tomb: 3, belt: 6 };
+/* the builder's kit (the owner, 27 November; the game's side_kit.c): what each is, for the pane */
+const KIT_SAYS = {
+  chain: 'A chain hanging down from here: up beside it takes it, up and down climb it, jump lets go the way pressed. OFF at the start: hauled up till a trigger drops it (ON).',
+  spring: 'A bone springboard on the floor: landed or stepped on, it throws the caster up, much higher with jump held (TUNING: spring). OFF: flat, till ON.',
+  crack: 'Cracked masonry, solid till a spell or a flask breaks it (a trigger\'s ON breaks it too). Broken, it is a source: pressed for good.',
+  stone: 'Bell stones: A\'s stand at the start, B\'s are sunk. A bell, or any trigger on any stone, swaps them: ON raises A\'s, OFF raises B\'s, FLIP the other. A stone rising waits till nothing stands in it.',
+  bell: 'A bell on the back wall: struck by a spell or a flask, rung with up beside it, rung by any trigger on it, or on its clock. Each ring swaps the bell stones, and it is a source the moment it rings.',
+  ghost: 'Ghost stone: solid while it shows. On its clock it shows and goes, shimmering its last half second; without one, a trigger shows it (ON) and hides it (OFF).',
+  press: 'A press: a stone head in this slot, raised to its top. Every so many seconds (or each trigger\'s ON or FLIP, with no clock) it warns with dust and a grind, slams to the foot, and rises slowly. Under it as it comes: half your health (TUNING: press) and thrown clear, or all of it with no room. Its head can be ridden.',
+  tomb: 'A sarcophagus, two tiles wide: walked into, it is pushed, slowly. It falls, rides water and belts, weighs on plates, and can be stood on.',
+  belt: 'A bone-mill belt along this row: it carries the caster, the dead and what is loose. ON runs it, OFF stops it, FLIP turns it about.',
+};
 /* 26 November: the powerups (side_fx.c's sd_fx_power) and how long each lasts unless told */
 const POWERS = ['RAPID', 'MIGHT', 'WARD'], POWER_NAMES = { RAPID: 'Quickened hands', MIGHT: 'Might', WARD: 'Ward' }, POWER_SECS = 10;
 /* the crypt's traps in side view, each in the shape of its own (side_text.c's sd_haz_family): their names as the game shows them */
@@ -47,7 +62,8 @@ const FX_SAYS = { HZ_VOTIVE: 'a candle in an iron sconce on the wall: it tips to
   HZ_SAINT: "the crypt's weeping saint as a tile, in a wall over open floor: her tears fall and pool, and the pool drinks a soul with each bite",
   HZ_SNARE: 'a web across its painted cells, just to be made out: walked into, it holds the caster and tears, and the dead near come; spun again after STAYS seconds' };
 const MODES = ['ONCE', 'TOGGLE', 'HOLD', 'TIMED'];
-const SOURCES = ['plate', 'zone', 'switch'], TARGETS = ['gate', 'current', 'flow', 'plat', 'haz', 'ledge', 'fall'];
+const SOURCES = ['plate', 'zone', 'switch', 'crack', 'bell'], TARGETS = ['gate', 'current', 'flow', 'plat', 'haz', 'ledge', 'fall',
+                 'chain', 'spring', 'crack', 'stone', 'bell', 'ghost', 'press', 'belt'];
 const TAG_RE = /^[A-Za-z0-9_-]{1,15}$/;
 const GOLD = ['IT_COINS', 'IT_CHALICE', 'IT_GEMS', 'IT_CROWN', 'IT_CHEST'];
 const RANKS = ['RK_I', 'RK_II', 'RK_III', 'RK_IV', 'RK_V', 'RK_GILDED'];
@@ -95,6 +111,13 @@ function line(t) {
     case 'ledge': p.push(t.w | 0); break;
     case 'power': p.push(t.kind || 'RAPID', sec(t.secs || POWER_SECS)); break;
     case 'gate': p.push(t.w | 0, t.h | 0); if (t.open) p.push('OPEN'); break;
+    case 'chain': p.push(t.h | 0); break;
+    case 'crack': p.push(t.w | 0, t.h | 0); break;
+    case 'stone': p.push(t.w | 0, t.h | 0, t.set === 'B' ? 'B' : 'A'); break;
+    case 'bell': if (+t.clock > 0) p.push('CLOCK', sec(t.clock)); break;
+    case 'ghost': p.push(t.w | 0, t.h | 0); if (+t.on > 0) p.push('CLOCK', sec(t.on), sec(t.off)); if (+t.on > 0 && +t.at) p.push('AT', sec(t.at)); break;
+    case 'press': p.push(t.w | 0, t.h | 0); if (+t.clock > 0) p.push('CLOCK', sec(t.clock)); if (+t.clock > 0 && +t.at) p.push('AT', sec(t.at)); break;
+    case 'belt': p.push(t.w | 0, t.dir < 0 ? -1 : 1, sec(t.speed)); break;
     case 'zone': p.push(t.w | 0, t.h | 0); break;
     case 'current': p.push(t.w | 0, t.h | 0, t.dx | 0, t.dy | 0, sec(t.speed)); if (t.poison) p.push('POISON'); break;
     case 'haz':
@@ -110,7 +133,7 @@ function line(t) {
         break;
     default: break;
     }
-    if (t.stopped && ['plat', 'flow', 'current', 'haz', 'fall', 'ledge'].includes(t.k)) p.push('OFF');   /* (stopped: flow's own off is its dry seconds) */
+    if (t.stopped && ['plat', 'flow', 'current', 'haz', 'fall', 'ledge', 'chain', 'spring', 'ghost', 'press', 'belt', 'bell'].includes(t.k)) p.push('OFF');   /* (stopped: flow's own off is its dry seconds) */
     if (t.loose && ['gold', 'key', 'life'].includes(t.k)) p.push('LOOSE');
     if (t.tag) p.push('TAG', t.tag);
     let out = p.join(' ');
@@ -180,7 +203,7 @@ function parse(text, kindIds, tuneNames) {
             if (rows >= m.h) return bad(`more ROWs than SIZE gives (${m.h})`);
             for (let x = 0; x < m.w; x++) {
                 let c = r[x];
-                if (!'#%,.=^~F'.includes(c)) return bad('a letter the game has no tile for: ' + c);
+                if (!'#%,.=^~FSW'.includes(c)) return bad('a letter the game has no tile for: ' + c);
                 if (c === 'F') { if (m.things.length >= LIM.things) return bad(`more than ${LIM.things} things`); add(m, { k: 'fall', x, y: rows, delay: FALL_DELAY, back: FALL_BACK }); c = '.'; }
                 m.grid[rows * m.w + x] = c;
             }
@@ -267,9 +290,43 @@ function parse(text, kindIds, tuneNames) {
             t.secs = w.length > 4 && parseFloat(w[4]) > 0 ? parseFloat(w[4]) : POWER_SECS;
             if (t.secs > 120) return bad('a powerup lasts 120 seconds at the most');
             break;
-        case 'gate': case 'zone':
+        case 'gate': case 'zone': case 'crack':
             t.w = iv[3]; t.h = iv[4]; if (k === 'gate') t.open = !!t.open;
             if (!(t.w >= 1 && t.h >= 1 && t.x + t.w <= m.w && t.y + t.h <= m.h)) return bad(`${op}'s box is outside the map`);
+            break;
+        case 'chain':
+            t.h = iv[3]; if (!(t.h >= 1 && t.y + t.h <= m.h)) return bad('a chain hangs 1 tile at the least, and not off the map');
+            break;
+        case 'stone':
+            t.w = iv[3]; t.h = iv[4]; t.set = w[5];
+            if (!(t.w >= 1 && t.h >= 1 && t.x + t.w <= m.w && t.y + t.h <= m.h)) return bad("STONE's box is outside the map");
+            if (t.set !== 'A' && t.set !== 'B') return bad('a bell stone is of set A or set B');
+            break;
+        case 'bell':
+            t.clock = 0;
+            for (let i = 0; i + 1 < rest.length; i++) if (rest[i] === 'CLOCK') t.clock = parseFloat(rest[++i]) || 0;
+            if (t.clock !== 0 && !(t.clock >= 0.5 && t.clock <= 120)) return bad("a bell's clock is half a second to 120");
+            break;
+        case 'ghost': case 'press':
+            t.w = iv[3]; t.h = iv[4]; t.at = 0;
+            if (!(t.w >= 1 && t.h >= 1 && t.x + t.w <= m.w && t.y + t.h <= m.h)) return bad(`${op}'s box is outside the map`);
+            if (k === 'press' && (t.h < 2 || t.w > 8)) return bad("a press's slot is 2 tiles high at the least and 8 wide at the most");
+            if (k === 'ghost') { t.on = 0; t.off = 0; } else t.clock = 0;
+            for (let i = 0; i < rest.length; i++) {
+                if (rest[i] === 'CLOCK' && k === 'ghost') { t.on = parseFloat(rest[i + 1]) || 0; t.off = parseFloat(rest[i + 2]) || 0; i += 2; }
+                else if (rest[i] === 'CLOCK') t.clock = parseFloat(rest[++i]) || 0;
+                else if (rest[i] === 'AT') t.at = parseFloat(rest[++i]) || 0;
+            }
+            if (k === 'ghost' && t.on > 0 && (t.on < 0.5 || t.off < 0.5)) return bad('a ghost stone shows and goes half a second each at the least');
+            if (k === 'press' && t.clock !== 0 && t.clock < 1.5) return bad("a press's clock is a second and a half at the least");
+            break;
+        case 'tomb':
+            if (t.x + 2 > m.w) return bad("a sarcophagus is two tiles wide: not on the map's last column");
+            break;
+        case 'belt':
+            t.w = iv[3]; t.dir = iv[4]; t.speed = fv[5];
+            if (!(t.w >= 1 && t.x + t.w <= m.w)) return bad('a belt runs off the map');
+            if ((t.dir !== -1 && t.dir !== 1) || !(t.speed > 0 && t.speed <= 20)) return bad('a belt runs -1 or 1, at 0 to 20 tiles a second');
             break;
         case 'current':
             Object.assign(t, { w: iv[3], h: iv[4], dx: iv[5], dy: iv[6], speed: fv[7] });
@@ -303,7 +360,7 @@ function parse(text, kindIds, tuneNames) {
     if (!m.things.some(t => t.k === 'door')) return bad('no doorway: there is no way in');
     for (const g of m.trigs) {                                  /* the names, now all is read */
         const s = m.things.find(t => t.tag === g.src);
-        if (!s || !SOURCES.includes(s.k)) return { error: `a trigger's source is no plate, zone or switch named ${g.src}`, line: ln };
+        if (!s || !SOURCES.includes(s.k)) return { error: `a trigger's source is no plate, zone, switch, cracked masonry or bell named ${g.src}`, line: ln };
         for (const a of g.acts) if (a.crypt == null && !m.things.some(t => t.tag === a.tag)) return { error: `a trigger names nothing called ${a.tag}`, line: ln };
     }
     return { map: m };
@@ -371,12 +428,27 @@ function check(m) {
         if (t.k === 'current' && (!t.dx && !t.dy)) err('A current with no way to run.', t);
         if (t.k === 'plate' && !SOLID.has(at(m, t.x, t.y + 1)) && at(m, t.x, t.y + 1) !== '=') warn('A plate with nothing under it: it lies in its tile\'s foot.', t);
         if (['plate', 'zone'].includes(t.k) && !(m.trigs || []).some(g => g.src === t.tag)) warn(`A ${t.k} no trigger listens to.`, t);
+        /* the kit's */
+        const box = ['crack', 'stone', 'ghost', 'press'].includes(t.k);
+        if (box && !(t.w >= 1 && t.h >= 1 && t.x + t.w <= m.w && t.y + t.h <= m.h)) err('Its box runs off the map.', t);
+        if (t.k === 'press' && (t.h < 2 || t.w > 8)) err("A press's slot is 2 tiles high at the least and 8 wide at the most.", t);
+        if (t.k === 'press' && !(+t.clock > 0) && !bound) warn('A press with no clock and no trigger: it never comes down.', t);
+        if (t.k === 'press' && +t.clock > 0 && t.clock < 1.5) err("A press's clock is a second and a half at the least.", t);
+        if (t.k === 'ghost' && +t.on > 0 && (t.on < 0.5 || t.off < 0.5)) err('A ghost stone shows and goes half a second each at the least.', t);
+        if (t.k === 'ghost' && !(+t.on > 0) && t.stopped && !bound) warn('A ghost stone that is hidden, with no clock and no trigger: it never shows.', t);
+        if (t.k === 'stone' && !m.things.some(o => o.k === 'bell') && !m.things.some(o => o.k === 'stone' && o.tag && (m.trigs || []).some(g => g.acts.some(a => a.tag === o.tag)))) warn('Bell stones with no bell and no trigger: they never swap.', t);
+        if (t.k === 'chain' && !(t.h >= 1 && t.y + t.h <= m.h)) err('A chain hangs off the map.', t);
+        if (t.k === 'tomb' && (t.x + 2 > m.w || SOLID.has(at(m, t.x, t.y)) || SOLID.has(at(m, t.x + 1, t.y)))) err('A sarcophagus set in stone: it wants two open tiles.', t);
+        if (t.k === 'belt' && !(t.w >= 1 && t.x + t.w <= m.w)) err('A belt runs off the map.', t);
+        if (t.k === 'belt' && !(t.speed > 0 && t.speed <= 20)) err('A belt runs at 0 to 20 tiles a second.', t);
+        if (t.k === 'spring' && !SOLID.has(at(m, t.x, t.y + 1)) && at(m, t.x, t.y + 1) !== '=') warn('A springboard with nothing under it: it sits in its tile\'s foot.', t);
+        if (t.k === 'crack' && (m.trigs || []).some(g => g.src === t.tag) && !t.tag) warn('Cracked masonry with no name: no trigger can listen to it.', t);
     });
     (m.trigs || []).forEach((g, i) => {
         const s = tags[g.src];
-        if (!s || !SOURCES.includes(s.k)) out.push({ sev: 'error', msg: `Trigger ${i + 1}: its source is no plate, zone or switch (${g.src || 'none'}).`, at: null, trig: i });
+        if (!s || !SOURCES.includes(s.k)) out.push({ sev: 'error', msg: `Trigger ${i + 1}: its source is no plate, zone, switch, cracked masonry or bell (${g.src || 'none'}).`, at: null, trig: i });
         if (!(g.acts || []).length) out.push({ sev: 'error', msg: `Trigger ${i + 1} does nothing.`, at: null, trig: i });
-        (g.acts || []).forEach(a => { if (a.crypt == null && (!tags[a.tag] || !TARGETS.includes(tags[a.tag].k))) out.push({ sev: 'error', msg: `Trigger ${i + 1}: ${a.tag || 'nothing'} is no gate, current, flow, platform, trap, ledge or falling block.`, at: null, trig: i }); });
+        (g.acts || []).forEach(a => { if (a.crypt == null && (!tags[a.tag] || !TARGETS.includes(tags[a.tag].k))) out.push({ sev: 'error', msg: `Trigger ${i + 1}: ${a.tag || 'nothing'} is nothing a trigger moves (a gate, water, a flow, a platform, a trap, a ledge, a falling block, or one of the kit's).`, at: null, trig: i }); });
         if (g.mode === 'TIMED' && !(g.secs > 0)) out.push({ sev: 'error', msg: `Trigger ${i + 1}: TIMED wants its seconds.`, at: null, trig: i });
     });
     if (!(m.num >= 0 && m.num <= 7)) err("The passage's number is 0 to 7 (the game's SIDE_TEXT).");
@@ -404,6 +476,15 @@ function label(t, kinds) {
     case 'zone': return 'An unseen zone' + (t.tag ? ': ' + t.tag : '');
     case 'current': return 'Running water' + (t.poison ? ', poisoned' : '') + (t.tag ? ': ' + t.tag : '');
     case 'haz': return (HAZ_NAMES[t.kind] || t.kind) + (t.tag ? ': ' + t.tag : '');
+    case 'chain': return `A chain, ${t.h} long` + (t.tag ? ': ' + t.tag : '');
+    case 'spring': return 'A springboard' + (t.tag ? ': ' + t.tag : '');
+    case 'crack': return `Cracked masonry, ${t.w} by ${t.h}` + (t.tag ? ': ' + t.tag : '');
+    case 'stone': return `Bell stones ${t.set === 'B' ? 'B' : 'A'}, ${t.w} by ${t.h}` + (t.tag ? ': ' + t.tag : '');
+    case 'bell': return 'A bell' + (+t.clock > 0 ? `, every ${t.clock} s` : '') + (t.tag ? ': ' + t.tag : '');
+    case 'ghost': return `Ghost stone, ${t.w} by ${t.h}` + (+t.on > 0 ? `, ${t.on} s / ${t.off} s` : '') + (t.tag ? ': ' + t.tag : '');
+    case 'press': return `A press, ${t.w} wide, ${t.h} deep` + (+t.clock > 0 ? `, every ${t.clock} s` : '') + (t.tag ? ': ' + t.tag : '');
+    case 'tomb': return 'A sarcophagus' + (t.tag ? ': ' + t.tag : '');
+    case 'belt': return `A belt, ${t.w} long, ${t.dir < 0 ? 'west' : 'east'} at ${t.speed}` + (t.tag ? ': ' + t.tag : '');
     default: return t.k;
     }
 }
@@ -547,7 +628,7 @@ function fxSim(m, t, seed) {
     return S;
 }
 
-const API = { POWERS, POWER_NAMES, POWER_SECS, LIM, TILES, TILE_NAMES, SOLID, KINDS, GOLD, RANKS, KEYS, FALL_DELAY, FALL_BACK, HAZ_FAMILY, HAZ_NAMES, FAMILY_SAYS, MODES, SOURCES, TARGETS, TAG_RE,
+const API = { KIT_SAYS, POWERS, POWER_NAMES, POWER_SECS, LIM, TILES, TILE_NAMES, SOLID, KINDS, GOLD, RANKS, KEYS, FALL_DELAY, FALL_BACK, HAZ_FAMILY, HAZ_NAMES, FAMILY_SAYS, MODES, SOURCES, TARGETS, TAG_RE,
               blank, add, newTag, at, resize, exportText, exportC, parse, check, label, FX_KINDS, FX_CELLS, FX_EMITS, FX_DEF, FX_SAYS, censerGeom, censerAt, censerCheck, fxSim };
 if (typeof module !== 'undefined' && module.exports) module.exports = API; else root.SideCore = API;
 })(typeof window !== 'undefined' ? window : globalThis);
