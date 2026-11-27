@@ -26,6 +26,24 @@ static int sdd_plat_under(int tx, int ty) {                        /* a platform
     }
     return 0;
 }
+static int sdd_plat_is(int i, int tx, int ty) {                   /* platform i's top is this tile's floor now, and it may be stood on */
+    const SdThing *t = &SD.L->th[i];
+    const SdPlat *p = &SD.plat[i];
+    int pty = (int)floorf((p->y + 0.5f) / SD_TILE), ptx0 = (int)floorf((p->x + 4.0f) / SD_TILE), ptx1 = (int)floorf((p->x + (float)(t->w * SD_TILE) - 4.0f) / SD_TILE);
+    if (ty + 1 != pty || tx < ptx0 || tx > ptx1 || fabsf(p->y - (float)(pty * SD_TILE)) >= 6.0f) return 0;
+    return p->wait > 0.12f || (SD.on_plat == i && sd_floor_px(SD.x) == tx);
+}
+static float sdd_plat_wait(int tx, int ty) {                      /* how long the platform under this tile waits yet at its end, 0 none */
+    const SdLevel *L = SD.L;
+    for (int i = 0; i < L->nth; i++) {
+        const SdThing *t = &L->th[i];
+        if (t->kind != SDT_PLAT) continue;
+        const SdPlat *p = &SD.plat[i];
+        int pty = (int)floorf((p->y + 0.5f) / SD_TILE), ptx0 = (int)floorf((p->x + 4.0f) / SD_TILE), ptx1 = (int)floorf((p->x + (float)(t->w * SD_TILE) - 4.0f) / SD_TILE);
+        if (ty + 1 == pty && tx >= ptx0 && tx <= ptx1 && fabsf(p->y - (float)(pty * SD_TILE)) < 6.0f && p->wait > 0.0f) return p->wait;
+    }
+    return 0.0f;
+}
 static int sdd_room(int tx, int ty) {                              /* 2 room to stand, 1 to creep, 0 none */
     if (sd_solid(tx, ty) || sd_tile(tx, ty) == '~' || sd_tile(tx, ty) == '^') return 0;
     return SD_HT <= (float)SD_TILE || !sd_solid(tx, ty - 1) ? 2 : 1;   /* a tile's height is room to stand, since the figure was halved */
@@ -47,28 +65,59 @@ static int sdd_stand(int tx, int ty) {
 }
 static int sdd_air(int tx, int ty) { return tx >= 0 && tx < SD.L->w && !sd_solid(tx, ty); }
 static int sdd_clear_col(int tx, int y0, int y1) { for (int y = y0; y <= y1; y++) if (!sdd_air(tx, y)) return 0; return 1; }
+/* how far across a running jump carries it, in whole tiles, landing up tiles higher; -1 out of its reach. By the passage's own run,
+ * jump and pulls down, with a margin (12 pixels across, 4 up); never more than the first version's three up, four across, five over */
+static int sdd_across(int up) {
+    float top = SD_JUMP * SD_JUMP / (2.0f * SD_G_HELD), rise = (float)(up * SD_TILE);
+    if (up > 0 && rise + 4.0f > top) return -1;
+    float t = SD_JUMP / SD_G_HELD + sqrtf(2.0f * fmaxf(top - rise, 0.0f) / SD_G);
+    int n = (int)((SD_RUN * t - 12.0f) / (float)SD_TILE), cap = up <= 0 ? 5 : up >= 3 ? 3 : 4;
+    return imin(n, cap);
+}
 /* can it get from a to b with one move? a rough test of the arc's room */
 static int sdd_link(int ax, int ay, int bx, int by) {
     int dx = bx - ax, dy = by - ay, adx = abs(dx), s = dx > 0 ? 1 : dx < 0 ? -1 : 0;
     if (adx == 1 && dy == 0) return sdd_room(ax, ay) && sdd_room(bx, by);   /* a step, creeping if it must */
     if (sdd_room(ax, ay) < 2) return 0;                             /* every other move stands up */
-    if (dy < 0) {                                                  /* up: three at most, across four */
-        if (-dy > 3 || adx > 4 || (-dy == 3 && adx > 3)) return 0;
+    if (dy < 0) {                                                  /* up: three at most, across four (less, by the passage's tuning) */
+        if (-dy > 3 || adx > sdd_across(-dy)) return 0;
         if (!sdd_clear_col(ax, ay + dy - 1, ay)) return 0;
         for (int x = ax + s; x != bx + s && s; x += s) if (!sdd_clear_col(x, by - 1, by)) return 0;
         return sdd_room(bx, by) == 2;
     }
     if (dy == 0) {                                                 /* over a gap: five at most */
-        if (adx < 2 || adx > 5) return 0;
+        if (adx < 2 || adx > sdd_across(0)) return 0;
         for (int x = ax + s; x != bx; x += s) if (!sdd_clear_col(x, ay - 2, ay)) return 0;
         return 1;
     }
     if (adx > 4 + dy / 2 || dy > 10) return 0;                     /* down */
-    for (int x = ax + s; x != bx + s && s; x += s) if (!sdd_clear_col(x, imin(ay, by) - 1, by)) return 0;
+    int over = adx == 1 ? ay : imin(ay, by) - 1;                   /* (a walk off an edge a tile across: no room over it wanted) */
+    for (int x = ax + s; x != bx + s && s; x += s) if (!sdd_clear_col(x, over, by)) return 0;
     if (!s && !sdd_clear_col(ax, ay + 1, by)) return 0;
     return 1;
 }
 static int sdd_node(int tx, int ty) { return ty * SD_W + tx; }
+static int sdd_open_to(int th) {                                   /* a thing the open tiles join to where it stands, gates as open: one
+                                                                      walled off (a goal in a sealed room) is not worth the trying */
+    static uint8_t seen[SDD_NODES];
+    static int q[SDD_NODES];
+    const SdLevel *L = SD.L;
+    int sx = sd_floor_px(SD.x), sy = sd_floor_px(SD.y - 1.0f), qh = 0, qt = 0, want = sdd_node(L->th[th].x, L->th[th].y);
+    if (sx < 0 || sy < 0 || sx >= L->w || sy >= L->h) return 1;
+    memset(seen, 0, sizeof seen);
+    seen[sdd_node(sx, sy)] = 1; q[qt++] = sdd_node(sx, sy);
+    while (qh < qt) {
+        int n = q[qh++], x = n % SD_W, y = n / SD_W;
+        if (n == want) return 1;
+        static const int DX4[4] = { 1, -1, 0, 0 }, DY4[4] = { 0, 0, 1, -1 };
+        for (int d = 0; d < 4; d++) {
+            int bx = x + DX4[d], by = y + DY4[d];
+            if (bx < 0 || by < 0 || bx >= L->w || by >= L->h || seen[sdd_node(bx, by)] || sd_solid_ch(L->t[by][bx])) continue;
+            seen[sdd_node(bx, by)] = 1; q[qt++] = sdd_node(bx, by);
+        }
+    }
+    return 0;
+}
 static void sdd_plan(void) {
     const SdLevel *L = SD.L;
     static int q[SDD_NODES];
@@ -87,10 +136,22 @@ static void sdd_plan(void) {
                 if (bx < 0 || by < 0 || bx >= L->w || by >= L->h) continue;
                 int m = sdd_node(bx, by);
                 if (SDD.from[m] != -2 || !sdd_stand(bx, by) || !sdd_link(ax, ay, bx, by)) continue;
-                if ((dy || abs(dx) > 1) && sdd_plat_under(bx, by) && !sd_solid(bx, by + 1) && sd_tile(bx, by + 1) != '=') continue;   /* onto a platform: a step, no leap */
+                if ((dy || abs(dx) > 1) && sdd_plat_under(bx, by) && !sd_solid(bx, by + 1) && sd_tile(bx, by + 1) != '='
+                    && sdd_plat_wait(bx, by) < 0.6f) continue;     /* onto a platform: a step, or a leap while it waits long enough yet */
                 SDD.from[m] = (int16_t)(n > 32767 ? -1 : n);
                 q[qt++] = m;
             }
+        for (int i = 0; i < L->nth; i++) {                         /* on a lift: every row its way passes, ridden, to step off where it goes on */
+            const SdThing *t = &L->th[i];
+            if (t->kind != SDT_PLAT || t->a || !sdd_plat_is(i, ax, ay)) continue;
+            int r0 = t->y, r1 = t->y + (int)lroundf((float)t->b * t->f[0]);
+            for (int r = imin(r0, r1); r <= imax(r0, r1); r++) {
+                int m = sdd_node(ax, r - 1);
+                if (r - 1 < 1 || r - 1 >= L->h || SDD.from[m] != -2 || sdd_room(ax, r - 1) < 2) continue;
+                SDD.from[m] = (int16_t)(n > 32767 ? -1 : n);
+                q[qt++] = m;
+            }
+        }
     }
     SDD.npath = 0; SDD.at = 0;
 #ifdef CRAWL_DEBUG
@@ -98,6 +159,7 @@ static void sdd_plan(void) {
         int far = start;
         for (int i = 0; i < qt; i++) if (q[i] % SD_W > far % SD_W) far = q[i];
         fprintf(stderr, "SIDE plan from %d,%d to %d,%d: %d reached, the furthest %d,%d, %s\n", sx, sy, gx, gy, qt, far % SD_W, far / SD_W, SDD.from[goal] == -2 ? "no way" : "a way");
+        if (getenv("CRAWL_SIDEREACH")) { fprintf(stderr, "SIDE reach:"); for (int i = 0; i < qt; i++) fprintf(stderr, " %d,%d", q[i] % SD_W, q[i] / SD_W); fprintf(stderr, "\n"); }
     }
 #endif
     SDD.sw = -1;
@@ -173,12 +235,17 @@ static void sdd_fight(void) {                                      /* the neares
     else if (SD.cd <= 0.0f) { in->cast = 1; in->cast_hit = 1; }
 }
 static void sdd_steer(SdIn *in, float tx) {                         /* in the air: to the tile, letting go in time to come down on it */
-    float gap = tx - SD.x, stop = SD.vx * SD.vx / (2.0f * 560.0f);
+    float gap = tx - SD.x, stop = SD.vx * SD.vx / (2.0f * fmaxf(SDT[TU_AIR], 1.0f));
     int toward = (gap > 0.0f) == (SD.vx > 0.0f), dir = gap > 0.0f ? 1 : -1;
     if (toward && fabsf(gap) <= stop + 2.0f) dir = 0;
     else if (fabsf(gap) <= 2.0f) dir = 0;
     in->left = dir < 0; in->right = dir > 0;
     in->run = fabsf(gap) > 40.0f;
+    if (!in->run && dir && SDD.target_node > 0) {                  /* and on at a run if walking would not get there before it comes down */
+        float drop = (float)((SDD.target_node / SD_W + 1) * SD_TILE) - SD.y, g = SD_G, d = SD.vy * SD.vy + 2.0f * g * drop;
+        float left = d > 0.0f ? (SD.vy + sqrtf(d)) / g : 0.0f;
+        if (fabsf(gap) > SD_WALK * left + 2.0f) in->run = 1;
+    }
 }
 static void sd_dream(float dt) {
     SdIn *in = &SD.in;
@@ -189,7 +256,7 @@ static void sd_dream(float dt) {
     if (SD.in_t < 0.05f) { memset(&SDD, 0, sizeof SDD); SDD.goal = -1; SDD.sw = -1; }
     if (SDD.goal < 0 || SDD.goal >= L->nth || L->th[SDD.goal].kind != SDT_DOOR) {   /* the goal doorway, else the furthest other way */
         SDD.goal = -1;
-        for (int i = 0; i < L->nth; i++) if (L->th[i].kind == SDT_DOOR && (L->th[i].flags & SDF_GOAL)) SDD.goal = i;
+        for (int i = 0; i < L->nth; i++) if (L->th[i].kind == SDT_DOOR && (L->th[i].flags & SDF_GOAL) && (SDD.goal < 0 || sdd_open_to(i))) SDD.goal = i;
         if (SDD.goal < 0 || SDP.done[SD.side]) {
             float far = -1.0f;
             for (int i = 0; i < L->nth; i++)
