@@ -524,3 +524,33 @@ still stand about twice the caster's height (step 13); the dream does not dodge,
 built to go straight into it. With it, the browser's page takes `?side=n` (and `&level=l`): a new run straight into passage n, CATACOMB
 alone, its saves under `haunted.exe/side/` (`web/haunted.js`, ahead of `PREFIX`); the World Editor's PLAY sets its own and is left alone.
 Tested in Playwright's Chromium: `?side=0` in the passage with its saves apart, the page without it booting HAUNT.EXE as before.
+
+**Session 9 (27 November 2026): WHEREAMI, from the owner's level 2.** The owner's passage *WhereAmI* (drawn in the World Editor) is
+`SIDE_TEXT[1]`, as its export asks; *The Cistern Key* moves to 5, kept (its dice change with its number: hurt 4 to 6 times on eight
+seeds as before, the same goals). Their redrawn tutorial level 2 is laid as drawn (`drawn.c`, `DRAWN2_*`, 25 wide now): a back room
+behind a barred door its plate opens from inside, a second secret east of the ice, eight lights hung, and two side doorways to
+WhereAmI, link 0 in the secret's alcove (the way in) and link 1 in the back room (where its first goal lets you out; its second goal,
+in the sealed room of chests, comes out where you went in). The dream in a passage could not get through it, and was taught:
+- A goal doorway the open tiles join to (`sdd_open_to`): it had aimed at the last goal, sealed in the room of chests.
+- Jumps no further than the passage's own run, jump and pulls allow (`sdd_across`), never more than before: the game's numbers give the
+  first version's 5, 4, 4, 3 exactly; WhereAmI's 4, 4, 3 and none three up. It had leapt five over a pit for a lone pillar and fallen.
+- On at a run in the air, on a leap of its own to no lower than it left, in a passage with its own moves (`sdd_own_moves`), when
+  walking would come down short. Running on everywhere had sent it faster into the dead on *The Dead's Gallery* (hurt 42 to 71 times
+  against 24 to 38, four lives lost against none; each change switched off in turn showed this one alone), so it is held to these.
+- A hop onto a platform that waits at its end 0.6 s or more yet; a lift ridden (every row its way passes is reached from it, to step
+  off where the way goes on); a walk off an edge a tile across without room over it (the shaft's ledge has its ceiling on it).
+Tested, harness only:
+- WhereAmI by the dream, eight seeds at level 2 and eight at 3, 600 s: through every time by the lift, the lever and its gate's five
+  seconds to the first goal; no life lost, never hurt, never giving up.
+- The other five built in, eight seeds each at level 3, 600 s, against the build before (`2bcbb45`): the Ossuary Stair, run I's and
+  run II's traps and the gallery the same seed for seed; the Cistern Key as said.
+- The crypt's dream, eight seeds for 1,500 s against the build before: level 1 the same; level 2 begins at the same moment and lasts
+  as long, within a few seconds. It does not go into WhereAmI: link 0 is behind the new secret (the dream finds neither of level 2's
+  secrets, before or after) and link 1 behind the barred door, so a person finds it. 42 levels laid against 41, 2 deaths against 9
+  (on levels 3 and 4, after level 2 has turned the dice: chance more than this).
+- `make asan`: WhereAmI at level 2, the gallery at 3, the crypt 700 s through level 2: clean. `make smoke` and `node
+  tools/mapedit/test.js` (six built in now) passed. The browser build in Playwright's Chromium went straight into WhereAmI at level 2.
+- The World Editor republished (version 10, the same link, its title and maps kept), and *HAUNTED.EXE First Passage* now goes straight
+  into WhereAmI at level 2.
+Not played by hand; nothing under Wine. Open: the owner's play of WhereAmI and of level 2's doorways; the dream still does not time
+what moves (it waits for a lift at its end), and does not open level 2's secrets.

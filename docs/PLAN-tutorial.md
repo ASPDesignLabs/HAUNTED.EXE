@@ -1107,3 +1107,8 @@ key).
   stays away now while they run), and a player upgrading would have met the lessons, with no skip, the next time a death sent them to
   level 1: when the settings carry no lessons byte yet but someone has played here (settings of their own, or a page or progress in
   the ledger), `pl_read` counts them as given, so the title's HELP gives them back. Step 9's checks are still to do.
+
+**27 November 2026.** Level 2 redrawn by the owner in the World Editor and laid as drawn (`DRAWN2_*`, 25 wide): a back room behind a
+barred door its plate opens from inside, a second secret east of the ice, eight lights hung, and two side doorways to their passage
+WhereAmI (docs/PLAN-side.md, session 9). The lessons are as they were. The dream on level 1 runs as before, seed for seed; level 2
+lasts as long as it did. Harness only.
