@@ -9,7 +9,7 @@ static struct {
     int16_t from[SDD_NODES];
     int path[256], npath, at;
     float plan_t, stuck_t, wait_t, best_x, give_t, hold_t;
-    int goal, last_node, jumping, jdir, target_node;
+    int goal, last_node, jumping, jdir, target_node, jump_row;
     float still_t; int sw; uint8_t tried[SD_THINGS];   /* still: waiting with no way; sw: a lever it goes to throw */
 } SDD;
 
@@ -241,7 +241,8 @@ static void sdd_steer(SdIn *in, float tx) {                         /* in the ai
     else if (fabsf(gap) <= 2.0f) dir = 0;
     in->left = dir < 0; in->right = dir > 0;
     in->run = fabsf(gap) > 40.0f;
-    if (!in->run && dir && SDD.target_node > 0) {                  /* and on at a run if walking would not get there before it comes down */
+    if (!in->run && dir && SDD.jumping && SDD.target_node > 0 && SDD.target_node / SD_W <= SDD.jump_row) {   /* and on at a run, leaping up or
+                                                                      across, if walking would not get there before it comes down */
         float drop = (float)((SDD.target_node / SD_W + 1) * SD_TILE) - SD.y, g = SD_G, d = SD.vy * SD.vy + 2.0f * g * drop;
         float left = d > 0.0f ? (SD.vy + sqrtf(d)) / g : 0.0f;
         if (fabsf(gap) > SD_WALK * left + 2.0f) in->run = 1;
@@ -339,7 +340,7 @@ static void sd_dream(float dt) {
         if ((ddx > 0 && SD.x < edge) || (ddx < 0 && SD.x > edge)) { in->left = ddx < 0; in->right = ddx > 0; in->run = abs(ddx) >= 3; return; }
         if (!ddx && fabsf(SD.x - edge) > 3.0f) { in->left = SD.x > edge; in->right = SD.x < edge; return; }
         in->jump = 1; in->jump_hit = 1; in->left = dir < 0; in->right = dir > 0; in->run = abs(ddx) >= 3;
-        SDD.jumping = 1; SDD.jdir = dir;
+        SDD.jumping = 1; SDD.jdir = dir; SDD.jump_row = cy;
         return;
     }
     in->left = dir < 0; in->right = dir > 0;
