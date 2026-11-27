@@ -610,5 +610,10 @@ section, THE BUILDER'S KIT, a pane each, five new sliders in TUNING), read and w
   its speed; a lever turned it about.
 - `node tools/mapedit/test.js` passed (seven built in, the kit's letter for letter); the editor in Playwright's Chromium opened *The
   Builder's Kit*, chose each piece and drew its pane, five new sliders, no checks failed, no page errors.
+- Nothing else moved: the dream through the Ossuary Stair, run I's and run II's traps and the gallery (two seeds each, level 3, 600 s)
+  and the crypt (seeds 1 and 4, 1,500 s) logged the build before's lines, line for line but those that print a time taken.
+- `make asan`: the dream 300 s in *The Builder's Kit*, and the scripted person at the bell, the sarcophagus, the press, the chain, the
+  belt and the burning web: clean. `make smoke` passed; the browser build (`make web`) and its smoke test passed, and `?side=6` opened the
+  kit in Playwright's Chromium with no errors. The World Editor republished (version 11, its title and maps kept): PLAY plays the kit.
 Not played by hand; nothing under Wine. Open: the owner's play and their word on the sheet; the dream in the kit; climbing frames.
 
