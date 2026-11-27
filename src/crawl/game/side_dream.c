@@ -234,6 +234,11 @@ static void sdd_fight(void) {                                      /* the neares
     if (SD.face != dir) { in->left = dir < 0; in->right = dir > 0; }
     else if (SD.cd <= 0.0f) { in->cast = 1; in->cast_hit = 1; }
 }
+static int sdd_own_moves(void) {                                   /* the passage's own run, walk, pace, steering, jump or pulls down */
+    static const int K[] = { TU_WALK, TU_RUN, TU_ACCEL, TU_AIR, TU_JUMP, TU_GRAV_HELD, TU_GRAV };
+    for (int i = 0; i < (int)(sizeof K / sizeof K[0]); i++) if (SDT[K[i]] != TUNE[K[i]].def) return 1;
+    return 0;
+}
 static void sdd_steer(SdIn *in, float tx) {                         /* in the air: to the tile, letting go in time to come down on it */
     float gap = tx - SD.x, stop = SD.vx * SD.vx / (2.0f * fmaxf(SDT[TU_AIR], 1.0f));
     int toward = (gap > 0.0f) == (SD.vx > 0.0f), dir = gap > 0.0f ? 1 : -1;
@@ -241,8 +246,9 @@ static void sdd_steer(SdIn *in, float tx) {                         /* in the ai
     else if (fabsf(gap) <= 2.0f) dir = 0;
     in->left = dir < 0; in->right = dir > 0;
     in->run = fabsf(gap) > 40.0f;
-    if (!in->run && dir && SDD.jumping && SDD.target_node > 0 && SDD.target_node / SD_W <= SDD.jump_row) {   /* and on at a run, leaping up or
-                                                                      across, if walking would not get there before it comes down */
+    if (!in->run && dir && SDD.jumping && SDD.target_node > 0 && SDD.target_node / SD_W <= SDD.jump_row && sdd_own_moves()) {
+                                                                   /* and on at a run, leaping up or across in a passage that moves by its own
+                                                                      numbers, if walking would not get there before it comes down */
         float drop = (float)((SDD.target_node / SD_W + 1) * SD_TILE) - SD.y, g = SD_G, d = SD.vy * SD.vy + 2.0f * g * drop;
         float left = d > 0.0f ? (SD.vy + sqrtf(d)) / g : 0.0f;
         if (fabsf(gap) > SD_WALK * left + 2.0f) in->run = 1;
