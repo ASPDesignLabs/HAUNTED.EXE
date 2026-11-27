@@ -40,6 +40,7 @@ enum {                              /* the tiles, row-major, C_CLEAR where the b
     ST_SPRING0, ST_SPRING1,                                        /* the bone springboard, and thrown down */
     ST_BELL0, ST_BELL1, ST_BELL2,                                  /* a bell on its bracket: at rest, swung one way, the other */
     ST_CLIMB,                                                      /* a chain to climb: heavier than the platforms' */
+    ST_RAT0, ST_RAT1, ST_LING0, ST_LING1,                          /* vermin (docs/PLAN-vermin.md): a rat running, a spiderling, two steps each */
     NST
 };
 

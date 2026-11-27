@@ -53,7 +53,7 @@ static const char *const TILE_NAME[NST] = {
     "GOLD KEY", "SILVER KEY", "CRIMSON KEY", "A LIFE", "TORCH 1", "TORCH 2", "TORCH 3", "CHAIN",
     "BREATH", "BREATH!", "COLD", "GRATE", "SLUICE", "SLUICE!", "SAINT", "SAINT!",
     "SLATE", "SLATE TOP", "COBWEB", "CRACKED", "STONE A", "STONE B", "GHOST", "BELT 1", "BELT 2", "BELT 3", "BELT 4",
-    "PRESS", "TOMB L", "TOMB R", "SPRING", "SPRING!", "BELL", "BELL <", "BELL >", "CLIMB",
+    "PRESS", "TOMB L", "TOMB R", "SPRING", "SPRING!", "BELL", "BELL <", "BELL >", "CLIMB", "RAT", "RAT", "SPIDERLING", "SPIDERLING",
 };
 _Static_assert(sizeof TILE_NAME / sizeof TILE_NAME[0] == NST, "a name for each tile");
 

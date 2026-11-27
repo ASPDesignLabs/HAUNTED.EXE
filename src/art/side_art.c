@@ -405,6 +405,36 @@ static void climb_chain(uint8_t *t) {                              /* heavy link
     }
 }
 
+/* ---- vermin (docs/PLAN-vermin.md): drafts, facing right, their feet on the tile's foot ---- */
+static void rat_tile(uint8_t *t, int frame) {                      /* a rat running: a low body, a long tail, its legs at one step and the next */
+    tclear(t);
+    for (int y = 9; y <= 13; y++) for (int x = 4; x <= 12; x++) {
+        float ax = ((float)x - 8.5f) / 4.6f, ay = ((float)y - 11.2f) / 2.4f;
+        if (ax * ax + ay * ay <= 1.0f) tp(t, x, y, rc(R_WARM, 8 + (y < 11) * 2 - (y == 13) * 2));
+    }
+    for (int y = 9; y <= 12; y++) for (int x = 12; x <= 15; x++) if ((x - 12) <= (12 - y) + 2 && x - 12 >= (y - 9) - 1) tp(t, x, y, rc(R_WARM, 9));   /* the snout */
+    tp(t, 15, 11, rc(R_BLOOD, 6)); tp(t, 13, 10, rc(R_GLOW, 11));  /* nose; an eye, bright */
+    tp(t, 11, 8, rc(R_WARM, 11)); tp(t, 12, 8, rc(R_WARM, 7));     /* an ear */
+    for (int x = 0; x <= 4; x++) tp(t, x, 11 + (x < 2) - (frame && x < 3), rc(R_SKIN, 7));   /* the tail */
+    int a = frame ? 1 : -1;
+    tp(t, 6 + a, 14, rc(R_WARM, 5)); tp(t, 6 + a, 15, rc(R_SKIN, 6)); tp(t, 11 - a, 14, rc(R_WARM, 5)); tp(t, 11 - a, 15, rc(R_SKIN, 6));
+}
+static void ling_tile(uint8_t *t, int frame) {                     /* a spiderling from the side: a round body and its head, legs bent down */
+    tclear(t);
+    for (int y = 6; y <= 12; y++) for (int x = 3; x <= 10; x++) {
+        float ax = ((float)x - 6.5f) / 3.8f, ay = ((float)y - 9.0f) / 3.2f;
+        if (ax * ax + ay * ay <= 1.0f) tp(t, x, y, rc(R_IRON, 5 + (y < 9) * 3 - (x > 8)));
+    }
+    for (int y = 8; y <= 11; y++) for (int x = 10; x <= 13; x++) if ((x - 11.5f) * (x - 11.5f) + (y - 9.5f) * (y - 9.5f) <= 3.2f) tp(t, x, y, rc(R_IRON, 6));
+    tp(t, 12, 9, rc(R_FLAME, 7)); tp(t, 13, 10, rc(R_FLAME, 5));    /* its eyes */
+    tp(t, 6, 8, rc(R_BLOOD, 8));                                    /* its mother's mark */
+    for (int l = 0; l < 4; l++) {                                  /* legs: up from the body, a knee, down to the foot */
+        int bx = 4 + l * 2 + (l > 1), kx = bx + (l < 2 ? -1 : 1), up = ((l + frame) & 1) ? 1 : 0;
+        tp(t, bx, 11, rc(R_IRON, 4)); tp(t, kx, 10 - up, rc(R_IRON, 9)); tp(t, kx, 11, rc(R_IRON, 6)); tp(t, kx + (l < 2 ? -1 : 1), 12, rc(R_IRON, 5));
+        tp(t, kx + (l < 2 ? -1 : 1), 13, rc(R_IRON, 5)); tp(t, kx + (l < 2 ? -2 : 2), 14, rc(R_IRON, 4)); tp(t, kx + (l < 2 ? -2 : 2), 15, rc(R_IRON, 3));
+    }
+}
+
 /* ---- the figure: a hooded caster in a robe, from a rig ---- */
 
 typedef struct { float x, y; } V2;
@@ -658,5 +688,6 @@ void side_art_init(void) {
     springboard(side_tile[ST_SPRING0], 0); springboard(side_tile[ST_SPRING1], 1);
     for (int k = 0; k < 3; k++) bell_hung(side_tile[ST_BELL0 + k], k);
     climb_chain(side_tile[ST_CLIMB]);
+    rat_tile(side_tile[ST_RAT0], 0); rat_tile(side_tile[ST_RAT1], 1); ling_tile(side_tile[ST_LING0], 0); ling_tile(side_tile[ST_LING1], 1);
     make_figure();
 }

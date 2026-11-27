@@ -3,6 +3,7 @@
  * strikes where it is drawn and not a box about it; each kind's way in the side view, from the crypt's own attacks (ATTACKS, with
  * their warnings, waits and strengths); what they throw, and how it flies. */
 
+static int sd_verm_shot(const SdShot *s);                          /* side_vermin.c */
 /* ---- the pictures as masks: the drawing's own rule (draw/side.c, sd_draw_spr: a sprite at half its size, a pixel shown where two
  * of its four are), so a pixel here is a pixel there ---- */
 typedef struct { uint32_t row[32]; int8_t x0, x1, y0, y1; uint8_t made; } SdMask;
@@ -26,7 +27,14 @@ static const SdMask *sd_mask(int spr) {
     if (!any) { k->x0 = k->x1 = 16; k->y0 = k->y1 = 31; }
     return k;
 }
+static int sd_way_of(int k);
 static int sd_mob_spr(const SdMob *m) {                            /* the picture shown now (draw/side.c draws this one) */
+    switch (m->kind) {                                             /* small things that move (docs/PLAN-vermin.md): by what they are doing */
+    case MOB_HOPPER: return m->ground ? SP_HOP_A : SP_HOP_B;
+    case MOB_LEECH: return m->ground || m->vy == 0.0f ? SP_LEECH_A : SP_LEECH_B;
+    case MOB_CRAB: return m->act == 22 ? SP_CRAB_COIN : ((int)(m->t * 10.0f) & 1) ? SP_CRAB_B : SP_CRAB_A;   /* (22: SA_COIN) */
+    default: break;
+    }
     int spr = ((int)(m->t * 5.0f) & 1) ? KINDS[m->kind].side2 : KINDS[m->kind].side;
     return spr > 0 ? spr : KINDS[m->kind].spr;
 }
@@ -36,7 +44,9 @@ static int sd_mask_at(const SdMask *k, int flip, int c, int r) {
     if (c < 0 || c >= TS / 2 || r < 0 || r >= TS / 2) return 0;
     return k->row[r] >> (flip ? TS / 2 - 1 - c : c) & 1;
 }
-static int sd_mob_px(const SdMob *m, int wx, int wy) { return sd_mask_at(sd_mask(sd_mob_spr(m)), m->face < 0, wx - sd_mob_ox(m), wy - sd_mob_oy(m)); }
+static int sd_mob_px(const SdMob *m, int wx, int wy) {
+    if (m->kind == MOB_LEECH && m->act == 21) return 0;            /* (21: SA_HIDE) under the poison: nothing to strike or be struck by */
+    return sd_mask_at(sd_mask(sd_mob_spr(m)), m->face < 0, wx - sd_mob_ox(m), wy - sd_mob_oy(m)); }
 static void sd_mob_box(const SdMob *m, int *l, int *t, int *r, int *b) {   /* the picture's pixels' bounds now, inclusive */
     const SdMask *k = sd_mask(sd_mob_spr(m));
     int ox = sd_mob_ox(m), oy = sd_mob_oy(m);
@@ -118,9 +128,12 @@ static int sd_shot_shape(const SdShot *s, int *dx, int *dy) {
 }
 
 /* ---- each kind's way ---- */
-enum { SW_WALK, SW_THROW, SW_LEAP, SW_BAT, SW_DRIFT, SW_FLY, SW_IMP, SW_SKULL, SW_DROP, SW_SAC, SW_BROOD, SW_DEACON, SW_SEXTON, SW_WHIP, SW_GARG };
+enum { SW_WALK, SW_THROW, SW_LEAP, SW_BAT, SW_DRIFT, SW_FLY, SW_IMP, SW_SKULL, SW_DROP, SW_SAC, SW_BROOD, SW_DEACON, SW_SEXTON, SW_WHIP, SW_GARG,
+       SW_HOP, SW_LEECH, SW_CRAB };                                /* small things that move (docs/PLAN-vermin.md) */
 enum { SA_NONE, SA_WIND, SA_STRIKE, SA_THROW, SA_LEAP, SA_LAND, SA_CHARGE, SA_CIRCLE, SA_DIVE, SA_CLIMB, SA_HANG, SA_DROP, SA_RISE, SA_RING,
-       SA_CHANT, SA_HORN, SA_LASH, SA_STONE, SA_SHAKE, SA_RECOIL, SA_FLEE };
+       SA_CHANT, SA_HORN, SA_LASH, SA_STONE, SA_SHAKE, SA_RECOIL, SA_FLEE,
+       SA_HIDE, SA_COIN, SA_RUN, SA_CORNER };                      /* the leech under the poison; the crab still, running, cornered */
+_Static_assert(SA_HIDE == 21 && SA_COIN == 22, "sd_mob_spr and sd_mob_px name them by number, above");
 #define SD_KIDS 3                                                  /* a brood mother's young at once */
 #define SD_DEACON_RAISES 4
 static int sd_way_of(int k) {
@@ -139,6 +152,9 @@ static int sd_way_of(int k) {
     case MOB_SEXTON: return SW_SEXTON;
     case MOB_WHIPPER: return SW_WHIP;
     case MOB_GARGOYLE: return SW_GARG;
+    case MOB_HOPPER: return SW_HOP;
+    case MOB_LEECH: return SW_LEECH;
+    case MOB_CRAB: return SW_CRAB;
     default: return SW_WALK;                                       /* the shambler, guard, drowned, hound, knight, ling, lightless, rat */
     }
 }
@@ -157,6 +173,22 @@ static void sd_mob_way(SdMob *m) {                                 /* sd_mob_spa
     }
     if (m->way == SW_SKULL) m->ground = 0;
     if (m->way == SW_GARG) m->act = SA_STONE;
+    if (m->way == SW_LEECH) {                                      /* under the poison it is set in: its surface the top of that pool */
+        int tx = sd_floor_px(m->x), ty = sd_floor_px(m->y - 1.0f);
+        while (ty > 0 && sd_tile(tx, ty - 1) == '~') ty--;
+        m->home_y = (float)(ty * SD_TILE) + 4.0f; m->y = m->home_y + 10.0f; m->act = SA_HIDE; m->ground = 0; m->cool = 1.0f;
+    }
+    if (m->way == SW_CRAB) { m->act = SA_COIN; m->sub_t = 0.0f; }   /* still, a coin; sub_t: how far along its way */
+    if (m->way == SW_HOP) m->face = 1;
+}
+/* the coin crab's way: its own place, then the cells painted, each a point at its foot */
+static int sd_crab_points(const SdMob *m, float *px, float *py, int max) {
+    int n = 0;
+    px[n] = m->home_x; py[n] = m->home_y; n++;
+    if (m->thing < 0) return n;
+    const SdThing *t = &SD.L->th[m->thing];
+    for (int i = 0; i < t->h && n < max; i++) { px[n] = (float)(SD.L->cpc[t->w + i][0] * SD_TILE) + 8.0f; py[n] = (float)((SD.L->cpc[t->w + i][1] + 1) * SD_TILE); n++; }
+    return n;
 }
 static float sd_wind_of(const SdMob *m, float least) {             /* the warning before its blow: the crypt's, never less than least */
     float w = m->fa >= 0 ? ATTACKS[m->fa].wind : 0.4f;
@@ -172,7 +204,9 @@ static void sd_mob_strikes(SdMob *m, float k) {                    /* its blow l
     G.blame = (Blame){ BL_MOB, m->kind, m->rank };
     if (m->kind == MOB_BAT || m->kind == MOB_LING || m->kind == MOB_RAT) sd_knock = 0.3f;   /* a small biter: a nudge, not a throw */
     sd_hurt(sd_blow(m) * k, sd_hit_el(m), m->x);
-    if (!m->fly && m->way != SW_DROP && m->way != SW_SKULL && m->way != SW_SAC) { m->act = SA_LAND; m->act_t = 0.0f; m->vx = 0.0f; }   /* (in the air: it drops) */
+    if (!m->fly && m->way != SW_DROP && m->way != SW_SKULL && m->way != SW_SAC && m->way != SW_HOP && m->way != SW_LEECH && m->way != SW_CRAB) {
+        m->act = SA_LAND; m->act_t = 0.0f; m->vx = 0.0f;           /* (in the air: it drops) */
+    }
 }
 static void sd_wake(SdMob *m, float secs) {                        /* told where the caster is (a bell, a horn, a deacon's call) */
     m->alert = fmaxf(m->alert, secs); m->mem = fmaxf(m->mem, secs); m->lx = SD.x; m->ly = SD.y;
@@ -678,6 +712,97 @@ static void sd_mobs(float dt) {
             }
             break;
         }
+        case SW_HOP: {                                             /* the skull hopper: bounds between its two places, high; settles a moment */
+            float span = (m->thing >= 0 && SD.L->th[m->thing].f[0] > 0.0f ? SD.L->th[m->thing].f[0] : 4.0f) * SD_TILE;
+            if (m->ground) {
+                m->vx = 0.0f; sd_mob_body(m, dt);
+                if (m->act_t < 0.45f || !m->ground) break;
+                float lo = m->home_x - span, hi = m->home_x + span, h = 2.5f * SD_TILE, T = 2.0f * sqrtf(2.0f * h / SD_G);
+                if ((m->face > 0 && m->x >= hi - 3.0f) || (m->face < 0 && m->x <= lo + 3.0f)) m->face = -m->face;
+                float along = fminf(2.0f * SD_TILE, fabsf((m->face > 0 ? hi : lo) - m->x));
+                if (along < 6.0f) { m->face = -m->face; along = fminf(2.0f * SD_TILE, span); }
+                float lx = m->x + (float)m->face * along;
+                if (!sd_floor_at(lx, m->y, 1) || sd_mob_blocked(m, lx + (float)m->face * SD_MOB_HW)) {   /* no floor there, or stone: the other way */
+                    m->face = -m->face; lx = m->x + (float)m->face * along;
+                    if (!sd_floor_at(lx, m->y, 1)) { m->act_t = 0.0f; break; }
+                }
+                sd_mob_jump(m, h, (float)m->face * along / T);
+                m->act_t = 0.0f;
+            } else {
+                sd_mob_body(m, dt);
+                if (m->ground) { m->act_t = 0.0f; m->vx = 0.0f; sd_sfx_at(SFX_BONES, 0.35f, m->x, m->y - 6.0f); }
+            }
+            break;
+        }
+        case SW_LEECH: {                                           /* under the poison; up at what is over it, and back in */
+            float surf = m->home_y;
+            if (m->act == SA_HIDE) {
+                m->y = surf + 10.0f; m->vx = m->vy = 0.0f;
+                float ax = fabsf(SD.x - m->x);
+                if (!SD.dying && m->cool <= 0.0f && ax < 5.0f * SD_TILE && SD.y < surf + 2.0f && SD.y > surf - 9.0f * SD_TILE) {
+                    m->act = SA_WIND; m->act_t = 0.0f; m->wind = 0.4f * SDT[TU_DEAD_WIND];
+                    sd_sfx_at(SFX_DRIP, 0.6f, m->x, surf);
+                }
+            } else if (m->act == SA_WIND) {                        /* bubbles at the surface: then up */
+                m->y = surf + 10.0f;
+                if (m->act_t >= m->wind) {
+                    float hgt = clampf(surf - (SD.y - SD_HT) + 10.0f, 24.0f, 110.0f), vy = sqrtf(2.0f * SD_G * hgt), up = vy / SD_G;
+                    m->vy = -vy; m->vx = clampf((SD.x - m->x) / up, -150.0f, 150.0f); m->face = m->vx >= 0.0f ? 1 : -1;
+                    m->y = surf; m->act = SA_LEAP; m->ground = 0; m->act_t = 0.0f;
+                    sd_sfx_at(SFX_SPLASH, 0.7f, m->x, surf); sd_dead_says(m, "leaps");
+                }
+            } else if (m->act == SA_LEAP) {                        /* its arc; back into the poison, or stranded on stone */
+                m->vy = fminf(SD_FALL_MAX, m->vy + SD_G * dt);
+                float nx = m->x + m->vx * dt, ny = m->y + m->vy * dt;
+                if (sd_solid(sd_floor_px(nx + (m->vx > 0.0f ? 5.0f : -5.0f)), sd_floor_px(m->y - 4.0f))) m->vx = 0.0f; else m->x = nx;
+                if (m->vy < 0.0f && sd_solid(sd_floor_px(m->x), sd_floor_px(ny - 10.0f))) m->vy = 0.0f;
+                else m->y = ny;
+                int tx = sd_floor_px(m->x), ty = sd_floor_px(m->y - 1.0f);
+                if (m->vy > 0.0f && (sd_tile(tx, ty) == '~' || sd_tile(tx, ty + 1) == '~') && m->y >= (float)(ty * SD_TILE) + 4.0f) {
+                    int top = ty; while (top > 0 && sd_tile(tx, top - 1) == '~') top--;
+                    m->home_y = (float)(top * SD_TILE) + 4.0f; m->act = SA_HIDE; m->cool = 1.8f; m->vy = 0.0f;
+                    sd_sfx_at(SFX_SPLASH, 0.6f, m->x, m->home_y);
+                } else if (m->vy > 0.0f && sd_floor_at(m->x, m->y, 1)) {
+                    m->y = (float)(sd_floor_px(m->y - 0.001f) * SD_TILE); m->vy = m->vx = 0.0f; m->ground = 1; m->act = SA_LAND; m->act_t = 0.0f;
+                }
+                if (m->y > (float)(SD.L->h * SD_TILE + 64)) m->alive = 0;
+            } else {                                               /* stranded: it flops toward its pool */
+                if (!m->ground) { m->act = SA_LEAP; m->vx = 0.0f; break; }   /* (not on the stone: it falls, as in its leap) */
+                if (m->act_t > 0.7f && m->ground) {
+                    float d = m->home_x - m->x;
+                    m->vx = 0.0f; m->vy = -sqrtf(2.0f * SD_G * 12.0f); m->vx = clampf(d, -40.0f, 40.0f); m->ground = 0; m->act = SA_LEAP; m->act_t = 0.0f;
+                }
+            }
+            break;
+        }
+        case SW_CRAB: {                                            /* still, a coin, till you come near; then along its way, to its place */
+            if (m->act == SA_COIN) {
+                if (!SD.dying && hypotf(SD.x - m->x, SD.y - m->y) < 4.0f * SD_TILE) {
+                    m->act = SA_RUN; m->act_t = 0.0f; sd_sfx_at(SFX_SKITTER, 0.7f, m->x, m->y - 4.0f); sd_dead_says(m, "runs");
+                }
+            } else if (m->act == SA_RUN) {
+                float px[64], py[64];
+                int n = sd_crab_points(m, px, py, 64);
+                float go = sp * 1.7f * dt;                         /* quick: a coin's worth is a chase */
+                while (go > 0.0f && m->sub_t < (float)(n - 1)) {
+                    int k = (int)m->sub_t;
+                    float f = m->sub_t - (float)k, sx = px[k + 1] - px[k], sy = py[k + 1] - py[k], len = fmaxf(0.01f, hypotf(sx, sy)), left = (1.0f - f) * len;
+                    if (go >= left) { go -= left; m->sub_t = (float)(k + 1); }
+                    else { m->sub_t += go / len; go = 0.0f; }
+                }
+                int k = imin((int)m->sub_t, n - 1);
+                float f = k < n - 1 ? m->sub_t - (float)k : 0.0f, ox = m->x;
+                m->x = k < n - 1 ? px[k] + (px[k + 1] - px[k]) * f : px[n - 1];
+                m->y = k < n - 1 ? py[k] + (py[k + 1] - py[k]) * f : py[n - 1];
+                if (m->x != ox) m->face = m->x > ox ? 1 : -1;
+                if (m->sub_t >= (float)(n - 1)) { m->act = SA_CORNER; m->act_t = 0.0f; sd_dead_says(m, "is cornered"); }
+            }
+            if (!SD.dying && sd_mob_touches(m, 0)) {               /* caught: it is yours */
+                sd_dead_says(m, "is caught");
+                m->hp = 0.0f; sd_mob_slain(m, -1);
+            }
+            break;
+        }
         case SW_SAC:                                               /* an egg sac: still, till you come close; then the spiderlings */
             if (!SD.dying && fabsf(dx) < 34.0f && fabsf(dy) < 30.0f) {
                 for (int k = 0; k < 3; k++) {
@@ -717,7 +842,8 @@ static void sd_burst(SdShot *s) {                                  /* the flask:
         if (sd_mob_near(m, s->x, s->y) < 26.0f) sd_mob_hit(m, s->dmg, s->sp, EL_POISON);
     }
     sd_sfx_at(SFX_SPLASH, 0.7f, s->x, s->y);
-    sd_kit_burst(s->x, s->y);                                      /* masonry broken, a bell rung (side_kit.c) */
+    sd_kit_burst(s->x, s->y);
+    sd_verm_burst(s->x, s->y);                                      /* masonry broken, a bell rung (side_kit.c) */
     s->alive = 0;
 }
 static int sd_shot_meets(SdShot *s) {                              /* 1: it struck something (and is spent, or burst) */
@@ -779,6 +905,7 @@ static void sd_shots(float dt) {
                 break;
             }
             if (sd_shot_meets(s)) break;
+            if (!s->foe && sd_verm_shot(s)) { if (s->kind == SS_FLASK) sd_burst(s); else s->alive = 0; break; }   /* vermin (side_vermin.c) */
         }
         if (s->alive && s->life <= 0.0f) { if (s->kind == SS_FLASK) sd_burst(s); else s->alive = 0; }
         if (s->alive && s->y > (float)(SD.L->h * SD_TILE + 32)) s->alive = 0;

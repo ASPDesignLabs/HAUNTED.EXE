@@ -581,6 +581,20 @@ static void sd_render(Frame *f) {
         default: break;
         }
     }
+    /* vermin (side_vermin.c): a tile each, turned to its stone */
+    for (int i = 0; i < SD_VERM; i++) {
+        const SdVerm *v = &VRM[i];
+        if (!v->alive || (v->state == 2 && ((int)(v->die_t * 16.0f) & 1))) continue;
+        int tile, rot, flip, ox, oy;
+        verm_pose(v, &tile, &rot, &flip, &ox, &oy);
+        int light = sd_lit((float)(ox + 8), (float)(oy + 8), 18, 1.0f);
+        for (int w = 0; w < STS; w++) for (int u = 0; u < STS; u++) {
+            uint8_t c = side_tile[tile][w * STS + u];
+            if (c == C_CLEAR) continue;
+            int x, y; verm_map(rot, flip, u, w, &x, &y);
+            sd_px(f, ox + x - camx, oy + y - camy + (v->state == 2 ? (int)(v->die_t * 10.0f) : 0), c, light);
+        }
+    }
     /* the dead: their bestiary pictures from the side, until their own are drawn (step 13); what strikes them strikes these pixels
      * (side_dead.c's masks). A warning shows: the last of it a white flash, a thrower's bone held up, a skull's fire in its mouth */
     for (int i = 0; i < SD_MOBS; i++) {
@@ -591,6 +605,11 @@ static void sd_render(Frame *f) {
         int warn = m->state != SDM_DIE && m->act == SA_WIND && m->act_t > m->wind - 0.16f && ((int)(m->act_t * 30.0f) & 1);
         if (m->way == SW_DROP && m->state != SDM_DIE)              /* the spider's thread, up to where it is tied */
             for (int y = (int)m->aim_y; y < (int)sd_mob_top(m) + 2; y++) sd_px(f, (int)m->x - camx, y - camy, R_BONE + 9, light);
+        if (m->way == SW_LEECH && m->act == SA_HIDE) continue;     /* under the poison: nothing shows (its rings, below) */
+        if (m->way == SW_LEECH && m->act == SA_WIND) {             /* bubbles rising where it waits */
+            for (int k = 0; k < 6; k++) { uint32_t r = sd_hash(i, k, (int)(SD.t * 12.0f)); sd_px(f, (int)m->x - camx - 5 + (int)(r % 11), (int)m->home_y - camy - (int)((r >> 4) % 4), (uint8_t)(R_MOSS + 12), 24); }
+            continue;
+        }
         sd_draw_spr(f, sd_mob_spr(m), (int)m->x - camx, (int)m->y - camy + sink, m->face < 0, light, m->hurt_t > 0.1f || warn);
         if (m->state == SDM_DIE) continue;
         if (m->act == SA_WIND && m->next == SA_THROW) {

@@ -41,7 +41,7 @@ look at the first 24 only (`k < REC_KINDS`).
 | Step | What | State |
 |---|---|---|
 | 1 | The three kinds in `KINDS` (24, 25, 26), `REC_MEM`, `LG_REC2`, the guards; old pages load, the new section reads back, the dream's log unchanged | Done, harness only |
-| 2 | Side passages: the hopper's and the leech's ways (`side_dead.c`), the crab's run on its painted path (`CPATH`), vermin (`VERMIN x y RAT|LING`) | |
+| 2 | Side passages: the hopper's and the leech's ways (`side_dead.c`), the crab's run on its painted path (`CPATH`), vermin (`VERMIN x y RAT|LING`) | Done, harness only |
 | 3 | The crypt: the crab on a drawn level, its path painted, its run along it in the 3-D view, caught or slain for its gold | |
 | 4 | Art: each kind's pictures (crypt sprites, the bestiary's), the vermin's side tiles; the sheet | |
 | 5 | The World Editor: vermin, the hopper's span, the crab's path and its gold, in passages and on crypt levels | |
@@ -59,4 +59,18 @@ look at the first 24 only (`k < REC_KINDS`).
   with the same switch), seed 1, levels 1 to 5: the fixed part the same, every section the same but `LG_PAGE`'s time written, and
   `LG_REC2` new; that build's page loaded by both builds, 900 s: the same log, line for line; the dream, seeds 1 and 4, 1,500 s: the build
   before's lines; `CRAWL_SAVETEST`: 17 cases, none bad (the new section's numbers back as they went, and as an older page, none met).
+- Step 2. In a passage (`side_dead.c`): the hopper (`SW_HOP`) bounds between its home and SPAN tiles either side (4 its own), 2.5 tiles
+  high, two along, settling 0.45 s, turning at an end, a wall or a missing floor, and bites by its pixels as the others; the leech
+  (`SW_LEECH`) waits under its pool (`SA_HIDE`, nothing of it to strike), bubbles 0.4 s when the caster is within five tiles and over
+  the surface, leaps to meet it at the top of its arc, back into any standing poison, stranded on stone it flops home; the crab
+  (`SW_CRAB`) is a coin (`SA_COIN`) till the caster is within four tiles, then runs its painted way (`CPATH x y` after its MOB line,
+  `cpc` in the level) at 1.7 times its pace, on rails, and waits at its end (`SA_CORNER`); caught by its pixels touching the caster's,
+  or slain, it is a kill and its gold (`GOLD IT_*` on its line) is yours. Vermin (`side_vermin.c`, `VERMIN x y RAT|LING`): rats run a
+  floor and turn at walls, edges and spikes; spiderlings follow the stone tile by tile, round every corner, and drop from a ceiling (or
+  a block's underside) on the caster passing under; each bites for 2 + 0.4 a level as a nudge and dies to a spell, a flask's splash or
+  lightning, struck by its drawn pixels (turned as drawn). Draft tiles `ST_RAT0` to `ST_LING1`. Tested, harness only: a scripted person
+  (`CRAWL_SIDESTILL`) near the crab: it ran its fourteen cells up onto a ledge and was cornered, and reached there was caught (slain,
+  its gold given); the hopper traced between 136 and 200 (two tiles either side), rising 40 pixels; the leech leapt as the person
+  jumped its pool and bit; rats and spiderlings bit; a spiderling round a block: top, side, underside, side, top, again; one on a
+  ceiling dropped on the person under it; the dream's flasks splashed and struck spiderlings.
 

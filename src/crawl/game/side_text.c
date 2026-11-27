@@ -8,7 +8,12 @@
 #define SD_TILE 16                                                 /* STS: a tile, in pixels */
 enum { SDT_DOOR, SDT_PLAT, SDT_FALL, SDT_FLOW, SDT_MOB, SDT_GOLD, SDT_KEY, SDT_LIFE, SDT_SWITCH, SDT_TORCH,
        SDT_GATE, SDT_PLATE, SDT_ZONE, SDT_CURRENT, SDT_HAZ, SDT_LEDGE, SDT_POWER,   /* LEDGE, POWER: 26 November */
-       SDT_CHAIN, SDT_SPRING, SDT_CRACK, SDT_STONE, SDT_BELL, SDT_GHOST, SDT_PRESS, SDT_TOMB, SDT_BELT, NSDT };   /* the kit: 27 November */
+       SDT_CHAIN, SDT_SPRING, SDT_CRACK, SDT_STONE, SDT_BELL, SDT_GHOST, SDT_PRESS, SDT_TOMB, SDT_BELT,   /* the kit: 27 November */
+       SDT_VERMIN, NSDT };   /* VERMIN x y RAT|LING: a rat or a spiderling, not a kind (docs/PLAN-vermin.md; side_vermin.c), a 0 or 1 */
+/* small things that move (docs/PLAN-vermin.md): on a MOB line, SPAN n (the skull hopper's bounds either side of it, tiles; f0, 0 its
+ * own 4) and GOLD IT_* (what a coin crab leaves; f1, 0 coins); after a coin crab's MOB line, CPATH x y, the cells of its way in order,
+ * the last the place it runs to (w the first in cpc, h how many) */
+#define SD_CPC 512
 /* The builder's kit (the owner, 27 November; side_kit.c), with the letters S (wet slate: a floor slow to start on and slow to stop)
  * and W (cobweb: slows the caster and what flies through it; fire burns it away for the visit).
  * CHAIN x y h: a chain hanging h tiles from (x, y), climbed with up and down, jumped from; OFF: hauled up till a trigger drops it.
@@ -122,7 +127,8 @@ static const struct { const char *name; float def, lo, hi, step; const char *wha
 };
 static int sd_tune_of(const char *name) { for (int k = 0; k < NTU; k++) if (!strcmp(TUNE[k].name, name)) return k; return -1; }
 typedef struct { char name[40]; int w, h; uint8_t t[SD_H][SD_W]; SdThing th[SD_THINGS]; int nth; float tune[NTU]; uint64_t tuned;
-                 SdHaz hz[SD_HAZ]; int nhz; int16_t hzc[SD_HZC][2]; int nhzc; SdTrig tr[SD_TRIGS]; int ntr; } SdLevel;
+                 SdHaz hz[SD_HAZ]; int nhz; int16_t hzc[SD_HZC][2]; int nhzc; SdTrig tr[SD_TRIGS]; int ntr;
+                 int16_t cpc[SD_CPC][2]; int ncpc; } SdLevel;          /* cpc: the coin crabs' ways (CPATH) */
 /* the crypt's traps in side view: each kind in the shape of its own (docs/PLAN-side.md, 2d) */
 static int sd_haz_family(int k) {
     switch (k) {
@@ -164,7 +170,7 @@ static int sd_read(const char *text, SdLevel *L, char *err, int nerr) {
     memset(L, 0, sizeof *L);
     memset(L->t, '.', sizeof L->t);
     snprintf(L->name, sizeof L->name, "A SIDE PASSAGE");
-    int line = 0, rows = 0, version = 0;
+    int line = 0, rows = 0, version = 0, last_crab = -1;
     static char trsrc[SD_TRIGS][16], tract[SD_TRIGS][SD_ACTS][16];   /* the triggers' names, till all is read */
     char w[SD_WORDS][SD_WORD];
 #define SDBAD(...) do { char m_[96]; snprintf(m_, sizeof m_, __VA_ARGS__); snprintf(err, (size_t)nerr, "line %d: %s", line, m_); return 0; } while (0)
@@ -217,6 +223,14 @@ static int sd_read(const char *text, SdLevel *L, char *err, int nerr) {
             L->nhzc++; L->hz[L->nhz - 1].nc++;
             continue;
         }
+        if (!strcmp(op, "CPATH")) {                                 /* a cell of the last coin crab's way, in order */
+            if (last_crab < 0) SDBAD("CPATH before any coin crab (MOB x y MOB_CRAB)");
+            if (L->ncpc >= SD_CPC) SDBAD("more than %d cells of crabs' ways", SD_CPC);
+            if (n < 3 || iv[1] < 0 || iv[2] < 0 || iv[1] >= L->w || iv[2] >= L->h) SDBAD("CPATH wants a cell in the map");
+            L->cpc[L->ncpc][0] = (int16_t)iv[1]; L->cpc[L->ncpc][1] = (int16_t)iv[2];
+            L->ncpc++; L->th[last_crab].h++;
+            continue;
+        }
         if (!strcmp(op, "TRIG")) {                                  /* TRIG source MODE [secs] tag:VERB ... (resolved once all is read) */
             if (n < 4) SDBAD("TRIG wants a source, a mode and something to do");
             if (L->ntr >= SD_TRIGS) SDBAD("more than %d triggers", SD_TRIGS);
@@ -246,8 +260,8 @@ static int sd_read(const char *text, SdLevel *L, char *err, int nerr) {
         }
         static const char *const OPS[NSDT] = { "DOOR", "PLAT", "FALL", "FLOW", "MOB", "GOLD", "KEY", "LIFE", "SWITCH", "TORCH",
                                                "GATE", "PLATE", "ZONE", "CURRENT", "HAZ", "LEDGE", "POWER",
-                                               "CHAIN", "SPRING", "CRACK", "STONE", "BELL", "GHOST", "PRESS", "TOMB", "BELT" };
-        static const int NEED[NSDT] = { 4, 8, 3, 7, 4, 4, 4, 3, 4, 3, 5, 3, 5, 8, 4, 4, 4, 4, 3, 5, 6, 3, 5, 5, 3, 6 };
+                                               "CHAIN", "SPRING", "CRACK", "STONE", "BELL", "GHOST", "PRESS", "TOMB", "BELT", "VERMIN" };
+        static const int NEED[NSDT] = { 4, 8, 3, 7, 4, 4, 4, 3, 4, 3, 5, 3, 5, 8, 4, 4, 4, 4, 3, 5, 6, 3, 5, 5, 3, 6, 4 };
         int k = 0;
         while (k < NSDT && strcmp(op, OPS[k])) k++;
         if (k == NSDT) SDBAD("a word the game doesn't know: %.40s", op);
@@ -298,7 +312,16 @@ static int sd_read(const char *text, SdLevel *L, char *err, int nerr) {
         case SDT_MOB:
             t.a = -1; t.b = -1;
             if (strcmp(w[3], "ANY") && !sd_name(w[3], "MOB_", &t.a)) SDBAD("not a kind: %.40s", w[3]);
-            if (n > 4 && strcmp(w[4], "-1") && !sd_name(w[4], "RK_", &t.b)) SDBAD("not a rank: %.40s", w[4]);
+            if (n > 4 && strcmp(w[4], "-1") && strcmp(w[4], "SPAN") && strcmp(w[4], "GOLD") && strcmp(w[4], "TAG") && !sd_name(w[4], "RK_", &t.b)) SDBAD("not a rank: %.40s", w[4]);
+            for (int i = 4; i + 1 < n; i++) {                       /* the hopper's span; the crab's gold */
+                if (!strcmp(w[i], "SPAN")) t.f[0] = (float)atof(w[++i]);
+                else if (!strcmp(w[i], "GOLD")) { int it = -1; if (!sd_name(w[++i], "IT_", &it) || it > IT_CHEST) SDBAD("not gold: %.40s", w[i]); t.f[1] = (float)it; }
+            }
+            if (t.f[0] < 0.0f || t.f[0] > 30.0f) SDBAD("a skull hopper's span is 0 to 30 tiles");
+            if (t.a == MOB_CRAB) { t.w = L->ncpc; t.h = 0; last_crab = L->nth; }
+            break;
+        case SDT_VERMIN:
+            if (!strcmp(w[3], "RAT")) t.a = 0; else if (!strcmp(w[3], "LING")) t.a = 1; else SDBAD("vermin is a RAT or a LING: %.20s", w[3]);
             break;
         case SDT_GOLD:
             if (!sd_name(w[3], "IT_", &t.a) || t.a > IT_CHEST) SDBAD("not gold: %.40s", w[3]);

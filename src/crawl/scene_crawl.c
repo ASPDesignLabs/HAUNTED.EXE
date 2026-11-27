@@ -225,6 +225,7 @@
 #include "game/side_works.c"
 #include "game/side_kit.c"                                          /* the builder's kit: ten pieces for the World Editor */
 #include "game/side_dead.c"                                         /* the dead: their masks, ways and shots */
+#include "game/side_vermin.c"                                       /* rats and spiderlings: vermin, not kinds */
 #include "game/side_dream.c"
 
 /* Rendering begins: shading and fog, the floor and ceiling (render_floor), secrets' cracks, the floor's marks (hazards, omens, wards, ice: fm_pixel) */

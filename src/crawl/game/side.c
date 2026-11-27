@@ -199,6 +199,7 @@ static void sd_kit_block_x(float dx); static void sd_kit_block_y(float prev, flo
 static int sd_kit_climb(float dt); static float sd_kit_belt_under(float x, float y); static int sd_kit_slate_under(void); static int sd_kit_web(float x, float y, float h);
 static int sd_kit_web_at(float x, float y); static void sd_kit_burn(float x, float y); static void sd_kit_struck(int tx, int ty); static void sd_kit_burst(float x, float y);
 static int sd_kit_bell_hit(float x, float y); static void sd_kit_beam(float x0, float y, float x1); static int sd_kit_use(void); static int sd_kit_pressed(int i, int *is_kit);
+static void sd_verm_build(void); static void sd_verm(float dt); static void sd_verm_burst(float bx, float by); static void sd_verm_beam(float x0, float y0, float x1);
 static int sd_solid(int tx, int ty) {
     return sd_solid_ch(sd_tile(tx, ty)) || sd_fall_at(tx, ty) >= 0 || sd_gate_at(tx, ty) || (tx >= 0 && ty >= 0 && tx < SD.L->w && ty < SD.L->h && KSOL[ty][tx]);
 }
@@ -504,6 +505,10 @@ static void sd_mob_slain(SdMob *m, int sp) {
     if (!KINDS[m->kind].flags || !(KINDS[m->kind].flags & KF_UNCOUNTED)) { rec_kill(&tmp); xp_kill(&tmp); }
     gain_souls(RANK_SOULS[m->rank] * soul_share());
     sd_sfx_at(KINDS[m->kind].sfx_die, 0.8f, m->x, m->y - 8.0f);
+    if (m->kind == MOB_CRAB) {                                     /* a coin crab, caught or slain: its gold is yours (docs/PLAN-vermin.md) */
+        int it = m->thing >= 0 ? (int)SD.L->th[m->thing].f[1] : IT_COINS;
+        Item g; memset(&g, 0, sizeof g); g.alive = 1; g.type = clampi(it, IT_COINS, IT_CHEST); g.secret = 1; collect(&g);
+    }
 #ifdef CRAWL_DEBUG
     fprintf(stderr, "EVENT side_slain %s rank %d by %s t=%.2f\n", KINDS[m->kind].name, m->rank, sp >= 0 && sp < NATK ? ATK_NAME[sp] : "?", SD.t);
 #endif
@@ -623,6 +628,7 @@ static void sd_cast(int release) {
         }
         SD.beam_t = 0.14f; SD.bx0 = hx; SD.by0 = hy; SD.bx1 = fx; SD.by1 = fy;
         sd_kit_beam(hx, hy, fx);                                   /* a bell on its way rung; masonry where it stops broken */
+        sd_verm_beam(hx, hy, fx);                                  /* and vermin along it */
         if (first) {
             sd_mob_hit(first, dmg, sp, el);
             for (int hop = 0, done = 0; hop < SD_MOBS && done < 2; hop++) {   /* and on, to two whose pictures are near where it struck */
@@ -726,6 +732,7 @@ static void sd_build(void) {                                       /* the place 
     sd_works_build();
     memset(SD.mob, 0, sizeof SD.mob); memset(SD.shot, 0, sizeof SD.shot);
     sd_dead_build();
+    sd_verm_build();
     memcpy(SD.taken, SDP.taken[SD.side], sizeof SD.taken); memcpy(SD.thrown, SDP.thrown[SD.side], sizeof SD.thrown);
     for (int i = 0; i < L->nth; i++)                              /* a timed switch is never left thrown: its time began again */
         if (L->th[i].kind == SDT_SWITCH && L->th[i].f[0] > 0.0f) SD.thrown[i] = SDP.thrown[SD.side][i] = 0;
@@ -935,6 +942,7 @@ static void sd_update(float dt) {
         sd_place_harm(st);
         sd_traps(st);
         sd_mobs(st);
+        sd_verm(st);                                               /* rats and spiderlings (side_vermin.c) */
         sd_shots(st);
         if (!SD.on) return;                                        /* (the last life went in a step) */
         in->jump_hit = 0; in->cast_hit = 0;
