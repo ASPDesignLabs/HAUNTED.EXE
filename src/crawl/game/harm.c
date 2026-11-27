@@ -9,7 +9,7 @@ static int harm_of(int kind) {
 }
 static void rec_harm(Blame b, int el) {
     int k = b.what == BL_MOB || b.what == BL_POISON || b.what == BL_FIRE || b.what == BL_POOL ? b.type : -1;
-    if (k < 0 || k >= REC_KINDS || el < 0 || RUN.rec.harms[k][el] >= 255) return;
+    if (k < 0 || k >= REC_MEM || el < 0 || RUN.rec.harms[k][el] >= 255) return;
     RUN.rec.harms[k][el]++;
 }
 /* A blow that lands while the hand is gathering a spell may break it (docs/PLAN-b11.md, section 7, K3): the

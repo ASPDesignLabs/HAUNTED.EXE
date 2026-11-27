@@ -345,6 +345,9 @@ enum {
      * SP_EV_RELIC and SP_EV_SOCKET0, 1), each lying on the floor, held in its socket (its shape cut in the panel and alight), and
      * cut unlit in the panel of a socket bound to it; by drawn.c's RL_* less one */
     SP_RL1, SP_RL11 = SP_RL1 + NRLOOK - 2, SP_RLH1, SP_RLH11 = SP_RLH1 + NRLOOK - 2, SP_RLB1, SP_RLB11 = SP_RLB1 + NRLOOK - 2,
+    /* small things that move (docs/PLAN-vermin.md): the skull hopper settled and leaping, the bile leech lying and leaping, the coin
+     * crab still (a coin) and running */
+    SP_HOP_A, SP_HOP_B, SP_LEECH_A, SP_LEECH_B, SP_CRAB_COIN, SP_CRAB_A, SP_CRAB_B,
     NSPR
 };
 

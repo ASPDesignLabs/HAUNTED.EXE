@@ -26,7 +26,7 @@ static const char *const ORDINAL[MAX_DESCENT + 1] = { "", "FIRST", "SECOND", "TH
  * (or can't be killed) */
 static int slayer_need(int kind, int rank) {
     const Kind *k = &KINDS[kind];
-    if (k->flags & (KF_SPIRIT | KF_UNCOUNTED)) return 0;
+    if (kind >= REC_KINDS || (k->flags & (KF_SPIRIT | KF_UNCOUNTED))) return 0;   /* (the bits are laid out for the first 24 kinds) */
     static const int NEED[5] = { 20, 25, 20, 15, 10 };
     if (k->family < 0) return rank == RK_I ? NEED[0] : 0;          /* off the ladder: one rank, the first's count */
     if (rank == RK_GILDED) return k->gild ? 5 : 0;
@@ -90,7 +90,7 @@ static void ach_earn(int bit, int spr, int family, int rank, const char *title, 
 
 static void rec_kill(const Mob *m) {
     Record *r = &RUN.rec;
-    if (m->type >= REC_KINDS) return;
+    if (m->type >= REC_MEM) return;
     if (r->kills[m->type][m->rank] < 65535) r->kills[m->type][m->rank]++;
     int el = m->last_atk >= 0 ? ATK_ELEM[m->last_atk] : -1;
     if (el >= 0 && r->el_kills[m->type][el] < 255) r->el_kills[m->type][el]++;
@@ -105,7 +105,7 @@ static void rec_kill(const Mob *m) {
     else if (need >= 8 && have == need / 2) { snprintf(desc, sizeof desc, "%d OF %d SLAIN", have, need); toast(KINDS[m->type].spr, KINDS[m->type].family, m->rank, 1, title, desc); }
 }
 static void rec_seen(const Mob *m) {
-    if (m->type >= REC_KINDS || m->boss) return;
+    if (m->type >= REC_MEM || m->boss) return;
     RUN.rec.seen[m->type] |= (uint8_t)(1 << m->rank);
     if (m->rank < RK_GILDED && RUN.top_rank[m->type] < m->rank + 1) RUN.top_rank[m->type] = (uint8_t)(m->rank + 1);   /* for a boss's adds */
 }
@@ -113,12 +113,12 @@ static void rec_seen(const Mob *m) {
  * or twelve of its hits landed; and each harm it does, from three times it has hurt you with it */
 static int el_learnt(int k, int el) {
     const Record *r = &RUN.rec;
-    return k < REC_KINDS && el >= 0 && (r->el_kills[k][el] >= 5 || r->el_hits[k][el] >= 12);
+    return k < REC_MEM && el >= 0 && (r->el_kills[k][el] >= 5 || r->el_hits[k][el] >= 12);
 }
-static int harm_learnt(int k, int el) { return k < REC_KINDS && el >= 0 && RUN.rec.harms[k][el] >= 3; }
+static int harm_learnt(int k, int el) { return k < REC_MEM && el >= 0 && RUN.rec.harms[k][el] >= 3; }
 static void rec_hit(const Mob *m, int atk) {                       /* a spell's hit landed */
     int el = atk >= 0 && atk < NATK ? ATK_ELEM[atk] : -1;
-    if (m->type >= REC_KINDS || m->boss || el < 0 || RUN.rec.el_hits[m->type][el] >= 255) return;
+    if (m->type >= REC_MEM || m->boss || el < 0 || RUN.rec.el_hits[m->type][el] >= 255) return;
     RUN.rec.el_hits[m->type][el]++;
 }
 static int kind_harms(int k, int rank) {                           /* what a kind does to you, at a rank */

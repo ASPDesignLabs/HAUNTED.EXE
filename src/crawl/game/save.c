@@ -73,7 +73,7 @@ static void gear_from_old(const uint8_t *p, Gear *g, uint32_t seed) {
 static void rec_pack(uint8_t *p, const Record *r) {                /* version 7: the kills by spell left empty (LG_ELEM has them) */
     for (int k = 0; k < REC_KINDS; k++) for (int i = 0; i < NRANK; i++, p += 2) put16(p, r->kills[k][i]);
     memset(p, 0, REC_KINDS * REC_SPELLS); p += REC_KINDS * REC_SPELLS;
-    memcpy(p, r->seen, sizeof r->seen); p += sizeof r->seen;
+    memcpy(p, r->seen, REC_KINDS); p += REC_KINDS;               /* (the first 24 kinds: the rest are LG_REC2's) */
     put16(p, r->secrets); put16(p + 2, r->descents); put32(p + 4, (int32_t)(uint32_t)r->cleared); p += 8;
     memcpy(p, r->got, 256 / 8);
 }
@@ -89,7 +89,7 @@ static void rec_unpack(const uint8_t *p, Record *r) {
         }
         for (int el = 0; el < NELEM; el++) if (sum[el]) r->el_kills[k][el] = (uint8_t)imin(255, imax(sum[el], knew >> el & 1 ? 5 : 0));
     }
-    memcpy(r->seen, p, sizeof r->seen); p += sizeof r->seen;
+    memcpy(r->seen, p, REC_KINDS); p += REC_KINDS;
     r->secrets = (uint16_t)get16(p); r->descents = (uint16_t)get16(p + 2); r->cleared = (uint32_t)get32(p + 4); p += 8;
     memcpy(r->got, p, 256 / 8);
 }
@@ -201,8 +201,14 @@ enum { LG_END, LG_PAGE, LG_VISIT, LG_STONES, LG_PEDS, LG_COMP, LG_REPO, LG_CODEX
                                                                       the old overlevels whose Alignment Points were given */
        LG_AUG,                                                     /* 1.0.0b21: each line's augments, AUG_LINE_BYTES a line */
        LG_PORTRAIT,                                                /* the portraits of the slain (docs/PLAN-portraits.md), below */
-       LG_SIDE };                                                  /* side (PLAN-side): the side passages' lives lost, of three; three spare */
+       LG_SIDE,                                                    /* side (PLAN-side): the side passages' lives lost, of three; three spare */
+       LG_REC2 };                                                  /* the record's kinds from REC_KINDS (docs/PLAN-vermin.md), below */
 #define LG_SIDE_BYTES 4
+/* LG_REC2: a byte of how many kinds it holds from REC_KINDS on, then each one's kills by rank (u16 each), its kills, hits landed and
+ * harms felt by element (a byte each), its ranks seen and its top rank: REC2_KIND_BYTES. A page without it has met none of them. */
+#define REC2_KIND_BYTES (NRANK * 2 + 3 * NELEM + 2)
+#define REC2_N (NKINDS - REC_KINDS)                              /* the kinds there are past the fixed part */
+#define LG_REC2_BYTES (1 + REC2_N * REC2_KIND_BYTES)
 /* LG_PORTRAIT: a byte of how her room pays this life (POR_*), u32 the tapestries drawn back, then for each kind the run each gem
  * was unlocked in (1 + its set, a byte each), each kind's gems taken this life (a byte, a bit a gem), each boss's (a byte, a bit a
  * deed); then (step 5) each kind's own count, u16 (RUN.por_feat). A page without one is older: each rank it unlocked is shown in
@@ -226,7 +232,7 @@ enum { PG_SIGNED, PG_DEATH, PG_CLAIM };
 #define SAVE_END6 (SAVE_V3 + REC_BYTES + SAVE_V4_EXTRA + SAVE_V5_SHRINE + SAVE_V6_EXT)   /* save_end(6) */
 #define PAGE_BYTES (SAVE_END6 + 4 + 3 + LG_PAGE_BYTES + 3 + LG_VISIT_BYTES + 3 + 1 + STONES * STONE_BYTES + 3 + 1 + 3 + COMP_BYTES + 3 + REPO_BYTES \
                     + 3 + 24 + 3 + LG_CASTER_BYTES + 3 + REC_ELEM_BYTES + 3 + LG_ALIGN_BYTES + 3 + LG_HALL2_BYTES + 3 + LG_DEEDS_BYTES + 3 + LG_WAYS_BYTES \
-                    + 3 + 2 * NCONF + 1 + 3 + NELEM * AUG_LINE_BYTES + 3 + LG_PORTRAIT_BYTES + 3 + LG_SIDE_BYTES + 1)   /* the most a page takes so far */
+                    + 3 + 2 * NCONF + 1 + 3 + NELEM * AUG_LINE_BYTES + 3 + LG_PORTRAIT_BYTES + 3 + LG_SIDE_BYTES + 3 + LG_REC2_BYTES + 1)   /* the most a page takes so far */
 _Static_assert(PAGE_BYTES <= SLOT_MAX, "a page fits its slot");
 static void stone_pack(uint8_t *p, const Stone *st) {
     uint64_t w = (uint64_t)st->when;
@@ -364,15 +370,25 @@ static int run_pack(uint8_t *buf, int cap, int why) {
     c = section_begin(p, LG_SIDE);                                 /* side (PLAN-side): the passages' lives */
     memset(c, 0, LG_SIDE_BYTES); c[0] = (uint8_t)clampi(RUN.sd_lost, 0, 255);
     p = section_end(c, c + LG_SIDE_BYTES);
+    c = section_begin(p, LG_REC2);                                 /* the record's kinds from REC_KINDS (docs/PLAN-vermin.md) */
+    c[0] = (uint8_t)REC2_N;
+    for (int kd = REC_KINDS, o = 1; kd < NKINDS; kd++, o += REC2_KIND_BYTES) {
+        for (int r = 0; r < NRANK; r++) put16(c + o + 2 * r, RUN.rec.kills[kd][r]);
+        memcpy(c + o + 2 * NRANK, RUN.rec.el_kills[kd], NELEM); memcpy(c + o + 2 * NRANK + NELEM, RUN.rec.el_hits[kd], NELEM);
+        memcpy(c + o + 2 * NRANK + 2 * NELEM, RUN.rec.harms[kd], NELEM);
+        c[o + 2 * NRANK + 3 * NELEM] = RUN.rec.seen[kd]; c[o + 2 * NRANK + 3 * NELEM + 1] = RUN.top_rank[kd];
+    }
+    p = section_end(c, c + LG_REC2_BYTES);
     c = section_begin(p, LG_PORTRAIT);                             /* the portraits of the slain */
     c[0] = (uint8_t)RUN.por_open; put32(c + 1, (int32_t)RUN.por_drawn);
-    memcpy(c + 5, RUN.por_run, sizeof RUN.por_run); memcpy(c + 5 + sizeof RUN.por_run, RUN.por_taken, sizeof RUN.por_taken);
-    memcpy(c + 5 + sizeof RUN.por_run + sizeof RUN.por_taken, RUN.por_btaken, sizeof RUN.por_btaken);
+#define POR_RUN_B (REC_KINDS * POR_GEMS)                           /* the first 24 kinds' (the portraits are theirs alone) */
+    memcpy(c + 5, RUN.por_run, POR_RUN_B); memcpy(c + 5 + POR_RUN_B, RUN.por_taken, REC_KINDS);
+    memcpy(c + 5 + POR_RUN_B + REC_KINDS, RUN.por_btaken, sizeof RUN.por_btaken);
     for (int kd = 0; kd < REC_KINDS; kd++) put16(c + LG_PORTRAIT_B4 + 2 * kd, RUN.por_feat[kd]);
     p = section_end(c, c + LG_PORTRAIT_BYTES);
     c = section_begin(p, LG_ELEM);
-    memcpy(c, RUN.rec.el_kills, sizeof RUN.rec.el_kills); memcpy(c + REC_KINDS * NELEM, RUN.rec.el_hits, sizeof RUN.rec.el_hits);
-    memcpy(c + 2 * REC_KINDS * NELEM, RUN.rec.harms, sizeof RUN.rec.harms);
+    memcpy(c, RUN.rec.el_kills, REC_KINDS * NELEM); memcpy(c + REC_KINDS * NELEM, RUN.rec.el_hits, REC_KINDS * NELEM);   /* the first 24 kinds' (the rest: LG_REC2) */
+    memcpy(c + 2 * REC_KINDS * NELEM, RUN.rec.harms, REC_KINDS * NELEM);
     p = section_end(c, c + REC_ELEM_BYTES);
     c = section_begin(p, LG_CODEX);
     put32(c, (int32_t)RUN.cx_abil); put32(c + 4, (int32_t)RUN.cx_rune); put32(c + 8, (int32_t)RUN.cx_exq); put32(c + 12, (int32_t)(uint32_t)RUN.cx_stat);
@@ -464,8 +480,8 @@ static void run_unpack(const uint8_t *buf, int len) {
     } else comp_note(RUN.level);                                   /* an old save: what it wears and knows goes in as it loads */
     c = page_section(buf, len, LG_ELEM, &k);
     if (c && k >= REC_ELEM_BYTES) {                                /* version 7: the record by element */
-        memcpy(RUN.rec.el_kills, c, sizeof RUN.rec.el_kills); memcpy(RUN.rec.el_hits, c + REC_KINDS * NELEM, sizeof RUN.rec.el_hits);
-        memcpy(RUN.rec.harms, c + 2 * REC_KINDS * NELEM, sizeof RUN.rec.harms);
+        memcpy(RUN.rec.el_kills, c, REC_KINDS * NELEM); memcpy(RUN.rec.el_hits, c + REC_KINDS * NELEM, REC_KINDS * NELEM);
+        memcpy(RUN.rec.harms, c + 2 * REC_KINDS * NELEM, REC_KINDS * NELEM);
     }
     c = page_section(buf, len, LG_ALIGN, &k);
     if (c && k >= NELEM * NNODE + 2) {                             /* version 7: the Alignment */
@@ -496,6 +512,21 @@ static void run_unpack(const uint8_t *buf, int len) {
     }
     c = page_section(buf, len, LG_SIDE, &k);                       /* side (PLAN-side): an older page has its three */
     RUN.sd_lost = c && k >= 1 ? clampi(c[0], 0, 3) : 0;
+    for (int kd = REC_KINDS; kd < REC_MEM; kd++) {                 /* the record's kinds from REC_KINDS: none met, unless the page has them */
+        memset(RUN.rec.kills[kd], 0, sizeof RUN.rec.kills[kd]); memset(RUN.rec.el_kills[kd], 0, NELEM); memset(RUN.rec.el_hits[kd], 0, NELEM);
+        memset(RUN.rec.harms[kd], 0, NELEM); RUN.rec.seen[kd] = 0; RUN.top_rank[kd] = 0;
+    }
+    c = page_section(buf, len, LG_REC2, &k);
+    if (c && k >= 1) {
+        int n = imin(c[0], REC2_N);
+        for (int i = 0, o = 1; i < n && o + REC2_KIND_BYTES <= k; i++, o += REC2_KIND_BYTES) {
+            int kd = REC_KINDS + i;
+            for (int r = 0; r < NRANK; r++) RUN.rec.kills[kd][r] = (uint16_t)get16(c + o + 2 * r);
+            memcpy(RUN.rec.el_kills[kd], c + o + 2 * NRANK, NELEM); memcpy(RUN.rec.el_hits[kd], c + o + 2 * NRANK + NELEM, NELEM);
+            memcpy(RUN.rec.harms[kd], c + o + 2 * NRANK + 2 * NELEM, NELEM);
+            RUN.rec.seen[kd] = c[o + 2 * NRANK + 3 * NELEM]; RUN.top_rank[kd] = (uint8_t)clampi(c[o + 2 * NRANK + 3 * NELEM + 1], 0, NRANK);
+        }
+    }
     c = page_section(buf, len, LG_HALL2, &k);
     if (c && k >= 7) {
         RUN.bell_cursed = c[0] != 0; RUN.font_cursed = c[1] != 0; RUN.bell_next = get16(c + 2);
@@ -569,15 +600,15 @@ static void run_unpack(const uint8_t *buf, int len) {
     }
     c = page_section(buf, len, LG_PORTRAIT, &k);                   /* the portraits of the slain */
     if (c && k >= LG_PORTRAIT_B4) {
-        RUN.por_open = c[0] & (POR_CLEARED | POR_WOKEN); RUN.por_drawn = (uint32_t)get32(c + 1) & (((1u << NKINDS) - 1) | (((1u << NBOSS) - 1) << POR_BOSSBIT));
+        RUN.por_open = c[0] & (POR_CLEARED | POR_WOKEN); RUN.por_drawn = (uint32_t)get32(c + 1) & (((1u << REC_KINDS) - 1) | (((1u << NBOSS) - 1) << POR_BOSSBIT));
         if (k >= LG_PORTRAIT_BYTES) for (int kd = 0; kd < REC_KINDS; kd++) RUN.por_feat[kd] = (uint16_t)get16(c + LG_PORTRAIT_B4 + 2 * kd);
-        memcpy(RUN.por_run, c + 5, sizeof RUN.por_run); memcpy(RUN.por_taken, c + 5 + sizeof RUN.por_run, sizeof RUN.por_taken);
-        memcpy(RUN.por_btaken, c + 5 + sizeof RUN.por_run + sizeof RUN.por_taken, sizeof RUN.por_btaken);
+        memcpy(RUN.por_run, c + 5, POR_RUN_B); memcpy(RUN.por_taken, c + 5 + POR_RUN_B, REC_KINDS);
+        memcpy(RUN.por_btaken, c + 5 + POR_RUN_B + REC_KINDS, sizeof RUN.por_btaken);
         for (int kd = 0; kd < REC_KINDS; kd++) for (int r = 0; r < POR_GEMS; r++) if (RUN.por_run[kd][r] > 4) RUN.por_run[kd][r] = 0;
     } else {                                                       /* older: shown where its ranks are common, the tapestries down where it
                                                                       has slain, every rank's gold waiting */
         RUN.por_open = POR_WOKEN;
-        for (int kd = 0; kd < NKINDS; kd++) for (int r = 0; r < NRANK; r++) if (RUN.rec.kills[kd][r]) RUN.por_drawn |= 1u << kd;
+        for (int kd = 0; kd < REC_KINDS; kd++) for (int r = 0; r < NRANK; r++) if (RUN.rec.kills[kd][r]) RUN.por_drawn |= 1u << kd;
     }
     por_fill();
     slayer_sweep();                                                /* the counts lowered since it was written */
@@ -617,6 +648,35 @@ static void save_selftest(void) {
         if (RUN.sd_lost != l) bad++;
     }
     RUN = keep;
+    {                                                              /* the record's kinds from REC_KINDS (LG_REC2): back as they went, and
+                                                                      the first 24's untouched; a page without the section has none met */
+        Record r0 = RUN.rec;
+        for (int kd = REC_KINDS; kd < NKINDS; kd++) {
+            for (int r = 0; r < NRANK; r++) RUN.rec.kills[kd][r] = (uint16_t)(kd * 101 + r * 7);
+            for (int e = 0; e < NELEM; e++) { RUN.rec.el_kills[kd][e] = (uint8_t)(kd + e); RUN.rec.el_hits[kd][e] = (uint8_t)(kd * 2 + e); RUN.rec.harms[kd][e] = (uint8_t)(kd * 3 + e); }
+            RUN.rec.seen[kd] = (uint8_t)(1 + kd % 7); RUN.top_rank[kd] = 1;
+        }
+        Record want = RUN.rec;
+        uint8_t tops[REC_MEM]; memcpy(tops, RUN.top_rank, sizeof tops);
+        int n = run_pack(buf, sizeof buf, PG_SIGNED), k;
+        if (n <= 0) bad++;
+        else {
+            memset(&RUN.rec, 0, sizeof RUN.rec); memset(RUN.top_rank, 0, sizeof RUN.top_rank);
+            run_unpack(buf, n); cases++;
+            for (int kd = 0; kd < NKINDS; kd++) {
+                if (memcmp(RUN.rec.kills[kd], want.kills[kd], sizeof want.kills[kd]) || memcmp(RUN.rec.el_kills[kd], want.el_kills[kd], NELEM)
+                    || memcmp(RUN.rec.el_hits[kd], want.el_hits[kd], NELEM) || memcmp(RUN.rec.harms[kd], want.harms[kd], NELEM)
+                    || RUN.rec.seen[kd] != want.seen[kd] || (kd >= REC_KINDS && RUN.top_rank[kd] != tops[kd])) { bad++; break; }
+            }
+            uint8_t *c = (uint8_t *)page_section(buf, n, LG_REC2, &k);   /* as an older page: the section's tag one no reader knows */
+            if (c) {
+                c[-3] = 0xEE; run_unpack(buf, n); cases++;
+                for (int kd = REC_KINDS; kd < NKINDS; kd++) if (RUN.rec.seen[kd] || RUN.rec.kills[kd][0] || RUN.rec.harms[kd][0]) { bad++; break; }
+                for (int kd = 0; kd < REC_KINDS; kd++) if (memcmp(RUN.rec.kills[kd], want.kills[kd], sizeof want.kills[kd])) { bad++; break; }
+            } else bad++;
+        }
+        RUN = keep; RUN.rec = r0;
+    }
     fprintf(stderr, "EVENT save_selftest cases %d bad %d\n", cases, bad);
 }
 #endif

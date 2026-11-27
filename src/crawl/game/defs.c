@@ -26,7 +26,8 @@ enum { MOB_SKEL, MOB_GHOST, MOB_BAT, MOB_WSKULL, MOB_SHIELD, MOB_SPIDER,
        MOB_SHAMBLER, MOB_DROWNED, MOB_HOUND, MOB_WRAITH, MOB_HUNTER, MOB_GHOUL, MOB_KNIGHT, MOB_BROOD, MOB_LING, MOB_SAC,
        MOB_SHADE, MOB_IMP, MOB_DEACON, MOB_GARGOYLE,
        MOB_WHIPPER, MOB_SEXTON, MOB_LIGHTLESS,
-       MOB_RAT };   /* kept in saves (the record): new kinds go at the end (REC_KINDS 24 at most: the charnel rat took the last) */
+       MOB_RAT,     /* kept in saves (the record): new kinds go at the end. The first 24 (to the charnel rat) are the record's fixed part */
+       MOB_HOPPER, MOB_LEECH, MOB_CRAB };   /* placed by hand, never spawned (docs/PLAN-vermin.md): their record is LG_REC2's */
 enum { MS_WALK, MS_DIE, MS_RECOIL, MS_FLEE };   /* the last two: wraiths only */
 enum { IT_COINS, IT_CHALICE, IT_GEMS, IT_CROWN, IT_CHEST, IT_KEY, IT_POTION, IT_URN, IT_RING, IT_BONE, IT_SCRIP, IT_MAP, IT_COMPASS };   /* IT_SCRIP: color is its boss;
                                                                       IT_MAP the tutorial's (docs/PLAN-tutorial.md 7.4); IT_COMPASS one
@@ -354,8 +355,20 @@ static const Kind KINDS[] = {
     [MOB_RAT] = { "CHARNEL RAT", "CHARNEL RATS", "THE MICE AT THE TORCHES, GROWN ON WHAT THE CRYPT FEEDS THEM. A SMALL ONE FETCHES THEM.",
         SP_RAT_A, SP_RAT_B, SP_RAT_SA, SP_RAT_SB, PF_HIDE, MOUSE_DEBUT, RK_V, 1, KF_SOLID | KF_PAGE | KF_MELEE, SFX_RAT_SQUEAL, SP_RAT_D,
         16, 1.8f, 0.62f, 0.32f,                         { 1.5f, 1.0f, 1.0f, 0.5f, 1.0f, 1.0f }, H_PHYS },
+    /* small things that move (docs/PLAN-vermin.md): placed by hand in the World Editor, never spawned; one rank; their pages hidden
+       till met; no portraits, no slayer achievements (those are laid out for the first 24) */
+    [MOB_HOPPER] = { "SKULL HOPPER", "SKULL HOPPERS", "A LOOSE SKULL THAT WILL NOT LIE STILL. IT BOUNDS TO AND FRO, AND BITES WHAT IT LANDS ON.",
+        SP_HOP_A, SP_HOP_B, SP_HOP_A, SP_HOP_B, -1, 3, RK_I, 0, KF_UNDEAD | KF_PAGE | KF_MELEE, SFX_BONES, -1,
+        8, 1.2f, 0.7f, 0.30f,                           { 1.0f, 1.0f, 1.0f, 0.5f, 1.0f, 1.5f }, H_PHYS },
+    [MOB_LEECH] = { "BILE LEECH", "BILE LEECHES", "IT WAITS IN STANDING POISON FOR WHAT CROSSES OVER IT, AND LEAPS. OUT OF THE BILE IT IS SOFT.",
+        SP_LEECH_A, SP_LEECH_B, SP_LEECH_A, SP_LEECH_B, -1, 7, RK_I, 0, KF_PAGE | KF_MELEE, SFX_SPLASH, -1,
+        10, 1.0f, 0.7f, 0.30f,                          { 1.5f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f }, H_POISON },
+    [MOB_CRAB] = { "COIN CRAB", "COIN CRABS", "IT PASSES FOR A COIN TILL YOU COME NEAR, THEN RUNS FOR ITS HOLE. CORNERED, IT IS YOURS.",
+        SP_CRAB_A, SP_CRAB_B, SP_CRAB_A, SP_CRAB_B, -1, 2, RK_I, 0, KF_PAGE, SFX_COIN, -1,
+        6, 2.0f, 0.6f, 0.30f,                           { 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f }, 0 },
 };
-_Static_assert(MOB_RAT < 24, "the record keeps 24 kinds (REC_KINDS), and the charnel rat is the last of them");
+_Static_assert(MOB_RAT == 23, "the record's fixed part keeps 24 kinds (REC_KINDS), and the charnel rat is the last of them");
+#define KIND_PLACED(k) ((k) >= MOB_HOPPER)                         /* placed by hand, never spawned (docs/PLAN-vermin.md) */
 #define NKINDS ((int)(sizeof KINDS / sizeof KINDS[0]))
 #define KIND_IS(m, f) (KINDS[(m)->type].flags & (f))
 /* the ladder: a rank means about the same strength at any depth; depth shows in which ranks come */

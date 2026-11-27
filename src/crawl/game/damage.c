@@ -155,6 +155,7 @@ static const float OLD_WEAK[][NELEM] = {                           /* 1.0.0b18's
     [MOB_DEACON] = { 1.25f, 1.0f, 1.0f, 0.75f, 0.75f, 1.25f },   [MOB_GARGOYLE] = { 0.5f, 0.5f, 1.5f, 0.0f, 0.0f, 1.5f },
     [MOB_WHIPPER] = { 1.0f, 0.75f, 1.25f, 0.5f, 0.75f, 1.25f },  [MOB_SEXTON] = { 1.5f, 1.0f, 1.0f, 0.75f, 1.0f, 1.0f },
     [MOB_LIGHTLESS] = { 0.75f, 1.25f, 1.0f, 0.0f, 0.75f, 1.5f }, [MOB_RAT] = { 1.5f, 1.0f, 1.0f, 0.5f, 1.0f, 1.0f },
+    [MOB_HOPPER] = { 1.0f, 1.0f, 1.0f, 0.5f, 1.0f, 1.5f }, [MOB_LEECH] = { 1.5f, 1.0f, 1.0f, 0.0f, 1.0f, 1.0f }, [MOB_CRAB] = { 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f },
 };
 _Static_assert(sizeof OLD_WEAK / sizeof OLD_WEAK[0] == sizeof KINDS / sizeof KINDS[0], "a row for every kind");
 #endif

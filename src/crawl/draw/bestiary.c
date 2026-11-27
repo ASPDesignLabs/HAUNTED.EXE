@@ -73,7 +73,8 @@ static void render_toasts(Frame *f) {
 static int best_kinds(int *out) {
     int n = 0;
     for (int lv = 1; lv <= DESCENT_LEN; lv++) for (int k = 0; k < NKINDS; k++) if (KINDS[k].debut == lv && (KINDS[k].flags & KF_PAGE)) {   /* by first */
-        if (k == MOB_RAT) {                                        /* level, to the Deep's; the rat a secret till it is met (docs/PLAN-mice.md, M5) */
+        if (k == MOB_RAT || KIND_PLACED(k)) {                      /* level, to the Deep's; the rat a secret till it is met (docs/PLAN-mice.md, M5),
+                                                                      and the kinds placed by hand (docs/PLAN-vermin.md) */
             int met = RUN.rec.seen[k] != 0;
             for (int r = 0; r < NRANK; r++) met |= RUN.rec.kills[k][r] != 0;
             if (!met) continue;
@@ -86,7 +87,7 @@ static int best_kinds(int *out) {
  * every other kind's portrait, third and gold stay as they were (docs/PLAN-mice.md, section 5) */
 static int por_kinds(int *out) {
     int n = 0;
-    for (int lv = 1; lv <= DESCENT_LEN; lv++) for (int k = 0; k < NKINDS; k++) if (KINDS[k].debut == lv && (KINDS[k].flags & KF_PAGE) && k != MOB_RAT) out[n++] = k;
+    for (int lv = 1; lv <= DESCENT_LEN; lv++) for (int k = 0; k < NKINDS; k++) if (KINDS[k].debut == lv && (KINDS[k].flags & KF_PAGE) && k != MOB_RAT && k < REC_KINDS) out[n++] = k;
     return n;
 }
 static int kind_ranks(int k, int *out) {                           /* the ranks a kind comes in */
@@ -283,7 +284,10 @@ static void render_bestiary(Frame *f) {
         [MOB_WHIPPER] = "HE KEEPS BACK AND SENDS HIS HOUNDS IN ONE BY ONE TO THE CRACK OF THE WHIP.",
         [MOB_SEXTON] = "HE NEVER HUNTS. HIS BELL BRINGS EVERYTHING THAT HEARS IT TO HIS PLACE.",
         [MOB_LIGHTLESS] = "IT ROAMS, QUICK WHEN IT KNOWS, AND PUTS OUT THE WISPS IT REACHES.",
-        [MOB_RAT] = "IT ROAMS ALONE. A MOUSE RUNS THROUGH THE WALLS TO TELL IT OF YOU; KILL THE ONE THAT RUNS." };
+        [MOB_RAT] = "IT ROAMS ALONE. A MOUSE RUNS THROUGH THE WALLS TO TELL IT OF YOU; KILL THE ONE THAT RUNS.",
+        [MOB_HOPPER] = "IT BOUNDS BETWEEN TWO PLACES, HIGH; PASS UNDER IT AS IT RISES.",
+        [MOB_LEECH] = "IT KEEPS TO THE POISON AND LEAPS AT WHAT IS OVER IT, THEN FALLS BACK IN.",
+        [MOB_CRAB] = "STILL TILL YOU COME NEAR; THEN IT RUNS ITS OWN WAY, TO ITS OWN PLACE, AND WAITS." };
     const char *ways = met && mind_on() && WAYS[k] ? WAYS[k] : NULL;
     if (!ways) G.best_ways = 0;
     if (feat) {                                                    /* what it asks, and how far along */

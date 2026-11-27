@@ -345,7 +345,9 @@ static void level_name(int level, char *buf, int n) {
 /* A run's record: what it has slain, met, found and cleared, and the achievements earned. It is kept
  * in the save with the run (version 2), so each save has its own. Its sizes are fixed so saves keep
  * their shape as the bestiary grows. */
-#define REC_KINDS 24
+#define REC_KINDS 24                        /* the kinds in the save's fixed part, the achievements' bits and the portraits */
+#define REC_MEM 32                          /* the kinds the record keeps in memory: those from REC_KINDS in LG_REC2 (docs/PLAN-vermin.md) */
+_Static_assert(NKINDS <= REC_MEM, "the record keeps every kind in memory");
 #define POR_GEMS 8                          /* a portrait's gems (docs/PLAN-portraits.md): its ranks I to V and gilded (RK_*), its
                                                feat (POR_FEAT), one spare */
 #define POR_FEAT 6
@@ -353,11 +355,11 @@ _Static_assert(POR_FEAT == PORTRAIT_FEAT, "the feat's gem is the art's");
 enum { POR_CLEARED = 1, POR_WOKEN = 2 };   /* her room pays the portraits' gold this life: a level cleared in it, or woken into it */
 #define ACH_BITS 512                        /* 256 until version 6 */
 typedef struct {
-    uint16_t kills[REC_KINDS][NRANK];
-    uint8_t el_kills[REC_KINDS][NELEM];     /* slain by each element, to 255 (version 7; by spell before) */
-    uint8_t el_hits[REC_KINDS][NELEM];      /* its hits landed on each kind, to 255: five kills or twelve hits, and known */
-    uint8_t harms[REC_KINDS][NELEM];        /* times each kind has hurt you with each element: three, and known */
-    uint8_t seen[REC_KINDS];                /* the ranks of each kind met */
+    uint16_t kills[REC_MEM][NRANK];
+    uint8_t el_kills[REC_MEM][NELEM];     /* slain by each element, to 255 (version 7; by spell before) */
+    uint8_t el_hits[REC_MEM][NELEM];      /* its hits landed on each kind, to 255: five kills or twelve hits, and known */
+    uint8_t harms[REC_MEM][NELEM];        /* times each kind has hurt you with each element: three, and known */
+    uint8_t seen[REC_MEM];                /* the ranks of each kind met */
     uint16_t secrets, descents;             /* secrets found; times all the way down (40, 80, 120 ...) */
     uint64_t cleared;                       /* levels 1 to 40 cleared, a bit each */
     uint8_t got[ACH_BITS / 8];              /* achievements earned, a bit each (see ach_bit) */
@@ -497,7 +499,7 @@ static struct {
     int coin_level, coin_bits;              /* the coins already taken on that level: a bit a chain's end, bit 7 every secret */
     int runs_done;                          /* runs completed: their bosses beaten on the way down */
     int scrip[BOSS_REC], bstep[BOSS_REC];   /* each boss's Named Odious Scrip, held at the Hexed Totem; its challenge's step, 0-5 */
-    uint8_t top_rank[REC_KINDS];            /* 1 + the highest rank of each kind met since the last death (0: none yet) */
+    uint8_t top_rank[REC_MEM];            /* 1 + the highest rank of each kind met since the last death (0: none yet) */
     int omens;                              /* the hazards met, a bit each (HZ_*): the first of each is named */
     int deed_pz, deed_tri, deed_lost;       /* 1.0.0b13's record: puzzles solved, trials won and lost; the kinds of each, */
     uint32_t pz_kinds, tri_kinds;           /* a bit each (saved in LG_DEEDS, kept through death) */
@@ -555,11 +557,11 @@ static struct {
     /* the portraits of the slain (docs/PLAN-portraits.md; LG_PORTRAIT): kept through death, the run each gem was unlocked in
        (1 + its set, 0 not yet) and the tapestries drawn back (a bit a kind); for this life, each portrait's gems whose gold is
        taken (a bit a gem), each boss's (a bit a deed), and whether her room pays yet (POR_CLEARED, POR_WOKEN) */
-    uint8_t por_run[REC_KINDS][POR_GEMS];
+    uint8_t por_run[REC_MEM][POR_GEMS];
     uint32_t por_drawn;
-    uint8_t por_taken[REC_KINDS], por_btaken[BOSS_REC];
+    uint8_t por_taken[REC_MEM], por_btaken[BOSS_REC];
     int por_open;
-    uint16_t por_feat[REC_KINDS];           /* kept through death: each kind's feat's deeds; the Spectre's laid to rest, the Wraith's
+    uint16_t por_feat[REC_MEM];           /* kept through death: each kind's feat's deeds; the Spectre's laid to rest, the Wraith's
                                                times driven back (step 5; the spiderling's and the imp's are the record's) */
     int sd_lost;                            /* side (PLAN-side): the side passages' lives lost, of three (LG_SIDE in the ledger) */
 } RUN;

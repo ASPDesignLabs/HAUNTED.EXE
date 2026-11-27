@@ -3,6 +3,7 @@
 
 #ifdef CRAWL_DEBUG
 static void save_selftest(void);                                   /* save.c, further down the list */
+static int run_pack(uint8_t *buf, int cap, int why);                 /* save.c: for CRAWL_PAGEDUMP */
 static void compass_selftest(void);                                /* wisps.c, and the same */
 #endif
 static void sd_level_laid(void);                                  /* side.c: the level's side doorways (docs/PLAN-side.md) */   /* side (PLAN-side) */
@@ -157,6 +158,12 @@ static void start_level(void) {
 #ifdef CRAWL_DEBUG
     if (getenv("CRAWL_MAP")) debug_map(0);
     if (getenv("CRAWL_SAVETEST")) save_selftest();
+    if (getenv("CRAWL_PAGEDUMP")) {                                /* testing: the page this run would write now, at each level's start */
+        static uint8_t pbuf[SLOT_MAX]; char path[512];
+        int n = run_pack(pbuf, sizeof pbuf, 0);   /* (PG_SIGNED) */
+        snprintf(path, sizeof path, "%s.%d", getenv("CRAWL_PAGEDUMP"), G.level);
+        FILE *pf = fopen(path, "wb"); if (pf) { if (n > 0) fwrite(pbuf, 1, (size_t)n, pf); fclose(pf); }
+    }
     if (getenv("CRAWL_COMPASSTEST")) compass_selftest();
 #endif
 }

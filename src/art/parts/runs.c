@@ -659,6 +659,7 @@ void crawl_art_init(void) {
     spr_bspider(SP_BSPIDER_REAR, 3); spr_bspider(SP_BSPIDER_D, 4);
     for (int f = 0; f < 3; f++) spr_sac(SP_SAC_A + f, f);
     spr_ling(SP_LING_A, 0); spr_ling(SP_LING_B, 1);
+    vermin_sprites();                                              /* the hopper, the leech, the crab (docs/PLAN-vermin.md) */
     spr_skit(SP_SKIT_A, 0); spr_skit(SP_SKIT_B, 1);                /* and from above, for the wall spiders (docs/PLAN-mice.md) */
     spr_moth(SP_MOTH_A, 0); spr_moth(SP_MOTH_B, 1); spr_fly(SP_FLY_A, 0); spr_fly(SP_FLY_B, 1);   /* the crypt's small life (docs/PLAN-ambience.md) */
     spr_lf_bat_roost(SP_LF_BATROOST); spr_lf_bat(SP_LF_BAT_A, 0); spr_lf_bat(SP_LF_BAT_B, 1);
