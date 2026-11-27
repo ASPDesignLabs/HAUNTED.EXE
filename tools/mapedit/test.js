@@ -195,6 +195,25 @@ DATA.hazards.fixed.flat().concat(DATA.hazards.arise.flat(), DATA.hazards.sapper)
     grouped.forEach(g => { if (!DATA.rooms.includes(g)) fail(`the list names ${g}, which the game does not have`); });
     console.log(`rooms by run: ${C.ROOM_RUNS.map(r => r.length).join(' + ')} + ${C.ROOM_ANY.length} of any run = ${DATA.rooms.length} types`);
 }
+/* the coin crab's way (docs/PLAN-vermin.md): a crab two cells from the start, its way six cells on along the floor; written, checked, and
+ * kept as the fixture the game's side plays (HOST_DRAWN) */
+{
+    const m = C.sampleEvents(), cells = C.compose(DATA, m).cells, s = cells.indexOf('S'), prev = new Map([[s, -1]]), q = [s];
+    while (q.length) { const i = q.shift(), x = i % C.N, y = (i / C.N) | 0;
+        for (const [dx, dy] of C.DIRS) { const j = C.idx(x + dx, y + dy); if (!prev.has(j) && C.inMap(x + dx, y + dy) && '.+'.includes(cells[j])) { prev.set(j, i); q.push(j); } } }
+    let far = s; for (const [j] of prev) { let n = 0; for (let k = j; k >= 0; k = prev.get(k)) n++; if (n === 9) { far = j; break; } }
+    const way = []; for (let k = far; k >= 0; k = prev.get(k)) way.unshift([k % C.N, (k / C.N) | 0]);
+    m.things.push({ id: m.next++, t: 'dead', k: 'MOB_CRAB', x: way[2][0] + 0.5, y: way[2][1] + 0.5, path: way.slice(3) });
+    const x = C.exportDrawn(DATA, m, 3).text, errs = C.check(DATA, m).filter(c => c.sev === 'error');
+    ['DRAWN3_STEP[]', 'DT_DEAD, MOB_CRAB', `NULL, 0, NULL, 0, NULL, 0, NULL, DRAWN3_STEP, ${way.length - 3} }`].forEach(k => { if (!x.includes(k)) fail('the crab\'s export lacks ' + k); });
+    if (errs.length) fail('the crab\'s level has errors: ' + errs.map(c => c.msg).join('; '));
+    const skip = JSON.parse(JSON.stringify(m)); skip.things[skip.things.length - 1].path.splice(1, 2);
+    if (!C.check(DATA, skip).some(c => c.msg.includes('skips cells'))) fail('a crab\'s way that skips cells should be warned of');
+    const bare = JSON.parse(JSON.stringify(m)); delete bare.things[bare.things.length - 1].path;
+    if (C.exportDrawn(DATA, bare, 3).text.includes('_STEP')) fail('a crab with no way should write none');
+    fs.writeFileSync(path.join(__dirname, 'fixtures', 'crab.c'), x);
+    console.log(`coin crab: its way ${way.length - 3} cells; ${errs.length} errors; the fixture written`);
+}
 /* side passages (docs/PLAN-side.md): each built in read and written back letter for letter; a new one, its export read back; the
  * crypt's side doorway; the reader refusing what the game would. The files under fixtures/ are for the harness's HOST_SIDE. */
 {
@@ -260,6 +279,27 @@ DATA.hazards.fixed.flat().concat(DATA.hazards.arise.flat(), DATA.hazards.sapper)
         const q = SC.parse(head + l + '\n', ids); if (!q.error || !re.test(q.error)) fail(`"${l}" should be refused: ${q.error || 'it was read'}`);
     });
     console.log('side passages: timed switches, ledges and blocks off at the start, powerups');
+}
+/* small things that move (docs/PLAN-vermin.md): rats, spiderlings, a hopper's span, a leech, a coin crab's gold and way, read and
+ * written back; the reader refusing what the game would; a crab's way through stone refused */
+{
+    const SC = require('./side.js'), ids = DATA.kinds.map(k => k.id);
+    const txt = fs.readFileSync(path.join(__dirname, 'fixtures', 'side_small.txt'), 'utf8'), r = SC.parse(txt, ids);
+    if (r.error) fail(`side_small: line ${r.line}: ${r.error}`);
+    else {
+        if (SC.exportText(r.map) !== txt) fail('side_small does not read back letter for letter');
+        const cs = SC.check(r.map).filter(c => c.sev === 'error'); if (cs.length) fail('side_small: ' + cs[0].msg);
+        const v = r.map.things.filter(t => t.k === 'vermin').map(t => t.what).join(), hop = r.map.things.find(t => t.kind === 'MOB_HOPPER'), crab = r.map.things.find(t => t.kind === 'MOB_CRAB');
+        if (v !== 'RAT,RAT,LING,LING') fail('side_small: the vermin were read as ' + v);
+        if (!hop || hop.span !== 2 || !crab || crab.gold !== 'IT_GEMS' || crab.cells.length !== 9) fail("side_small: the hopper's span or the crab's gold and way were not read");
+        const thru = JSON.parse(JSON.stringify(r.map)); thru.things.find(t => t.kind === 'MOB_CRAB').cells.push([45, 8]);
+        if (!SC.check(thru).some(c => c.sev === 'error' && /through stone/.test(c.msg))) fail("a crab's way through stone should be refused");
+    }
+    const head = 'SIDE 1\nNAME "X"\nSIZE 20 10\n' + Array.from({ length: 10 }, (_, y) => `ROW "${(y === 0 || y === 9 ? '#' : '#' + ','.repeat(18) + '#').padEnd(20, '#')}"`).join('\n') + '\nDOOR 1 8 0\n';
+    [['VERMIN 4 8 BAT', /RAT or a LING/], ['CPATH 4 8', /before any coin crab/], ['MOB 4 8 MOB_HOPPER SPAN 40', /0 to 30/], ['MOB 4 8 MOB_CRAB GOLD IT_KEY', /not gold/]].forEach(([l, re]) => {
+        const q = SC.parse(head + l + '\n', ids); if (!q.error || !re.test(q.error)) fail(`"${l}" should be refused: ${q.error || 'it was read'}`);
+    });
+    console.log('side passages: small things that move read back; the crab\'s way checked');
 }
 /* run I's traps in a passage (docs/PLAN-side.md, 2e): the fixture read and written back; every emitter option; the censer's clearance;
  * the PREVIEW's run: wax settling, the bowl swinging, the haze kept to its reach */

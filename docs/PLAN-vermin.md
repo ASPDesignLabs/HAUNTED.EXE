@@ -42,10 +42,10 @@ look at the first 24 only (`k < REC_KINDS`).
 |---|---|---|
 | 1 | The three kinds in `KINDS` (24, 25, 26), `REC_MEM`, `LG_REC2`, the guards; old pages load, the new section reads back, the dream's log unchanged | Done, harness only |
 | 2 | Side passages: the hopper's and the leech's ways (`side_dead.c`), the crab's run on its painted path (`CPATH`), vermin (`VERMIN x y RAT|LING`) | Done, harness only |
-| 3 | The crypt: the crab on a drawn level, its path painted, its run along it in the 3-D view, caught or slain for its gold | |
-| 4 | Art: each kind's pictures (crypt sprites, the bestiary's), the vermin's side tiles; the sheet | |
-| 5 | The World Editor: vermin, the hopper's span, the crab's path and its gold, in passages and on crypt levels | |
-| 6 | Tests, `make asan`, docs, the editor republished | |
+| 3 | The crypt: the crab on a drawn level, its path painted, its run along it in the 3-D view, caught or slain for its gold | Done, harness only |
+| 4 | Art: each kind's pictures (crypt sprites, the bestiary's), the vermin's side tiles; the sheet | Drafts on the sheet (`media/sheets/vermin/vermin_draft.png`), awaiting the owner |
+| 5 | The World Editor: vermin, the hopper's span, the crab's path and its gold, in passages and on crypt levels | Done, harness and headless browser only |
+| 6 | Tests, `make asan`, docs, the editor republished | Done |
 
 ## 4. Hand-off log
 
@@ -73,4 +73,29 @@ look at the first 24 only (`k < REC_KINDS`).
   its gold given); the hopper traced between 136 and 200 (two tiles either side), rising 40 pixels; the leech leapt as the person
   jumped its pool and bit; rats and spiderlings bit; a spiderling round a block: top, side, underside, side, top, again; one on a
   ceiling dropped on the person under it; the dream's flasks splashed and struck spiderlings.
+- Step 3. On a drawn level a coin crab (`DT_DEAD, MOB_CRAB`) is a coin on the floor till the caster is within three cells, then runs the
+  cells painted for it (`DRAWNn_STEP[]`: its thing's index in `_THING` and a cell of the drawing, in order; the row's last two values,
+  after the relics' looks, so a level without one writes nothing new), at 1.2 times its pace (2.4 cells a second), cell middle to cell
+  middle, and waits at the last (`update_crab` in `drawn.c`, dispatched from `update_mob`). Reached within half a cell, or slain, it is a
+  kill and its coins (`crab_gold`, from `kill_mob`): the crypt's drawn things carry no gold kind, so a crab there leaves coins. Its
+  picture is the coin till it runs, then its two strides (`mob_sprite`). `KIND_COST`: the hopper 0.5, the leech 0.75, the crab nothing
+  (the editor offers only kinds with a cost; a placed one counts against the level's budget, as the tutorial's dead). The dream shoots
+  it if it stands in front, and does not chase it. Tested, harness only: the editor's own level with a crab two cells from the start
+  (`tools/mapedit/fixtures/crab.c`, written by `test.js`) through `HOST_DRAWN`: it ran its six cells as the dream came in and was
+  cornered; a scripted person who took over and walked to it caught it (`EVENT crab caught by player`, 14 gold). The dream's log, seeds
+  1 and 4, 1,500 s, line for line the build before's.
+- Step 4. The draft pictures on one sheet, `media/sheets/vermin/vermin_draft.png`: the crypt's sprites (`build/sheet vermin`), the
+  vermin's passage tiles from `build/sidemock`, and the small-things passage in play. In passages the three kinds show these same
+  pictures until the creatures' own side art (PLAN-side, 13).
+- Step 5. The World Editor. Passages (`side.js`, `side_ui.js`): SMALL THINGS THAT MOVE among the tools (rat, spiderling, skull hopper,
+  bile leech, coin crab); `VERMIN x y RAT|LING`, `SPAN n` and `GOLD IT_*` on a MOB line and `CPATH x y` after a crab's, read and written
+  as the game does; a crab placed goes straight to painting its way (PAINT ITS WAY in its pane, the cells numbered, a gold thread from
+  it); the hopper's span drawn as its two ends; the checks: a crab with no way (warned), a way through stone (refused), a way that skips
+  tiles (warned), more than 512 tiles of ways (refused), vermin in stone (warned). Crypt levels (`core.js`, `editor.html`): a fixed dead
+  given the coin crab has ITS WAY in its pane, painted cell by cell (`crabway`), drawn as a numbered gold thread; the export writes
+  `DRAWNn_STEP`; the checks: no way (warned), stone or a door on it (refused), skipped cells (warned), more than 63 (refused).
+  `node tools/mapedit/test.js`: the crab's export and its checks; `fixtures/side_small.txt` read back letter for letter, the reader's
+  refusals. Driven in a headless Chromium: both panes, both paintings, no page errors.
+- Step 6. `make asan`: the crab's level with the scripted catch, 400 s, and the small-things passage under the dream, 300 s: clean.
+  Left for the owner: the pictures (the sheet), and playing them by hand.
 

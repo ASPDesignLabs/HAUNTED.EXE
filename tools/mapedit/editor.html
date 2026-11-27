@@ -458,6 +458,16 @@ function draw() {
     C.pickOptions(S.map, composed.cells, laneMask, st0).forEach(o => { const p = o.pos; if (p) { g.drawImage(spriteOf(st0), Math.round(p[0] * z - ts / 2), Math.round(p[1] * z - ts / 2), ts, ts); g.strokeStyle = '#c79bf0'; g.strokeRect(Math.round(p[0] * z - ts / 2) - 2, Math.round(p[1] * z - ts / 2) - 2, ts + 4, ts + 4); } });
     g.globalAlpha = 1;
   }
+  if (S.layers.things) S.map.things.forEach(t => {                                 /* a coin crab's way: a gold thread from it, its cells numbered */
+    if (t.t !== 'dead' || t.k !== 'MOB_CRAB' || !(t.path || []).length) return;
+    const sel = st0 && st0.id === t.id;
+    g.strokeStyle = '#e8c44a'; g.globalAlpha = sel ? 0.95 : 0.5; g.lineWidth = sel ? 2 : 1; g.setLineDash([4, 3]);
+    g.beginPath(); g.moveTo(t.x * z, t.y * z); t.path.forEach(([x, y]) => g.lineTo(x * z + z / 2, y * z + z / 2)); g.stroke(); g.setLineDash([]);
+    t.path.forEach(([x, y], k) => { g.strokeRect(x * z + 2.5, y * z + 2.5, z - 5, z - 5);
+      if (sel && z >= 12) { g.fillStyle = '#e8c44a'; g.font = `${Math.max(8, z * 0.38) | 0}px monospace`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(String(k + 1), x * z + z / 2, y * z + z / 2); } });
+    const [ex, ey] = t.path[t.path.length - 1]; g.fillStyle = '#e8c44a'; g.beginPath(); g.arc(ex * z + z / 2, ey * z + z / 2, z * 0.18, 0, Math.PI * 2); g.fill();
+    g.globalAlpha = 1;
+  });
   if (S.layers.things) S.map.things.forEach((t, i) => {
     const dp = S.dream && S.dream.pos && S.dream.pos.get(t.id), tx = dp ? dp[0] : t.x, ty = dp ? dp[1] : t.y;
     const px = tx * z - ts / 2, py = ty * z - ts / 2, sel = S.sel && S.sel.kind === 'thing' && S.sel.id === t.id;
@@ -535,6 +545,12 @@ function paintCell(cx, cy) {
     if (S.tool.ch === 'S') for (let k = 0; k < N * N; k++) if (S.map.grid[k] === 'S') S.map.grid[k] = '.';   /* one start */
     S.map.grid[i] = S.tool.ch;
   } else if (S.tool.kind === 'lane') S.map.lane[i] = S.tool.v;
+  else if (S.tool.kind === 'crabway') {                         /* a coin crab's way (docs/PLAN-vermin.md): cells in the order it runs */
+    const t = S.map.things.find(x => x.id === S.tool.id); if (!t) return;
+    t.path = t.path || [];
+    const k = t.path.findIndex(([x, y]) => x === cx && y === cy);
+    if (S.tool.add && k < 0) t.path.push([cx, cy]); else if (!S.tool.add && k >= 0) t.path.splice(k, 1);
+  }
   else if (S.tool.kind === 'hzcells') {                         /* a hazard's cells: added in the order painted, or taken off */
     const h = (S.map.hazards || [])[S.tool.i]; if (!h) return;
     const k = h.cells.findIndex(([x, y]) => x === cx && y === cy);
@@ -579,6 +595,11 @@ cv.addEventListener('pointerdown', e => {
     change(() => { S.map.hazards = S.map.hazards || []; S.map.hazards.push(Object.assign({ kind: T.hz, name: `${I.name || T.hz} ${n}`, ax: p.cx, ay: p.cy, cells: [front || [p.cx, p.cy]] }, JSON.parse(JSON.stringify(C.HZ_DEF))));
       S.sel = { kind: 'hazard', i: S.map.hazards.length - 1 }; });
     setTab('inspect'); return;
+  }
+  if (T.kind === 'crabway') {
+    const t = S.map.things.find(x => x.id === T.id); if (!t) return;
+    T.add = !(t.path || []).some(([x, y]) => x === p.cx && y === p.cy);
+    S.drag = { paint: true, before: snapshot() }; paintCell(p.cx, p.cy); draw(); return;
   }
   if (T.kind === 'hzcells') {
     const h = (S.map.hazards || [])[T.i]; if (!h) return;
@@ -857,7 +878,12 @@ function paneThing(t) {
   if (t.t === 'mark') h += `<div class="field"><label for="tK">Kind</label><select id="tK">${[0, 1, 2].map(k => opt(k, ['a bound coffer (any spell)', 'a cage (any spell)', "the class's own"][k], t.k)).join('')}</select></div>`;
   const kindOpts = cur => KINDS.map(k => opt(k.id, `${k.name.toLowerCase()} · ${k.cost} · from ${k.debut}${k.debut > S.map.level ? ' (early)' : ''}`, cur)).join('');
   if (t.t === 'dead') h += `<div class="field"><label for="tK">Kind</label><select id="tK">${kindOpts(t.k)}</select></div>
-    <p class="note">One of the dead, set where drawn at rank I, as the tutorial's are. It is not drawn from the budget.</p>
+    <p class="note">One of the dead, set where drawn at rank I, as the tutorial's are. It is not drawn from the budget.</p>`;
+  if (t.t === 'dead' && t.k === 'MOB_CRAB') { const painting = S.tool.kind === 'crabway' && S.tool.id === t.id, n = (t.path || []).length;
+    h += `<h3>ITS WAY</h3><p class="note">A coin till you come within three cells; then it runs the way painted here, cell by cell, and waits at its end. Reached, or struck, it is yours: a purse of coins. ${n} cell${n === 1 ? '' : 's'} painted.</p>
+    <div class="row"><button class="btn${painting ? ' play' : ''}" id="tWay">${painting ? 'DONE PAINTING' : 'PAINT ITS WAY'}</button><button class="btn" id="tWayClear">CLEAR THE WAY</button></div>
+    <p class="note">${painting ? 'Click or drag from the crab outward, cell by cell, in the order it runs; the last cell is where it runs to. Start on a painted cell to take cells off.' : 'Paint from beside the crab, one cell after another, over open floor.'}</p>`; }
+  if (t.t === 'dead') h += `
     <div class="row"><button class="btn" id="tToSpawn">MAKE IT A SPAWN POINT</button></div><p class="note">A spawn point keeps this kind and may be given a chance, a rank, an element and a wake group.</p>`;
   if (t.t === 'spawn') {
     const ri = t.rank ? C.RANKS.indexOf(t.rank) : -1, def = ri >= 0 ? C.elemDefault(S.map.level, ri) : null, fav = C.ELEM_FAV[L.set].map(e => e.slice(3).toLowerCase()).join(' and ');
@@ -1072,6 +1098,8 @@ function wirePane() {
     on('tN', 'change', e => change(() => { o.name = e.target.value.trim(); }));
     document.querySelectorAll('[data-inroom]').forEach(b => b.addEventListener('change', () => change(() => { const ri = +b.dataset.inroom; o.inRooms = (o.inRooms || []).filter(x => x !== ri); if (b.checked) o.inRooms.push(ri); o.inRooms.sort((a, c) => a - c); if (!o.inRooms.length) delete o.inRooms; })));
     on('tAc', 'change', e => change(() => { o.accepts = +e.target.value; }));
+    on('tWay', 'click', () => { if (S.tool.kind === 'crabway') setTool({ kind: 'select' }, selectBtn, ''); else setTool({ kind: 'crabway', id: o.id }, null, 'Paint the crab\'s way: from beside it, cell by cell, in the order it runs.'); pane(); });
+    on('tWayClear', 'click', () => change(() => { delete o.path; }));
     on('tSdN', 'change', e => change(() => { o.num = +e.target.value; })); on('tSdL', 'change', e => change(() => { o.link = Math.max(0, Math.min(15, +e.target.value | 0)); }));   /* side (PLAN-side) */
     on('tW', 'change', e => change(() => { o.wake = e.target.value.trim(); }));
     on('tTg', 'change', e => change(() => { o.tag = e.target.value.trim(); }));
@@ -1171,7 +1199,7 @@ function scrollToCell([x, y]) { const s = $('scroller'); s.scrollTo({ left: x * 
 function removeSelected() {
   if (!S.sel) return;
   change(() => {
-    if (S.sel.kind === 'thing') S.map.things = S.map.things.filter(t => t.id !== S.sel.id);
+    if (S.sel.kind === 'thing') { S.map.things = S.map.things.filter(t => t.id !== S.sel.id); if (S.tool.kind === 'crabway') S.tool = { kind: 'select' }; }
     else if (S.sel.kind === 'stamp') S.map.stamps.splice(S.sel.i, 1);
     else if (S.sel.kind === 'torch') S.map.torches.splice(S.sel.i, 1);
     else if (S.sel.kind === 'light') S.map.lights.splice(S.sel.i, 1);

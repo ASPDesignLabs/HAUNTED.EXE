@@ -268,8 +268,17 @@ function exportDrawn(DATA, m, n) {
     }
     const looks = relicList.map(r => r.look || 'RL_BONEKEY'), relook = looks.some(l => l !== 'RL_BONEKEY');
     if (relook) out.push(`/* the relics' looks (docs/PLAN-events.md, 2d), in ${P}_RELIC's order */`, `static const int ${P}_RELOOK[] = { ${looks.join(', ')} };`);
-    const evTail = trigs.length || tor.length || relicList.length || pk.length || fl.length || tags.length || hzs.length || lts.length
-        ? `, ${tor.length ? P + '_TORCH' : 'NULL'}, ${tor.length}, ${trigs.length ? P + '_TRIG' : 'NULL'}, ${trigs.length}, ${trigs.length ? P + '_ACT' : 'NULL'}, ${trigs.length ? Math.max(1, acts.length) : 0}, ${relicList.length ? P + '_RELIC' : 'NULL'}, ${relicList.length}, ${pk.length ? P + '_PICK' : 'NULL'}, ${pk.length}, ${fl.length ? P + '_FIELD' : 'NULL'}, ${fl.length}${hzs.length || lts.length || relook ? (hzs.length ? `, ${P}_HAZ, ${hzs.length}, ${P}_HZCELL, ${Math.max(1, hzCells.length)}` : ', NULL, 0, NULL, 0') : ''}${lts.length ? `, ${P}_LIGHT, ${lts.length}` : relook ? ', NULL, 0' : ''}${relook ? `, ${P}_RELOOK` : ''}` : '';
+    const steps = [];                           /* the coin crabs' ways (docs/PLAN-vermin.md): each painted cell, in order, with its crab */
+    m.things.forEach(t => { if (t.t === 'dead' && t.k === 'MOB_CRAB' && thingNo[t.id] != null) (t.path || []).forEach(([x, y]) => steps.push(`{ ${thingNo[t.id]}, ${x - b.x0}, ${y - b.y0} }`)); });
+    if (steps.length) {
+        out.push(`/* the coin crabs' ways (docs/PLAN-vermin.md): the crab (an index in ${P}_THING); a cell of its way in the drawing, in the order it runs */`);
+        out.push(`static const DrawnStep ${P}_STEP[] = {`);
+        for (let i = 0; i < steps.length; i += 6) out.push('    ' + steps.slice(i, i + 6).join(', ') + ',');
+        out.push('};');
+    }
+    const tail2 = hzs.length || lts.length || relook || steps.length;
+    const evTail = trigs.length || tor.length || relicList.length || pk.length || fl.length || tags.length || hzs.length || lts.length || steps.length
+        ? `, ${tor.length ? P + '_TORCH' : 'NULL'}, ${tor.length}, ${trigs.length ? P + '_TRIG' : 'NULL'}, ${trigs.length}, ${trigs.length ? P + '_ACT' : 'NULL'}, ${trigs.length ? Math.max(1, acts.length) : 0}, ${relicList.length ? P + '_RELIC' : 'NULL'}, ${relicList.length}, ${pk.length ? P + '_PICK' : 'NULL'}, ${pk.length}, ${fl.length ? P + '_FIELD' : 'NULL'}, ${fl.length}${tail2 ? (hzs.length ? `, ${P}_HAZ, ${hzs.length}, ${P}_HZCELL, ${Math.max(1, hzCells.length)}` : ', NULL, 0, NULL, 0') : ''}${lts.length ? `, ${P}_LIGHT, ${lts.length}` : relook || steps.length ? ', NULL, 0' : ''}${relook ? `, ${P}_RELOOK` : steps.length ? ', NULL' : ''}${steps.length ? `, ${P}_STEP, ${steps.length}` : ''}` : '';
     out.push(`/* its row in DRAWN[] */`);
     out.push(`    { ${P}_MAP, ${b.w}, ${b.h}, ${b.x0}, ${b.y0}, ${m.face}, ${P}_ROOM, (int)(sizeof ${P}_ROOM / sizeof ${P}_ROOM[0]), { ${vault.join(', ')} },`);
     out.push(`      ${P}_THING, (int)(sizeof ${P}_THING / sizeof ${P}_THING[0]), ${seed}u, ${m.level}, ${spawns.length ? P + '_SPAWN' : 'NULL'}, ${spawns.length ? `(int)(sizeof ${P}_SPAWN / sizeof ${P}_SPAWN[0])` : 0}${evTail} },`);
@@ -846,6 +855,17 @@ function check(DATA, m) {
     for (let k = 0; k < N; k++) for (const [x, y] of [[k, 0], [k, N - 1], [0, k], [N - 1, k]]) if (at(x, y) !== '#') edge.push([x, y]);
     if (edge.length) add('error', 'The map\'s outer ring must be stone: the game keeps a wall round every level.', edge);
 
+    m.things.forEach(t => {                     /* a coin crab's way (docs/PLAN-vermin.md): open floor, cell to cell from where it lies */
+        if (t.t !== 'dead' || t.k !== 'MOB_CRAB') return;
+        const p = t.path || [], [cx, cy] = thingCell(t);
+        if (!p.length) { add('warn', 'A coin crab has no way painted: it will run nowhere, and be caught where it lies.', [[cx, cy]]); return; }
+        const shut = p.filter(([x, y]) => !isOpen(at(x, y)) || 'DGC'.includes(at(x, y)));
+        if (shut.length) add('error', 'A coin crab\'s way crosses stone or a door: paint it over open floor.', shut);
+        let px = cx, py = cy; const jumps = [];
+        p.forEach(([x, y]) => { if (Math.max(Math.abs(x - px), Math.abs(y - py)) > 1) jumps.push([x, y]); px = x; py = y; });
+        if (jumps.length) add('warn', 'A coin crab\'s way skips cells: it runs straight between them, through whatever is there. Paint each cell in turn.', jumps);
+        if (p.length > 63) add('error', 'A coin crab\'s way is longer than the game follows (63 cells).', p.slice(63));
+    });
     const S = find('S');
     if (S.length !== 1) add('error', S.length ? `There are ${S.length} starts (S): a level has one.` : 'There is no start (S).', S);
     const X = find('X');

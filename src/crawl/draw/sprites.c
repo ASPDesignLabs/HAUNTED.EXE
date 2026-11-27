@@ -366,6 +366,9 @@ static int mob_sprite(const Mob *m, float *scale) {
     int fr = ((int)m->anim) & 1;
     *scale = KINDS[m->type].scale;
     switch (m->type) {
+    case MOB_CRAB: return m->crab_st == 0 && m->state == MS_WALK ? SP_CRAB_COIN : fr ? SP_CRAB_B : SP_CRAB_A;   /* a coin, till it runs */
+    case MOB_HOPPER: return fr ? SP_HOP_B : SP_HOP_A;
+    case MOB_LEECH: return fr ? SP_LEECH_B : SP_LEECH_A;
     case MOB_SHAMBLER:
         if (m->state == MS_DIE) return m->t < 0.35f ? SP_SHAMB_D1 : SP_SHAMB_D2;
         if (m->sub == 2) return m->sub_t < 0.8f ? SP_SHAMB_RISE1 : SP_SHAMB_RISE2;

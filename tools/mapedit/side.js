@@ -8,12 +8,15 @@ const TILES = '#%,.=^~SW';                        /* F is a falling block: a thi
 const SOLID = new Set(['#', '%', 'S']);
 const TILE_NAMES = { '#': 'Stone', '%': 'Brick', ',': 'Back wall', '.': 'The dark', '=': 'Ledge', '^': 'Spikes', '~': 'Standing poison', S: 'Wet slate', W: 'Cobweb' };
 const KINDS = ['door', 'plat', 'fall', 'flow', 'mob', 'gold', 'key', 'life', 'switch', 'torch', 'gate', 'plate', 'zone', 'current', 'haz', 'ledge', 'power',
-               'chain', 'spring', 'crack', 'stone', 'bell', 'ghost', 'press', 'tomb', 'belt'];
+               'chain', 'spring', 'crack', 'stone', 'bell', 'ghost', 'press', 'tomb', 'belt', 'vermin'];
 const OPS = { door: 'DOOR', plat: 'PLAT', fall: 'FALL', flow: 'FLOW', mob: 'MOB', gold: 'GOLD', key: 'KEY', life: 'LIFE', switch: 'SWITCH', torch: 'TORCH',
               gate: 'GATE', plate: 'PLATE', zone: 'ZONE', current: 'CURRENT', haz: 'HAZ', ledge: 'LEDGE', power: 'POWER',
-              chain: 'CHAIN', spring: 'SPRING', crack: 'CRACK', stone: 'STONE', bell: 'BELL', ghost: 'GHOST', press: 'PRESS', tomb: 'TOMB', belt: 'BELT' };
+              chain: 'CHAIN', spring: 'SPRING', crack: 'CRACK', stone: 'STONE', bell: 'BELL', ghost: 'GHOST', press: 'PRESS', tomb: 'TOMB', belt: 'BELT',
+              vermin: 'VERMIN' };
+/* small things that move (docs/PLAN-vermin.md): vermin, a rat or a spiderling, are not kinds; a coin crab's way is its cells (CPATH) */
+const VERMIN = ['RAT', 'LING'], VERMIN_NAMES = { RAT: 'A rat', LING: 'A spiderling' }, CPC_MAX = 512, SPAN_OWN = 4;
 const NEED = { door: 4, plat: 8, fall: 3, flow: 7, mob: 4, gold: 4, key: 4, life: 3, switch: 4, torch: 3, gate: 5, plate: 3, zone: 5, current: 8, haz: 4, ledge: 4, power: 4,
-               chain: 4, spring: 3, crack: 5, stone: 6, bell: 3, ghost: 5, press: 5, tomb: 3, belt: 6 };
+               chain: 4, spring: 3, crack: 5, stone: 6, bell: 3, ghost: 5, press: 5, tomb: 3, belt: 6, vermin: 4 };
 /* the builder's kit (the owner, 27 November; the game's side_kit.c): what each is, for the pane */
 const KIT_SAYS = {
   chain: 'A chain hanging down from here: up beside it takes it, up and down climb it, jump lets go the way pressed. OFF at the start: hauled up till a trigger drops it (ON).',
@@ -104,7 +107,11 @@ function line(t) {
     case 'plat': p.push(t.w | 0, t.dx | 0, t.dy | 0, num(t.dist), sec(t.speed)); if (t.loop) p.push('LOOP'); if (+t.wait) p.push('WAIT', sec(t.wait)); if (+t.at) p.push('AT', num(t.at)); break;
     case 'fall': p.push('DELAY', sec(t.delay), 'BACK', sec(t.back)); break;
     case 'flow': p.push(t.w | 0, t.h | 0, sec(t.on), sec(t.off)); if (+t.at) p.push('AT', sec(t.at)); break;
-    case 'mob': p.push(t.kind || 'ANY'); if (t.rank && t.rank !== -1 && t.rank !== '-1') p.push(t.rank); break;
+    case 'mob': p.push(t.kind || 'ANY'); if (t.rank && t.rank !== -1 && t.rank !== '-1') p.push(t.rank);
+        if (t.kind === 'MOB_HOPPER' && +t.span > 0) p.push('SPAN', num(t.span));
+        if (t.kind === 'MOB_CRAB' && t.gold && t.gold !== 'IT_COINS') p.push('GOLD', t.gold);
+        break;
+    case 'vermin': p.push(t.what === 'LING' ? 'LING' : 'RAT'); break;
     case 'gold': p.push(t.it || 'IT_COINS'); break;
     case 'key': p.push(t.c | 0); break;
     case 'switch': p.push(t.thing == null ? -1 : t.thing | 0); if (t.toggle) p.push('TOGGLE'); if (+t.timer > 0) p.push('TIMER', sec(t.timer)); break;
@@ -138,6 +145,7 @@ function line(t) {
     if (t.tag) p.push('TAG', t.tag);
     let out = p.join(' ');
     if (t.k === 'haz') (t.cells || []).forEach(([x, y]) => { out += `\nHZC ${x} ${y}`; });
+    if (t.k === 'mob' && t.kind === 'MOB_CRAB') (t.cells || []).forEach(([x, y]) => { out += `\nCPATH ${x} ${y}`; });
     return out;
 }
 function trigLine(g) {
@@ -180,7 +188,7 @@ function words(s) {
 }
 function parse(text, kindIds, tuneNames) {
     const m = { kind: 'side', v: 1, name: 'A SIDE PASSAGE', num: 1, level: 3, w: 0, h: 0, grid: [], things: [], next: 1, trigs: [], tune: {} };
-    let lastHaz = null;
+    let lastHaz = null, lastCrab = null, cpc = 0;
     let version = 0, rows = 0, ln = 0;
     const bad = msg => ({ error: msg, line: ln });
     const lines = String(text).split('\n');
@@ -217,6 +225,12 @@ function parse(text, kindIds, tuneNames) {
             if (!lastHaz) return bad('HZC before any HAZ');
             if (!(iv[1] >= 0 && iv[2] >= 0 && iv[1] < m.w && iv[2] < m.h)) return bad('HZC wants a cell in the map');
             lastHaz.cells.push([iv[1], iv[2]]); continue;
+        }
+        if (op === 'CPATH') {
+            if (!lastCrab) return bad('CPATH before any coin crab (MOB x y MOB_CRAB)');
+            if (!(iv[1] >= 0 && iv[2] >= 0 && iv[1] < m.w && iv[2] < m.h)) return bad('CPATH wants a cell in the map');
+            if (++cpc > CPC_MAX) return bad(`more than ${CPC_MAX} cells of the coin crabs' ways`);
+            lastCrab.cells.push([iv[1], iv[2]]); continue;
         }
         if (op === 'TRIG') {
             if (w.length < 4) return bad('TRIG wants a source, a mode and something to do');
@@ -270,9 +284,17 @@ function parse(text, kindIds, tuneNames) {
             for (let i = 0; i + 1 < rest.length; i++) if (rest[i] === 'AT') t.at = parseFloat(rest[++i]) || 0;
             break;
         case 'mob':
-            t.kind = w[3]; t.rank = w[4] && w[4] !== '-1' ? w[4] : -1;
+            t.kind = w[3]; t.rank = w[4] && !['-1', 'SPAN', 'GOLD', 'TAG', 'OFF', 'LOOSE'].includes(w[4]) ? w[4] : -1;
             if (t.kind !== 'ANY' && kindIds && !kindIds.includes(t.kind)) return bad('not a kind: ' + t.kind);
             if (t.rank !== -1 && !RANKS.includes(t.rank)) return bad('not a rank: ' + t.rank);
+            for (let i = 4; i + 1 < w.length; i++) {
+                if (w[i] === 'SPAN') { t.span = parseFloat(w[++i]) || 0; if (!(t.span >= 0 && t.span <= 30)) return bad("a skull hopper's span is 0 to 30 tiles"); }
+                else if (w[i] === 'GOLD') { t.gold = w[++i]; if (!GOLD.includes(t.gold)) return bad('not gold: ' + t.gold); }
+            }
+            if (t.kind === 'MOB_CRAB') { t.cells = []; lastCrab = t; }
+            break;
+        case 'vermin':
+            t.what = w[3]; if (!VERMIN.includes(t.what)) return bad('vermin is a RAT or a LING: ' + t.what);
             break;
         case 'gold': t.it = w[3]; if (!GOLD.includes(t.it)) return bad('not gold: ' + t.it); break;
         case 'key': t.c = iv[3]; if (!(t.c >= 0 && t.c <= 2)) return bad("a key's colour is 0 to 2"); break;
@@ -402,6 +424,15 @@ function check(m) {
         }
         if (t.k === 'fall' && (!(t.delay >= 0) || !(t.back > 0))) err('A falling block wants its shaking and its time back.', t);
         if (t.k === 'switch' && !(t.thing >= -1 && t.thing < LIM.evThings)) err(`A switch's thing is -1 (none) or 0 to ${LIM.evThings - 1}.`, t);
+        if (t.k === 'vermin' && SOLID.has(at(m, t.x, t.y))) warn('Vermin set in stone: it is stuck there.', t);
+        if (t.k === 'mob' && t.kind === 'MOB_HOPPER' && !(+(t.span || 0) >= 0 && +(t.span || 0) <= 30)) err("A skull hopper's span is 0 to 30 tiles.", t);
+        if (t.k === 'mob' && t.kind === 'MOB_CRAB') {
+            const p = t.cells || [];
+            if (!p.length) warn('A coin crab with no way painted: it runs nowhere, and is caught where it lies.', t);
+            if (p.some(([x, y]) => SOLID.has(at(m, x, y)))) err("A coin crab's way runs through stone: it would walk through it. Paint it over open tiles.", t);
+            let px = t.x, py = t.y;
+            if (p.some(([x, y]) => { const j = Math.max(Math.abs(x - px), Math.abs(y - py)) > 1; px = x; py = y; return j; })) warn("A coin crab's way skips tiles: it runs straight between them. Paint each tile in turn.", t);
+        }
         if (t.k === 'switch' && t.thing === -1 && !(t.tag && (m.trigs || []).some(g => g.src === t.tag))) warn('A switch that names no crypt thing and no trigger listens to: it is thrown, and nothing moves.', t);
     });
     const tags = {};
@@ -451,6 +482,8 @@ function check(m) {
         (g.acts || []).forEach(a => { if (a.crypt == null && (!tags[a.tag] || !TARGETS.includes(tags[a.tag].k))) out.push({ sev: 'error', msg: `Trigger ${i + 1}: ${a.tag || 'nothing'} is nothing a trigger moves (a gate, water, a flow, a platform, a trap, a ledge, a falling block, or one of the kit's).`, at: null, trig: i }); });
         if (g.mode === 'TIMED' && !(g.secs > 0)) out.push({ sev: 'error', msg: `Trigger ${i + 1}: TIMED wants its seconds.`, at: null, trig: i });
     });
+    const cpc = m.things.reduce((a, t) => a + (t.k === 'mob' && t.kind === 'MOB_CRAB' ? (t.cells || []).length : 0), 0);
+    if (cpc > CPC_MAX) err(`The coin crabs' ways hold ${cpc} tiles: the game holds ${CPC_MAX}.`);
     if (!(m.num >= 0 && m.num <= 7)) err("The passage's number is 0 to 7 (the game's SIDE_TEXT).");
     if (m.num === 0) warn('Number 0 is the test passage built in: this one takes its place while it plays.');
     let open = 0; for (let x = 0; x < m.w; x++) if (!SOLID.has(at(m, x, 0))) open++;
@@ -464,6 +497,7 @@ function label(t, kinds) {
     case 'fall': return 'A falling block';
     case 'flow': return `A flow of poison, ${t.w} by ${t.h}`;
     case 'mob': { const k = kinds && kinds.find(x => x.id === t.kind); return t.kind === 'ANY' ? "A creature: the run's choice" : 'A creature: ' + (k ? k.name.toLowerCase() : t.kind); }
+    case 'vermin': return VERMIN_NAMES[t.what] || 'Vermin';
     case 'gold': return 'Gold: ' + t.it.slice(3).toLowerCase();
     case 'key': return 'The ' + KEYS[t.c].toLowerCase() + ' key';
     case 'life': return 'A life';
@@ -628,7 +662,7 @@ function fxSim(m, t, seed) {
     return S;
 }
 
-const API = { KIT_SAYS, POWERS, POWER_NAMES, POWER_SECS, LIM, TILES, TILE_NAMES, SOLID, KINDS, GOLD, RANKS, KEYS, FALL_DELAY, FALL_BACK, HAZ_FAMILY, HAZ_NAMES, FAMILY_SAYS, MODES, SOURCES, TARGETS, TAG_RE,
+const API = { VERMIN, VERMIN_NAMES, CPC_MAX, SPAN_OWN, KIT_SAYS, POWERS, POWER_NAMES, POWER_SECS, LIM, TILES, TILE_NAMES, SOLID, KINDS, GOLD, RANKS, KEYS, FALL_DELAY, FALL_BACK, HAZ_FAMILY, HAZ_NAMES, FAMILY_SAYS, MODES, SOURCES, TARGETS, TAG_RE,
               blank, add, newTag, at, resize, exportText, exportC, parse, check, label, FX_KINDS, FX_CELLS, FX_EMITS, FX_DEF, FX_SAYS, censerGeom, censerAt, censerCheck, fxSim };
 if (typeof module !== 'undefined' && module.exports) module.exports = API; else root.SideCore = API;
 })(typeof window !== 'undefined' ? window : globalThis);

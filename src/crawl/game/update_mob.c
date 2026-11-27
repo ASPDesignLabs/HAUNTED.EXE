@@ -1,6 +1,7 @@
 /* A part of scene_crawl.c (docs/PLAN-tidy.md): it is #included there in its place and never compiled on its own.
  * update_mob: one creature's step, every kind's branch. */
 
+static void update_crab(Mob *m, float dt);                         /* drawn.c: the coin crab, on a drawn level */
 static void update_mob(Mob *m, float dt) {
     if (!m->wset && m->state == MS_WALK) ward_give(m);            /* its rank's strengths (1.0.0b19; warded, 1.0.0b16) */
     dt = mob_gate(m, dt);                                          /* its statuses (docs/PLAN-combat.md section 5, 1.0.0b19) */
@@ -26,6 +27,7 @@ static void update_mob(Mob *m, float dt) {
     if (m->type == MOB_SPIDER) { update_spider(m, dt); return; }
     if (m->type == MOB_WRAITH) { if (m->boss) wraith_boss(m, dt); else update_wraith(m, dt); return; }
     if (m->type == MOB_SAC) { update_sac(m, dt); return; }
+    if (m->type == MOB_CRAB) { update_crab(m, dt); return; }
     if (update_riser(m, dt)) return;
     if (m->sleep && m->state == MS_WALK) { roost_doze(m, dt); return; }   /* a roost on the ceiling */
     if (m->amb && !m->bait_st && m->state == MS_WALK && m->amb <= G.namb && !G.amb[m->amb - 1].sprung) {   /* a tooth, waiting */

@@ -167,6 +167,8 @@ typedef struct {
     int feat; float feat_t;                                        /* the portraits' feats (docs/PLAN-portraits.md, 5 B): what it has done
                                                                       that spoils its kind's, or the moment that makes it (FT_*); when a
                                                                       gargoyle woke */
+    int crab, crab_st; float crab_k, crab_x0, crab_y0;             /* a coin crab (docs/PLAN-vermin.md): 1 + its drawn thing, its state (0 a coin,
+                                                                      1 running, 2 cornered), how far along its way, where it began */
     float told_t;                                                  /* told of you (docs/PLAN-mice.md): a charnel rat by a mouse, rearing;
                                                                       a spider by a wall spider, watchful */
     int dsp, dsp_ech, dsp_el;                                      /* from an owner's spawn point (docs/PLAN-mapedit.md): 1 if so; its

@@ -243,7 +243,8 @@ static const char *PIECE_NAME[NSET] = { "none", "wanderers", "newcomer", "posts"
 static const float KIND_COST[NKINDS] = { [MOB_SKEL] = 1.0f, [MOB_BAT] = 0.75f, [MOB_WSKULL] = 0.75f, [MOB_SHIELD] = 1.25f,
     [MOB_SPIDER] = 0.5f, [MOB_SHAMBLER] = 0.75f, [MOB_DROWNED] = 1.0f, [MOB_HOUND] = 1.0f, [MOB_HUNTER] = 1.0f, [MOB_GHOUL] = 1.25f,
     [MOB_KNIGHT] = 2.0f, [MOB_BROOD] = 2.0f, [MOB_SAC] = 0.25f, [MOB_SHADE] = 1.5f, [MOB_IMP] = 1.0f, [MOB_DEACON] = 1.5f,
-    [MOB_GARGOYLE] = 1.25f, [MOB_WHIPPER] = 1.5f, [MOB_SEXTON] = 1.0f, [MOB_LIGHTLESS] = 2.0f, [MOB_RAT] = 0.9f };
+    [MOB_GARGOYLE] = 1.25f, [MOB_WHIPPER] = 1.5f, [MOB_SEXTON] = 1.0f, [MOB_LIGHTLESS] = 2.0f, [MOB_RAT] = 0.9f,
+    [MOB_HOPPER] = 0.5f, [MOB_LEECH] = 0.75f, [MOB_CRAB] = 0.0f };   /* placed only (docs/PLAN-vermin.md): the crab harmless */
 static float rank_cost(int rank) { return rank == RK_GILDED ? 1.4f : 1.0f + 0.2f * (float)imin(rank, RK_V); }
 static float set_spent(int *heads) {
     float c = 0.0f; int n = 0;

@@ -7,6 +7,7 @@
 #define DXT_ACTS 256
 #define DXT_RELICS 32
 #define DXT_POOL 16384
+#define DXT_STEPS 512                                               /* the coin crabs' painted cells */
 #define DXT_LIGHTS 96                                               /* a drawing's lights (docs/PLAN-lights.md) */
 static struct {
     char rows[MAPN][MAPN + 1]; const char *row[MAPN]; int nrow;
@@ -23,6 +24,7 @@ static struct {
     DrawnCell hzcell[DH_CELLS]; int nhzcell;
     DrawnLight light[DXT_LIGHTS]; int nlight;
     int relook[DXT_RELICS]; int nrelook;                            /* the relics' looks (docs/PLAN-events.md, 2d) */
+    DrawnStep step[DXT_STEPS]; int nstep;                           /* the coin crabs' ways (docs/PLAN-vermin.md) */
     char pool[DXT_POOL]; int npool;                                 /* the strings: relics' names, lines */
 } DXT;
 
@@ -255,6 +257,9 @@ static void dxt_item(Xp *P, const char *part, Xv *v, int n) {     /* one { ... }
     } else if (!strcmp(part, "LIGHT")) {
         NEED(3, 3) ROOM(DXT.nlight, DXT_LIGHTS)
         DXT.light[DXT.nlight++] = (DrawnLight){ XI(0), XI(1), XI(2) };
+    } else if (!strcmp(part, "STEP")) {
+        NEED(3, 3) ROOM(DXT.nstep, DXT_STEPS)
+        DXT.step[DXT.nstep++] = (DrawnStep){ XI(0), XI(1), XI(2) };
     } else dxt_fail(P, "a part this game does not read", part);
     #undef NEED
     #undef ROOM
@@ -358,7 +363,8 @@ int crawl_drawn_text(const char *text, char *err, int nerr) {
     if (DXT.nhaz) { g_dtext.haz = DXT.haz; g_dtext.nhaz = DXT.nhaz; }
     if (DXT.nhzcell) { g_dtext.hzcell = DXT.hzcell; g_dtext.nhzcell = DXT.nhzcell; }
     if (nrow > 27) {                                               /* the row's hazards, as many as were read */
-        if (nrow != 31 && nrow != 33 && nrow != 34) BAD(nrow > 34 ? "the row has more values than this game reads: it ends with the relics' looks"
+        if (nrow != 31 && nrow != 33 && nrow != 34 && nrow != 36) BAD(nrow > 36 ? "the row has more values than this game reads: it ends with the crabs' ways"
+                                                       : nrow == 35 ? "the row's crabs' ways are not two values (the cells, how many)"
                                                        : nrow > 31 ? "the row's lights are not two values (the lights, how many)" : "the row's hazards are not four values (the hazards, how many, their cells, how many)");
         if ((v[27].k != XV_PART && v[27].k != XV_NULL) || (v[29].k != XV_PART && v[29].k != XV_NULL)) BAD("the row's hazards are not named parts");
         if (XI(28) != DXT.nhaz || XI(30) != DXT.nhzcell) BAD("the row's count of hazards or of their cells is not what was read");
@@ -378,6 +384,15 @@ int crawl_drawn_text(const char *text, char *err, int nerr) {
     } else if (DXT.nrelook) BAD("relics' looks (DRAWNn_RELOOK) the row does not name: it ends with them, after the lights");
     if (DXT.nrelook && DXT.nrelook != DXT.nrelic) BAD("the relics' looks are not one for each relic (DRAWNn_RELIC)");
     if (DXT.nrelook) g_dtext.relook = DXT.relook;
+    if (nrow > 35) {                                               /* the crabs' ways, after the relics' looks (docs/PLAN-vermin.md) */
+        if (v[34].k != XV_PART && v[34].k != XV_NULL) BAD("the row's crabs' ways are not a named part");
+        if (XI(35) != DXT.nstep) BAD("the row's count of the crabs' cells is not what was read");
+        if (P->bad) return 1;
+    } else if (DXT.nstep) BAD("the crabs' ways (DRAWNn_STEP) the row does not name: it ends with them, after the relics' looks");
+    for (int i = 0; i < DXT.nstep; i++) { const DrawnStep *s = &DXT.step[i];
+        if (s->thing < 0 || s->thing >= DXT.nthing || DXT.thing[s->thing].what != DT_DEAD || DXT.thing[s->thing].kind != MOB_CRAB
+            || s->x < 0 || s->y < 0 || s->x >= w || s->y >= h) BAD("a crab's cell outside the map, or of a thing that is no coin crab"); }
+    if (DXT.nstep) { g_dtext.step = DXT.step; g_dtext.nstep = DXT.nstep; }
     /* what the compiled drawings are trusted with, checked: every index in range */
     for (int i = 0; i < DXT.nroom; i++) { const DrawnRoom *r = &DXT.room[i];
         if (r->x < 0 || r->y < 0 || r->w < 1 || r->h < 1 || r->x + r->w > w || r->y + r->h > h || r->rtype < 0 || r->rtype >= NRT) BAD("a room outside the map, or of no type"); }
@@ -497,6 +512,7 @@ int crawl_drawn_same(int n, char *why, int nwhy) {
     if (a->nhzcell != b->nhzcell || (a->nhzcell && memcmp(a->hzcell, b->hzcell, sizeof *a->hzcell * (size_t)a->nhzcell))) DIFF("the hazards' cells");
     if (a->nlight != b->nlight || (a->nlight && memcmp(a->light, b->light, sizeof *a->light * (size_t)a->nlight))) DIFF("the lights");
     if (!a->relook != !b->relook || (a->relook && memcmp(a->relook, b->relook, sizeof *a->relook * (size_t)a->nrelic))) DIFF("the relics' looks");
+    if (a->nstep != b->nstep || (a->nstep && memcmp(a->step, b->step, sizeof *a->step * (size_t)a->nstep))) DIFF("the crabs' ways");
     #undef DIFF
     why[0] = 0;
     return 0;

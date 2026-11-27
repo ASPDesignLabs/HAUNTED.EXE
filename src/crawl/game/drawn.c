@@ -16,7 +16,8 @@ enum { DT_GOLD, DT_KEY, DT_DEAD, DT_SGOLD, DT_MARK, DT_SWITCH, DT_GSEAL, DT_MAP,
        DT_COMPASS, DT_RELIC, DT_SOCKET, DT_LEVER, DT_PLATE, DT_SPOT,
        DT_SIDEDOOR };   /* side (PLAN-side): a side passage's doorway on a wall cell; its kind 16 x the side passage + the link */   /* the events' (docs/PLAN-events.md): RELIC's kind its
                                                                       number in _RELIC; SOCKET's the relic it takes, -1 any; SPOT's its tag */
-typedef struct { int what, kind; float x, y; } DrawnThing;          /* kind: an IT_* for gold, a key's colour, a MOB_* */
+typedef struct { int what, kind; float x, y; } DrawnThing;
+typedef struct { int thing, x, y; } DrawnStep;                      /* a cell of a coin crab's way: its thing (an index in _THING), in order */          /* kind: an IT_* for gold, a key's colour, a MOB_* */
 /* A spawn point from the map editor (docs/PLAN-mapedit.md): where, in the drawing's cells; the kind, or -1 the budget's choice; the
  * chance it is filled, %; its chance of being born to an element, %, or -1 by its rank as elem_roll has it; the element, or -1 the
  * run's favourites; its rank, or -1 the level's usual; 1 + the wake group that fills it (0: as the level is laid); 1 + the tag of the
@@ -69,6 +70,7 @@ typedef struct {
     const DrawnLight *light; int nlight;                           /* its lights (docs/PLAN-lights.md; DrawnLight in generate.c): any, and
                                                                       none of the generator's light props */
     const int *relook;                                             /* each relic's look (RL_*), as many as nrelic; NULL: the bone key */
+    const DrawnStep *step; int nstep;                              /* the coin crabs' ways (docs/PLAN-vermin.md): each a crab's thing and a cell */
 } Drawn;
 /* What a drawn level's events hold while it is played (events.c runs them); laid with the level, never saved */
 #define EV_THINGS 256                       /* a drawing's things, for where this play lays each */
@@ -803,6 +805,54 @@ static void drawn_dead(void) {                                     /* the dead w
         m->x = x; m->y = y;
         set_rank(m, RK_I);
         m->home = G.map[m->cy][m->cx].region;
+        if (t->kind == MOB_CRAB) { m->crab = 1 + i; m->crab_x0 = x; m->crab_y0 = y; m->crab_st = 0; m->crab_k = 0.0f; }
+    }
+}
+/* the coin crab in the crypt (docs/PLAN-vermin.md, step 3): a coin on the floor till you are within three cells; then it runs the way
+ * painted for it, cell to cell, and waits at its end; reached, it is yours, as it is slain: its gold given at once */
+static void collect(Item *it);
+static void crab_gold(const Mob *m) {
+    (void)m;
+    Item g; memset(&g, 0, sizeof g); g.alive = 1; g.type = IT_COINS; g.cx = m->cx; g.cy = m->cy; collect(&g);
+    G.gold = 1.0f; G.grin_t = 1.0f;
+}
+static void update_crab(Mob *m, float dt) {
+    m->t += dt;
+    if (m->state == MS_DIE) { if (m->t > 0.75f) m->alive = 0; return; }
+    float d = hypotf(m->x - G.px, m->y - G.py);
+    if (m->crab_st == 0) {
+        if (d < 3.0f && !G.dead) { m->crab_st = 1; sfx_at(SFX_SKITTER, m->x, m->y, 0.8f);
+#ifdef CRAWL_DEBUG
+            fprintf(stderr, "EVENT crab runs at (%.1f,%.1f) t=%.2f\n", m->x, m->y, G.t);
+#endif
+        }
+    } else if (m->crab_st == 1) {                                  /* along its way: its place, then the cells painted, each cell's middle */
+        const Drawn *D = g_drawn ? drawn() : NULL;
+        float px[64], py[64];
+        int n = 0;
+        px[n] = m->crab_x0; py[n] = m->crab_y0; n++;
+        for (int k = 0; D && k < D->nstep && n < 64; k++) if (D->step[k].thing == m->crab - 1) { px[n] = (float)(D->ox + D->step[k].x) + 0.5f; py[n] = (float)(D->oy + D->step[k].y) + 0.5f; n++; }
+        float go = KINDS[MOB_CRAB].speed * 1.2f * dt;              /* cells a second: quicker than you walk, slower than you run */
+        while (go > 0.0f && m->crab_k < (float)(n - 1)) {
+            int k = (int)m->crab_k;
+            float f = m->crab_k - (float)k, len = fmaxf(0.01f, hypotf(px[k + 1] - px[k], py[k + 1] - py[k])), left = (1.0f - f) * len;
+            if (go >= left) { go -= left; m->crab_k = (float)(k + 1); } else { m->crab_k += go / len; go = 0.0f; }
+        }
+        int k = imin((int)m->crab_k, n - 1);
+        float f = k < n - 1 ? m->crab_k - (float)k : 0.0f, nx = k < n - 1 ? px[k] + (px[k + 1] - px[k]) * f : px[n - 1], ny = k < n - 1 ? py[k] + (py[k + 1] - py[k]) * f : py[n - 1];
+        if (nx != m->x || ny != m->y) m->face = atan2f(ny - m->y, nx - m->x);
+        m->x = nx; m->y = ny; m->cx = (int)nx; m->cy = (int)ny; m->anim += dt * 8.0f;
+        if (m->crab_k >= (float)(n - 1)) { m->crab_st = 2;
+#ifdef CRAWL_DEBUG
+            fprintf(stderr, "EVENT crab cornered at (%.1f,%.1f) t=%.2f\n", m->x, m->y, G.t);
+#endif
+        }
+    }
+    if (d < 0.55f && !G.dead) {                                    /* reached: yours */
+#ifdef CRAWL_DEBUG
+        fprintf(stderr, "EVENT crab caught by %s t=%.2f\n", G.player ? "player" : "autopilot", G.t);
+#endif
+        m->hp = 0.0f; kill_mob(m);
     }
 }
 /* the owner's spawn points (docs/PLAN-mapedit.md): wake 0, those filled as the level is laid; else those of wake group wake - 1, now

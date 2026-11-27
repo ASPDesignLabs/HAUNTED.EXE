@@ -11,6 +11,7 @@ static void xp_rooms(void) {                                       /* a room fir
 static void mob_poison(Mob *m, float total, float secs);
 static float permafrost(void);
 static int caller_hushed(const Mob *m);
+static void crab_gold(const Mob *m);                               /* drawn.c */
 static void kill_mob(Mob *m) {
     if (caller_hushed(m)) deed_note(DEED_HUSH);                    /* slain before its call went out */
     m->state = MS_DIE; m->t = 0.0f; m->sleep = 0; m->hold = 0; m->engage = 0;
@@ -25,6 +26,7 @@ static void kill_mob(Mob *m) {
     noise(m->x, m->y, 4, NZ_DEATH, m->type);                        /* heard four steps off, eight by its own kind (S3) */
     if (m->type == MOB_SPIDER && m->z > 0.3f) m->sub = 9;           /* it falls from the web */
     if (m->type == MOB_DROWNED) { add_pool(m->x, m->y); sfx_at(SFX_EXPLODE, m->x, m->y, 0.6f); }   /* it bursts */
+    if (m->type == MOB_CRAB) crab_gold(m);                         /* a coin crab, caught or slain: its gold (docs/PLAN-vermin.md) */
     if (m->type == MOB_BROOD) {                                    /* her sacs die with the last of the mothers */
         int others = 0;
         for (int i = 0; i < MAXMOBS; i++) others += G.mobs[i].alive && G.mobs[i].state == MS_WALK && G.mobs[i].type == MOB_BROOD && &G.mobs[i] != m;

@@ -61,6 +61,13 @@ ICON.ghost = icon(g => { g.fillStyle = 'rgba(160,215,230,0.75)'; g.fillRect(0, 0
 ICON.press = icon(g => { g.fillStyle = '#6a6e76'; g.fillRect(3, 0, 1, 6); g.fillRect(12, 0, 1, 6); g.fillStyle = '#736c7c'; g.fillRect(0, 6, 16, 10); g.fillStyle = '#9a9ea8'; g.fillRect(0, 6, 16, 2); g.fillRect(0, 11, 16, 1); g.fillStyle = '#2b2830'; g.fillRect(0, 15, 16, 1); });
 ICON.tomb = icon(g => { g.fillStyle = '#8a8394'; g.fillRect(0, 3, 16, 3); g.fillStyle = '#645e6d'; g.fillRect(1, 6, 14, 10); g.fillStyle = '#3a3640'; g.fillRect(7, 8, 2, 6); g.fillRect(5, 10, 6, 2); });
 ICON.belt = icon(g => { g.fillStyle = '#e6dcc4'; g.fillRect(0, 0, 16, 4); g.fillStyle = '#8a8070'; for (let x = 7; x < 16; x += 8) g.fillRect(x, 0, 1, 4); g.fillStyle = '#4a4e56'; g.fillRect(0, 4, 16, 12); g.fillStyle = '#9a9ea8'; g.beginPath(); g.arc(4, 10, 3, 0, 7); g.arc(12, 10, 3, 0, 7); g.fill(); });
+/* small things that move (docs/PLAN-vermin.md) */
+ICON.rat = icon(g => { g.fillStyle = '#7a6a5c'; g.fillRect(3, 10, 9, 4); g.fillRect(10, 9, 3, 3); g.fillStyle = '#c4a090'; g.fillRect(12, 8, 1, 2); g.fillStyle = '#ffd34d'; g.fillRect(12, 10, 1, 1); g.strokeStyle = '#c4a090'; g.beginPath(); g.moveTo(3, 12); g.lineTo(0, 10); g.stroke(); g.fillStyle = '#4a3e36'; g.fillRect(4, 14, 1, 1); g.fillRect(10, 14, 1, 1); });
+ICON.ling = icon(g => { g.fillStyle = '#3a3040'; g.fillRect(6, 9, 5, 4); g.fillStyle = '#d2473b'; g.fillRect(9, 10, 1, 1); g.fillRect(10, 10, 1, 1); g.strokeStyle = '#5a4e66'; g.beginPath(); [[6, 10, 3, 8], [6, 12, 2, 14], [11, 10, 14, 8], [11, 12, 14, 14]].forEach(([a, b, c, d]) => { g.moveTo(a, b); g.lineTo(c, d); }); g.stroke(); });
+ICON.hopper = icon(g => { g.fillStyle = '#e6dcc4'; g.beginPath(); g.arc(8, 7, 5, 0, 7); g.fill(); g.fillRect(5, 10, 6, 3); g.fillStyle = '#17141b'; g.fillRect(5, 6, 2, 2); g.fillRect(9, 6, 2, 2); g.fillStyle = '#ffd34d'; g.fillRect(5, 6, 1, 1); g.fillRect(9, 6, 1, 1); g.strokeStyle = '#b8bcc4'; g.setLineDash([1, 1]); g.beginPath(); g.arc(8, 15, 7, Math.PI, 0); g.stroke(); });
+ICON.leech = icon(g => { g.fillStyle = '#4a7a2e'; g.fillRect(0, 11, 16, 5); g.fillStyle = '#9fd06a'; g.fillRect(0, 11, 16, 1); g.fillStyle = '#6a8a3a'; g.beginPath(); g.ellipse(8, 7, 3, 5, 0.3, 0, 7); g.fill(); g.fillStyle = '#d2473b'; g.fillRect(8, 3, 2, 1); });
+ICON.crab = icon(g => { g.fillStyle = '#e9c24c'; g.beginPath(); g.arc(8, 9, 5, 0, 7); g.fill(); g.fillStyle = '#fff1a6'; g.fillRect(6, 6, 2, 2); g.strokeStyle = '#b07a2a'; g.beginPath(); [[4, 12, 1, 15], [5, 13, 3, 16], [12, 12, 15, 15], [11, 13, 13, 16]].forEach(([a, b, c, d]) => { g.moveTo(a, b); g.lineTo(c, d); }); g.stroke(); g.fillStyle = '#17141b'; g.fillRect(6, 4, 1, 1); g.fillRect(9, 4, 1, 1); });
+const MOB_ICON = { MOB_HOPPER: 'hopper', MOB_LEECH: 'leech', MOB_CRAB: 'crab' };
 const GOLD_NAMES = { IT_COINS: 'Coins', IT_CHALICE: 'Chalice', IT_GEMS: 'Gems', IT_CROWN: 'Crown', IT_CHEST: 'Chest' };
 ICON.gate = icon(g => { g.fillStyle = '#6a6e76'; g.fillRect(0, 1, 16, 2); for (let x = 1; x < 16; x += 4) { g.fillStyle = '#b8bcc4'; g.fillRect(x, 1, 1, 14); g.fillStyle = '#5a5e66'; g.fillRect(x + 1, 1, 1, 14); } g.fillStyle = '#8a8f99'; g.fillRect(0, 8, 16, 1); });
 ICON.plate = icon(g => { g.fillStyle = '#736c7c'; g.fillRect(2, 11, 12, 3); g.fillStyle = '#a49cb0'; g.fillRect(2, 11, 12, 1); g.fillStyle = '#e9c24c'; g.fillRect(6, 9, 4, 1); });
@@ -81,6 +88,8 @@ const PROTO = {
   chain: { k: 'chain', h: 5 }, spring: { k: 'spring' }, crack: { k: 'crack', w: 1, h: 3 }, stoneA: { k: 'stone', w: 1, h: 3, set: 'A' }, stoneB: { k: 'stone', w: 3, h: 1, set: 'B' },
   bell: { k: 'bell', clock: 0 }, ghost: { k: 'ghost', w: 3, h: 1, on: 2.5, off: 1.5, at: 0 }, press: { k: 'press', w: 2, h: 5, clock: 3, at: 0 }, tomb: { k: 'tomb' },
   belt: { k: 'belt', w: 5, dir: 1, speed: 2 },
+  rat: { k: 'vermin', what: 'RAT' }, ling: { k: 'vermin', what: 'LING' }, hopper: { k: 'mob', kind: 'MOB_HOPPER', rank: -1, span: 0 },
+  leech: { k: 'mob', kind: 'MOB_LEECH', rank: -1 }, crab: { k: 'mob', kind: 'MOB_CRAB', rank: -1, gold: 'IT_COINS', cells: [] },
 };
 const KIT = ['chain', 'spring', 'crack', 'stone', 'bell', 'ghost', 'press', 'tomb', 'belt'];
 
@@ -115,6 +124,7 @@ function build() {
       <details open><summary>TILES</summary><div class="tools" id="sdTiles" style="margin-top:6px"></div></details>
       <details open><summary>WAYS AND HAZARDS</summary><div class="tools" id="sdWays" style="margin-top:6px"></div></details>
       <details open><summary>THINGS</summary><div class="tools" id="sdThings" style="margin-top:6px"></div></details>
+      <details open><summary>SMALL THINGS THAT MOVE</summary><div class="tools" id="sdSmall" style="margin-top:6px"></div></details>
       <details open><summary>GATES, PLATES, WATER</summary><div class="tools" id="sdWorks" style="margin-top:6px"></div></details>
       <details open><summary>THE BUILDER'S KIT</summary><div class="tools" id="sdKit" style="margin-top:6px"></div></details>
       <details><summary>THE CRYPT'S TRAPS</summary><div id="sdTraps" style="margin-top:6px;display:flex;flex-direction:column;gap:8px"></div></details>
@@ -171,6 +181,11 @@ function build() {
   tb('sdWorks', 'Unseen zone', ICON.zone, { kind: 'thing', p: 'zone' }, 'A box never seen: pressed while the caster is in it. Bind it in TRIGGERS.');
   tb('sdWorks', 'Water', ICON.current, { kind: 'thing', p: 'current' }, 'Water running through a box: it carries what is loose and pushes the caster. Its way is in CHOSEN.');
   tb('sdWorks', 'Poisoned water', ICON.pcurrent, { kind: 'thing', p: 'pcurrent' }, 'The same, and it bites.');
+  tb('sdSmall', 'Rat', ICON.rat, { kind: 'thing', p: 'rat' }, 'Vermin: runs its floor back and forth, turning at walls, edges and spikes; bites as it passes (a nudge). One spell kills it. Not a creature: no record, nothing kept.');
+  tb('sdSmall', 'Spiderling', ICON.ling, { kind: 'thing', p: 'ling' }, 'Vermin: follows the stone round every corner, floor, wall and ceiling; on a ceiling it drops on the caster passing under. Place it on any face of stone.');
+  tb('sdSmall', 'Skull hopper', ICON.hopper, { kind: 'thing', p: 'hopper' }, 'A loose skull bounding in arcs either side of where it is set (its span), turning at walls and edges. A creature: its page, its souls.');
+  tb('sdSmall', 'Bile leech', ICON.leech, { kind: 'thing', p: 'leech' }, 'Lives under standing poison: set it in the poison. It bubbles, then leaps to meet the caster passing over, and falls back in.');
+  tb('sdSmall', 'Coin crab', ICON.crab, { kind: 'thing', p: 'crab' }, 'A coin till the caster comes near; then it runs the way you paint, to the place you paint, and waits there. Caught or struck, its gold is yours. Click where it lies, then paint its way.');
   tb('sdKit', 'Hanging chain', ICON.chain, { kind: 'thing', p: 'chain' }, SC.KIT_SAYS.chain + ' Click its top tile.');
   tb('sdKit', 'Springboard', ICON.spring, { kind: 'thing', p: 'spring' }, SC.KIT_SAYS.spring);
   tb('sdKit', 'Wet slate', TILE.S, { kind: 'tile', ch: 'S' }, 'Paint wet slate: a floor slow to start on and slow to stop (TUNING: slate). Shift and drag for a box of it.');
@@ -290,13 +305,24 @@ function draw() {
     if (KIT.includes(t.k)) { drawKit(t, z); return; }
     if (t.k === 'power') { g.drawImage(ICON['power_' + t.kind] || ICON.power_RAPID, bx * z, by * z, z, z); if (z >= 16) { g.fillStyle = '#d8d0bd'; g.font = Math.max(9, z * 0.4) + 'px VT323, monospace'; g.fillText(t.secs + 's', bx * z + 1, by * z + z - 1); } return; }
     if (t.k === 'fall' && t.stopped) g.globalAlpha = 0.35;
-    const ic = t.k === 'gold' ? ICON.gold : t.k === 'key' ? ICON['key' + t.c] : ICON[t.k];
+    if (t.k === 'mob' && t.kind === 'MOB_CRAB' && (t.cells || []).length) {   /* a coin crab's way: a gold thread, its tiles numbered */
+      g.strokeStyle = '#e9c24c'; g.setLineDash([4, 3]); g.lineWidth = 1.5; g.beginPath(); g.moveTo((t.x + 0.5) * z, (t.y + 0.5) * z);
+      t.cells.forEach(([cx, cy]) => g.lineTo((cx + 0.5) * z, (cy + 0.5) * z)); g.stroke(); g.setLineDash([]);
+      t.cells.forEach(([cx, cy], i) => { g.strokeRect(cx * z + 2.5, cy * z + 2.5, z - 5, z - 5);
+        if (z >= 16) { g.fillStyle = '#e9c24c'; g.font = Math.max(9, z * 0.42) + 'px VT323, monospace'; g.fillText(String(i + 1), cx * z + 3, cy * z + z * 0.55); } });
+    }
+    if (t.k === 'mob' && t.kind === 'MOB_HOPPER') {                 /* its span: the ends it turns at */
+      const s = +t.span > 0 ? +t.span : SC.SPAN_OWN; g.strokeStyle = '#b8bcc4'; g.setLineDash([2, 3]); g.lineWidth = 1;
+      g.beginPath(); g.moveTo((t.x - s + 0.5) * z, (t.y + 1) * z); g.lineTo((t.x - s + 0.5) * z, (t.y - 1.5) * z); g.moveTo((t.x + s + 0.5) * z, (t.y + 1) * z); g.lineTo((t.x + s + 0.5) * z, (t.y - 1.5) * z);
+      g.moveTo((t.x - s + 0.5) * z, (t.y - 1.5) * z); g.lineTo((t.x + s + 0.5) * z, (t.y - 1.5) * z); g.stroke(); g.setLineDash([]);
+    }
+    const ic = t.k === 'gold' ? ICON.gold : t.k === 'key' ? ICON['key' + t.c] : t.k === 'vermin' ? (t.what === 'LING' ? ICON.ling : ICON.rat) : t.k === 'mob' && MOB_ICON[t.kind] ? ICON[MOB_ICON[t.kind]] : ICON[t.k];
     if (ic) g.drawImage(ic, bx * z, by * z, z, z);
     g.globalAlpha = 1;
     if (t.k === 'fall' && t.stopped && z >= 16) { g.fillStyle = '#d8d0bd'; g.font = Math.max(9, z * 0.4) + 'px VT323, monospace'; g.fillText('OFF', bx * z + 2, by * z + z * 0.6); }
     if (t.k === 'switch' && +t.timer > 0 && z >= 16) { g.fillStyle = '#e89a3a'; g.font = Math.max(9, z * 0.4) + 'px VT323, monospace'; g.fillText(t.timer + 's', bx * z + z * 0.55, by * z + z * 0.45); }
     if (t.loose && z >= 12) { g.strokeStyle = '#8fc6dc'; g.lineWidth = 1; g.beginPath(); g.moveTo(bx * z + z / 2, by * z + z); g.lineTo(bx * z + z / 2, by * z + z + z * 0.4); g.stroke(); }   /* loose: it will fall */
-    if (t.k === 'mob' && z >= 16) { g.fillStyle = '#d2473b'; g.font = Math.max(10, z * 0.45) + 'px VT323, monospace'; g.fillText(t.kind === 'ANY' ? '?' : t.kind.slice(4, 6), bx * z + 1, by * z + z - 1); }
+    if (t.k === 'mob' && z >= 16 && !MOB_ICON[t.kind]) { g.fillStyle = '#d2473b'; g.font = Math.max(10, z * 0.45) + 'px VT323, monospace'; g.fillText(t.kind === 'ANY' ? '?' : t.kind.slice(4, 6), bx * z + 1, by * z + z - 1); }
   });
   drawPreview(z);                                  /* PREVIEW (2e) */
   const hl = T.hl && T.hl.at;
@@ -378,6 +404,10 @@ function down(e) {
     if (proto.k === 'tomb' && x + 2 > T.map.w) { E.toast('A SARCOPHAGUS IS TWO TILES WIDE'); return; }
     if (['gate', 'plate', 'zone', 'current', 'switch', 'ledge', 'crack', 'bell', 'stone', 'ghost', 'press', 'belt', 'chain'].includes(proto.k)) proto.tag = SC.newTag(T.map, proto.k === 'current' ? 'water' : proto.k);
     change(() => { const o = SC.add(T.map, Object.assign(proto, { x, y })); T.sel = o.id; });
+    if (proto.k === 'mob' && proto.kind === 'MOB_CRAB') {           /* a coin crab: straight on to painting its way */
+      T.tool = { kind: 'paint', id: T.sel }; document.querySelectorAll('#sdMain .tool').forEach(b => b.setAttribute('aria-pressed', 'false'));
+      $('sHint').textContent = 'Painting the coin crab\'s way: click each tile from beside it, in the order it runs; the last is where it runs to. Esc when done.'; setTab('inspect'); draw(); return;
+    }
     setTab('inspect'); return;
   }
   const t = hit(x, y);
@@ -482,7 +512,12 @@ function paneThing(t) {
   case 'mob':
     h += `<div class="field"><label for="tKind">Creature</label><select id="tKind">${opt('ANY', "the run's choice", t.kind)}${E.DATA.kinds.filter(k => !k.unique && k.id !== 'MOB_SAC').map(k => opt(k.id, k.name.toLowerCase(), t.kind)).join('')}</select></div>
       <div class="field"><label for="tRank">Rank</label><select id="tRank">${opt(-1, "the level's usual", t.rank)}${SC.RANKS.map(r => opt(r, r === 'RK_GILDED' ? 'gilded' : 'rank ' + r.slice(3), t.rank)).join('')}</select></div>
-      <p class="note">Walkers keep to their floor and come at you; bats, spectres, shades, imps and the Lightless fly; skeletons and hunters throw. Their health and blows are the crypt's for the level. Until their own side art is drawn they show their bestiary pictures.</p>`;
+      ${t.kind === 'MOB_HOPPER' ? `<div class="field"><label for="tSpan">Span</label>${numIn('tSpan', +t.span || 0, 0, 30, 1)}</div><p class="note">Tiles it bounds either side of where it is set: 0 is its own, ${SC.SPAN_OWN}. It bounds two tiles at a time, two and a half high, and turns at a wall, an edge or the end of its span.</p>` : ''}
+      ${t.kind === 'MOB_LEECH' ? '<p class="note">Set it in standing poison (~): it waits under the surface, nothing of it to strike, bubbles when the caster is near and above, and leaps to meet them at the top of its arc. Stranded on stone, it flops back.</p>' : ''}
+      ${t.kind === 'MOB_CRAB' ? `<div class="field"><label for="tCg">Leaves</label><select id="tCg">${SC.GOLD.map(k => opt(k, `${GOLD_NAMES[k]} (${E.DATA.items[k]})`, t.gold || 'IT_COINS')).join('')}</select></div>
+        <p class="note">A coin till the caster is within four tiles; then it runs its way, cell to cell, quicker than a walk, and waits at the end. Touched, or struck, it is a kill and its gold. Its way: ${(t.cells || []).length} tile${(t.cells || []).length === 1 ? '' : 's'}.</p>
+        <div class="row"><button class="btn" id="tPaint" aria-pressed="${T.tool.kind === 'paint' && T.tool.id === t.id}">PAINT ITS WAY</button><button class="btn" id="tClear">CLEAR IT</button></div>` : ''}
+      ${MOB_ICON[t.kind] ? '' : `<p class="note">Walkers keep to their floor and come at you; bats, spectres, shades, imps and the Lightless fly; skeletons and hunters throw. Their health and blows are the crypt's for the level. Until their own side art is drawn they show their bestiary pictures.</p>`}`;
     break;
   case 'gold': h += `<div class="field"><label for="tIt">Kind</label><select id="tIt">${SC.GOLD.map(k => opt(k, `${GOLD_NAMES[k]} (${E.DATA.items[k]})`, t.it)).join('')}</select></div>`; break;
   case 'key': h += `<div class="field"><label for="tC">Colour</label><select id="tC">${[0, 2, 1].map(k => opt(k, SC.KEYS[k].toLowerCase(), t.c)).join('')}</select></div><p class="note">The crypt's own key: taken out of the passage, it opens that colour's doors there.</p>`; break;
@@ -498,6 +533,10 @@ function paneThing(t) {
   case 'power': h += `<div class="field"><label for="tPw">Kind</label><select id="tPw">${SC.POWERS.map(k => opt(k, SC.POWER_NAMES[k].toLowerCase(), t.kind)).join('')}</select></div>
       <div class="field"><label for="tSecs">Lasts</label>${numIn('tSecs', t.secs, 0.5, 120, 0.5)}</div>
       <p class="note">Taken in passing, once. Quickened hands: casting twice as quick. Might: harm doubled, the caster glowing red. Ward: nothing harms the caster. Its time shows by the lives; another of the same kind starts it again.</p>`; break;
+  case 'vermin':
+    h += `<div class="field"><label for="tVm">What</label><select id="tVm">${SC.VERMIN.map(k => opt(k, SC.VERMIN_NAMES[k].slice(2).toLowerCase(), t.what)).join('')}</select></div>
+      <p class="note">${t.what === 'LING' ? 'Follows the stone it is set against, round every corner; on a ceiling, it drops on the caster passing under. Set it on any face of stone.' : 'Runs its floor, turning at walls, edges and spikes.'} It bites for a little as it touches (a nudge), and dies to a spell, a flask or lightning. Not a creature: it is in no record. The dream is not taught it.</p>`;
+    break;
   case 'life': h += '<p class="note">Picked up, a life, never more than three; with three already, five souls.</p>'; break;
   /* the builder's kit (27 November) */
   case 'chain': h += `<div class="field"><label for="tChainH">Long</label>${numIn('tChainH', t.h, 1, T.map.h - t.y)}</div><p class="note">${esc(SC.KIT_SAYS.chain)} Climbing pace: TUNING, climb.</p>`; break;
@@ -674,7 +713,9 @@ function wireThing(t) {
   n('tDel', v => { t.delay = Math.max(0, v); }); n('tBack', v => { t.back = Math.max(0.5, v); });
   n('tFw', v => { t.w = Math.max(1, Math.min(t.k === 'press' ? 8 : T.map.w - t.x, v | 0)); }); n('tFh', v => { t.h = Math.max(t.k === 'press' ? 2 : 1, Math.min(T.map.h - t.y, v | 0)); });
   n('tOn', v => { t.on = Math.max(0.5, v); }); n('tOff', v => { t.off = Math.max(0.5, v); });
-  on('tKind', 'change', e => change(() => { t.kind = e.target.value; }));
+  on('tKind', 'change', e => change(() => { t.kind = e.target.value; if (t.kind === 'MOB_CRAB' && !t.cells) t.cells = []; }));
+  n('tSpan', v => { t.span = Math.max(0, Math.min(30, v)); }); on('tCg', 'change', e => change(() => { t.gold = e.target.value; }));
+  on('tVm', 'change', e => change(() => { t.what = e.target.value; }));
   on('tRank', 'change', e => change(() => { t.rank = e.target.value === '-1' ? -1 : e.target.value; }));
   on('tIt', 'change', e => change(() => { t.it = e.target.value; })); n('tC', v => { t.c = v; });
   n('tTh', v => { t.thing = Math.max(-1, Math.min(SC.LIM.evThings - 1, v | 0)); }); on('tTog', 'change', e => change(() => { t.toggle = e.target.checked; }));
