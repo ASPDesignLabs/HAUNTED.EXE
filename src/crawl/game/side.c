@@ -49,6 +49,7 @@ static struct {
     uint32_t rs;                                                   /* its own dice: the crypt's are left as they were */
     float x, y, vx, vy;                                            /* the caster: the middle of its feet, in pixels */
     int face, ground, crouch, on_plat, drop, on_body, climb;      /* on_body: a press or a sarcophagus stood on; climb: the chain held, -1 */
+    int on_cut;                                                    /* stood on a slope (2k) */
     float coyote, jbuf, anim, cast_t, cd, inv_t, hurt_t, pois_k, held, in_t, pois_t;   /* held: the flask drawn back; pois_t: the poison's clock */
     int frame, dying, leaving, out_link, out_goal, holding;
     float aim_d, aim_dy;                                           /* the flask held: how far ahead it lands, and how far below the hand */
@@ -206,6 +207,77 @@ static int sd_solid(int tx, int ty) {
     return sd_solid_ch(sd_tile(tx, ty)) || sd_fall_at(tx, ty) >= 0 || sd_gate_at(tx, ty) || (tx >= 0 && ty >= 0 && tx < SD.L->w && ty < SD.L->h && KSOL[ty][tx]);
 }
 static int sd_floor_px(float px) { return (int)floorf(px / SD_TILE); }
+/* ---- slopes (2k): a stone tile cut to a wedge. sd_solid still calls it stone, so whatever was not taught them meets it as a block;
+ * the caster, the dead that walk, what is thrown and the dream ask sd_solid_open (stone uncut), sd_solid_pt (at a pixel) and the
+ * surfaces ---- */
+static int16_t SDCG[SD_H][SD_W];                                   /* 1 + the cut on a tile, 0 none: laid as a passage is entered */
+static void sd_cuts_build(void) {
+    const SdLevel *L = SD.L;
+    for (int y = 0; y < L->h; y++) memset(SDCG[y], 0, sizeof SDCG[y][0] * (size_t)L->w);
+    for (int k = 0; k < L->ncut; k++) SDCG[L->cut[k].y][L->cut[k].x] = (int16_t)(k + 1);
+}
+static const SdCut *sd_cut_at(int tx, int ty) {
+    if (!SD.L->ncut || tx < 0 || ty < 0 || tx >= SD.L->w || ty >= SD.L->h || !SDCG[ty][tx] || !sd_solid_ch(SD.L->t[ty][tx])) return NULL;
+    return &SD.L->cut[SDCG[ty][tx] - 1];
+}
+static float sd_cut_h(const SdCut *c, float u) { return clampf((float)c->l + (float)(c->r - c->l) * u / (float)SD_TILE, 0.0f, (float)SD_TILE); }
+static float sd_cut_rise(const SdCut *c, float u) {                /* the floor's rise a pixel rightward there; 0 where it is held flat */
+    float h = (float)c->l + (float)(c->r - c->l) * u / (float)SD_TILE;
+    return h <= 0.0f || h >= (float)SD_TILE ? 0.0f : (float)(c->r - c->l) / (float)SD_TILE;
+}
+static int sd_solid_open(int tx, int ty) { return sd_solid(tx, ty) && !sd_cut_at(tx, ty); }   /* stone, and uncut */
+static int sd_solid_pt(float x, float y) {                         /* stone at this pixel, a cut's wedge as it is */
+    int tx = sd_floor_px(x), ty = sd_floor_px(y);
+    const SdCut *c = sd_cut_at(tx, ty);
+    if (!c) return sd_solid(tx, ty);
+    float h = sd_cut_h(c, x - (float)(tx * SD_TILE)), v = y - (float)(ty * SD_TILE);
+    return c->ceil ? v < h : v >= (float)SD_TILE - h;
+}
+static int sd_floor_surf(float x, float ya, float yb, float *s) {  /* the first floor under x from ya down to yb: a slope, or the top
+                                                                      of stone with room over it; 1 if there is one */
+    int tx = sd_floor_px(x);
+    for (int ty = sd_floor_px(ya); ty <= sd_floor_px(yb); ty++) {
+        const SdCut *c = sd_cut_at(tx, ty);
+        float y;
+        if (c) {
+            float h = sd_cut_h(c, x - (float)(tx * SD_TILE));
+            if (h <= 0.0f) continue;
+            y = c->ceil ? (float)(ty * SD_TILE) : (float)((ty + 1) * SD_TILE) - h;
+            if (c->ceil && sd_solid_pt(x, y - 0.5f)) continue;
+        } else if (sd_solid(tx, ty)) {
+            if (sd_solid_pt(x, (float)(ty * SD_TILE) - 0.5f)) continue;   /* (stone over it: no floor here) */
+            y = (float)(ty * SD_TILE);
+        } else continue;
+        if (y >= ya && y <= yb) { *s = y; return 1; }
+    }
+    return 0;
+}
+static int sd_roof_surf(float x, float ya, float yb, float *s) {   /* the first roof over x from yb up to ya: a hanging slope, or the
+                                                                      underside of stone; 1 if there is one */
+    int tx = sd_floor_px(x);
+    for (int ty = sd_floor_px(yb); ty >= sd_floor_px(ya); ty--) {
+        const SdCut *c = sd_cut_at(tx, ty);
+        float y;
+        if (c) {
+            float h = sd_cut_h(c, x - (float)(tx * SD_TILE));
+            if (h <= 0.0f) continue;
+            y = c->ceil ? (float)(ty * SD_TILE) + h : (float)((ty + 1) * SD_TILE);
+        } else if (sd_solid(tx, ty)) y = (float)((ty + 1) * SD_TILE);
+        else continue;
+        if (sd_solid_pt(x, y + 0.5f)) continue;                    /* (stone under it: no roof here) */
+        if (y >= ya && y <= yb) { *s = y; return 1; }
+    }
+    return 0;
+}
+static float sd_slope_under(float x, float y) {                    /* the rise of the slope the feet are on there, 0 none */
+    for (int ty = sd_floor_px(y - 0.5f); ty <= sd_floor_px(y + 0.5f); ty++) {
+        const SdCut *c = sd_cut_at(sd_floor_px(x), ty);
+        if (!c || c->ceil) continue;
+        float u = x - (float)(sd_floor_px(x) * SD_TILE), s = (float)((ty + 1) * SD_TILE) - sd_cut_h(c, u);
+        if (fabsf(s - y) < 1.0f) return sd_cut_rise(c, u);
+    }
+    return 0.0f;
+}
 static float sd_flow_k(const SdThing *t) { return SD.fk[t - SD.L->th]; }   /* how full a flow is now (side_works.c keeps it) */
 static float sd_flow_top(const SdThing *t) { return (float)((t->y + t->h) * SD_TILE) - sd_flow_k(t) * (float)(t->h * SD_TILE); }
 static int sd_in_poison(float x, float y, float top) {             /* any of the box in standing poison or a flow that is up */
@@ -291,17 +363,34 @@ static void sd_hurt(float dmg, int el, float from_x) {
     G.hp = 0; SD.dying = 1; SD.die_t = 0.0f; SD.vx *= 0.4f;
     sd_death_sfx(0);
 }
+/* a slope met at the box's leading edge (2k): a floor too steep to walk onto (more than forty-five degrees over half the box), or met in
+ * the air well above the feet; a hanging slope at the head's height. Stopped, the step is undone; in the air, a roof only just met
+ * pushes the head down instead */
+static void sd_cut_block_x(float dx) {
+    float h = sd_box_h(), xe = SD.x + (dx > 0.0f ? SD_HW - 0.01f : -SD_HW), s;
+    int hit = 0;
+    if (sd_cut_at(sd_floor_px(xe), sd_floor_px(SD.y - 0.5f)) || sd_cut_at(sd_floor_px(xe), sd_floor_px(SD.y - h * 0.5f)) || sd_cut_at(sd_floor_px(xe), sd_floor_px(SD.y - h + 0.5f)))
+        if (sd_floor_surf(xe, SD.y - h, SD.y - 0.01f, &s) && s < SD.y - (SD.ground ? SD_HW + 1.5f : 4.0f)) hit = 1;
+    if (!hit && sd_roof_surf(xe, SD.y - h - SD_TILE, SD.y - 1.0f, &s) && s > SD.y - h && sd_cut_at(sd_floor_px(xe), sd_floor_px(s - 0.01f))) {
+        if (!SD.ground && s - (SD.y - h) < 3.0f) SD.y = s + h; else hit = 1;
+    }
+    if (hit) { SD.x -= dx; SD.vx = 0.0f; }
+}
 static void sd_move_x(float dx) {
     float h = sd_box_h();
     SD.x += dx;
     int r0 = sd_floor_px(SD.y - h), r1 = sd_floor_px(SD.y - 0.5f);
+    int step = SD.ground && SD.on_cut;                             /* on a slope: the stone at its top is walked onto, not into (2k) */
+    #define SD_STEPPED(c, r) (step && (r) == r1 && (float)((r) * SD_TILE) >= SD.y - (SD_HW + 1.5f))
     if (dx > 0.0f) {
         int c = sd_floor_px(SD.x + SD_HW - 0.01f);
-        for (int r = r0; r <= r1; r++) if (sd_solid(c, r)) { SD.x = (float)(c * SD_TILE) - SD_HW; SD.vx = 0.0f; break; }
+        for (int r = r0; r <= r1; r++) if (sd_solid_open(c, r) && !SD_STEPPED(c, r)) { SD.x = (float)(c * SD_TILE) - SD_HW; SD.vx = 0.0f; break; }
     } else if (dx < 0.0f) {
         int c = sd_floor_px(SD.x - SD_HW);
-        for (int r = r0; r <= r1; r++) if (sd_solid(c, r)) { SD.x = (float)((c + 1) * SD_TILE) + SD_HW; SD.vx = 0.0f; break; }
+        for (int r = r0; r <= r1; r++) if (sd_solid_open(c, r) && !SD_STEPPED(c, r)) { SD.x = (float)((c + 1) * SD_TILE) + SD_HW; SD.vx = 0.0f; break; }
     }
+    #undef SD_STEPPED
+    if (dx != 0.0f && SD.L->ncut) sd_cut_block_x(dx);
     if (dx != 0.0f && KB.n) sd_kit_block_x(dx);                    /* a press's head, a sarcophagus (pushed) */
 }
 static void sd_move_y(float dy) {
@@ -313,22 +402,30 @@ static void sd_move_y(float dy) {
         float top = (float)(r * SD_TILE);
         for (int c = c0; c <= c1; c++) {
             int ch = sd_tile(c, r);
-            if (sd_solid(c, r) || (ch == '=' && !SD.drop && prev <= top + 0.5f)) {
-                if (prev <= top + 0.5f || sd_solid(c, r)) { SD.y = top; SD.vy = 0.0f; SD.ground = 1; SD.on_plat = -1; SD.on_body = -1; break; }
+            if (sd_solid_open(c, r) || (ch == '=' && !SD.drop && prev <= top + 0.5f)) {
+                if (prev <= top + 0.5f || sd_solid_open(c, r)) { SD.y = top; SD.vy = 0.0f; SD.ground = 1; SD.on_plat = -1; SD.on_body = -1; break; }
             }
         }
+        float sl;                                                  /* onto a slope, under the middle of the feet (2k) */
+        if (!SD.ground && SD.L->ncut && sd_floor_surf(SD.x, prev - 0.5f, SD.y, &sl)) { SD.y = sl; SD.vy = 0.0f; SD.ground = 1; SD.on_plat = -1; SD.on_body = -1; }
         int pi; float pt;
         if (!SD.ground && sd_on_plat(SD.x, SD.y, prev, &pi, &pt)) { SD.y = pt; SD.vy = 0.0f; SD.ground = 1; SD.on_plat = pi; SD.on_body = -1; }
     } else if (dy < 0.0f) {
         int r = sd_floor_px(SD.y - h);
-        for (int c = c0; c <= c1; c++) if (sd_solid(c, r)) { SD.y = (float)((r + 1) * SD_TILE) + h; SD.vy = 0.0f; break; }
+        for (int c = c0; c <= c1; c++) if (sd_solid_open(c, r)) { SD.y = (float)((r + 1) * SD_TILE) + h; SD.vy = 0.0f; break; }
+        if (SD.L->ncut) for (int k = -1; k <= 1; k++) {            /* a hanging slope overhead (2k) */
+            float rs;
+            if (sd_roof_surf(SD.x + (float)k * (SD_HW - 1.0f), SD.y - h, prev - h + 0.5f, &rs) && rs > SD.y - h) { SD.y = rs + h; SD.vy = 0.0f; }
+        }
     }
     if (KB.n && !SD.ground) sd_kit_block_y(prev, dy);               /* onto a press's head or a sarcophagus, or its foot overhead */
 }
 static int sd_stands(void) {                                       /* something under the feet now */
     int c0 = sd_floor_px(SD.x - SD_HW + 0.01f), c1 = sd_floor_px(SD.x + SD_HW - 0.01f), r = sd_floor_px(SD.y + 0.5f);
     if (fmodf(SD.y, (float)SD_TILE) < 0.6f || fmodf(SD.y, (float)SD_TILE) > SD_TILE - 0.6f)
-        for (int c = c0; c <= c1; c++) if (sd_solid(c, r) || (sd_tile(c, r) == '=' && !SD.drop)) return 1;
+        for (int c = c0; c <= c1; c++) if (sd_solid_open(c, r) || (sd_tile(c, r) == '=' && !SD.drop)) return 1;
+    float sl;
+    if (SD.L->ncut && sd_floor_surf(SD.x, SD.y - 0.6f, SD.y + 0.6f, &sl)) return 1;   /* a slope (2k) */
     if (SD.on_plat >= 0) {
         const SdThing *t = &SD.L->th[SD.on_plat]; const SdPlat *p = &SD.plat[SD.on_plat];
         if (SD.x + SD_HW > p->x && SD.x - SD_HW < p->x + (float)(t->w * SD_TILE) && fabsf(SD.y - p->y) < 1.5f) return 1;
@@ -362,8 +459,14 @@ static void sd_caster(float dt) {
     float top = SD.crouch ? SD_CREEP : in->run ? SD_RUN : SD_WALK;
     if (SD.pois_k > 0.0f) top *= SDT[TU_WADE];                      /* wading in poison */
     if (webbed) top *= SDT[TU_WEB];                                /* caught in a cobweb */
+    float rise = SD.ground && SD.L->ncut ? sd_slope_under(SD.x, SD.y) : 0.0f;   /* a slope (2k): slower up it, quicker down */
+    if (rise != 0.0f && dir) { float g = fminf(fabsf(rise), 1.0f); top *= (float)dir * rise > 0.0f ? 1.0f - SDT[TU_SLOPE_UP] * g : 1.0f + SDT[TU_SLOPE_DOWN] * g; }
     float want = (float)dir * top, acc = SD.ground ? (dir ? SDT[TU_ACCEL] : SDT[TU_BRAKE]) : SDT[TU_AIR];
     if (SD.ground && sd_kit_slate_under()) acc *= SDT[TU_SLATE];    /* wet slate: slow to start and slow to stop */
+    if (fabsf(rise) > 1.5f) { want = (rise > 0.0f ? -1.0f : 1.0f) * SDT[TU_SLIDE] * 2.0f; acc = SDT[TU_ACCEL]; }   /* two in one: it will
+                                                                      not be stood on, whatever is pressed */
+    else if (fabsf(rise) > 0.99f && !dir) { want = (rise > 0.0f ? -1.0f : 1.0f) * SDT[TU_SLIDE]; acc = SDT[TU_BRAKE] * 0.25f; }   /* forty-five:
+                                                                      stood still, it slides */
     if (SD.vx < want) SD.vx = fminf(want, SD.vx + acc * dt); else if (SD.vx > want) SD.vx = fmaxf(want, SD.vx - acc * dt);
     /* the jump: a short grace off an edge, and one pressed just before landing still counts */
     SD.coyote = SD.ground ? SD_COYOTE : SD.coyote - dt;
@@ -381,12 +484,18 @@ static void sd_caster(float dt) {
     if (webbed) SD.vy = clampf(SD.vy, -SD_JUMP * 0.55f, SD_FALL_MAX * SDT[TU_WEB] * 0.5f);   /* (it holds: a weak jump, a slow fall) */
     int was = SD.ground;
     sd_move_x(SD.vx * dt);
+    if (was && SD.L->ncut && SD.on_plat < 0 && SD.on_body < 0 && SD.vy >= 0.0f) {   /* along a slope, up or down it (2k) */
+        float d = fabsf(SD.vx * dt), sl;
+        if (sd_floor_surf(SD.x, SD.y - d * 2.2f - 0.6f, SD.y + d * 2.2f + 1.2f, &sl)) SD.y = sl;
+    }
     SD.ground = 0;
     if (SD.vy != 0.0f || !was) sd_move_y(SD.vy * dt);
     if (!SD.ground && was && SD.vy >= 0.0f) {                      /* walking: still on something? */
         if (sd_stands()) SD.ground = 1; else if (SD.vy == 0.0f) SD.vy = 1.0f;
     }
     if (!SD.ground) { SD.on_plat = -1; SD.on_body = -1; }
+    { float sl; SD.on_cut = SD.ground && SD.L->ncut && (sd_cut_at(sd_floor_px(SD.x), sd_floor_px(SD.y - 0.5f)) || sd_cut_at(sd_floor_px(SD.x), sd_floor_px(SD.y + 0.5f)))
+                && sd_floor_surf(SD.x, SD.y - 0.6f, SD.y + 0.6f, &sl); }
     if (SD.ground && !was && SD.vy == 0.0f) snd_sfx_ex(SFX_STEP, 0.3f, 0.5f);
 }
 
@@ -571,7 +680,7 @@ static void sd_mob_hit(SdMob *m, float dmg, int sp, int el) {
 static int sd_line_clear(float x0, float y0, float x1, float y1) {
     float d = hypotf(x1 - x0, y1 - y0);
     int n = (int)(d / 4.0f) + 1;
-    for (int i = 1; i < n; i++) { float k = (float)i / (float)n; if (sd_solid(sd_floor_px(x0 + (x1 - x0) * k), sd_floor_px(y0 + (y1 - y0) * k))) return 0; }
+    for (int i = 1; i < n; i++) { float k = (float)i / (float)n; if (sd_solid_pt(x0 + (x1 - x0) * k, y0 + (y1 - y0) * k)) return 0; }
     return 1;
 }
 static void sd_mobs(float dt); static void sd_shots(float dt);   /* side_dead.c */
@@ -618,7 +727,7 @@ static void sd_flask_mark(void) {                                  /* where the 
     for (int i = 0; i < 400; i++) {
         float nx = x + vx * 0.01f, ny = y + vy * 0.01f;
         vy += SD_G * 0.01f;
-        if (sd_solid(sd_floor_px(nx), sd_floor_px(ny)) || ny > (float)(SD.L->h * SD_TILE)) break;
+        if (sd_solid_pt(nx, ny) || ny > (float)(SD.L->h * SD_TILE)) break;
         x = nx; y = ny;
     }
     SD.mark_x = x; SD.mark_y = y;
@@ -661,7 +770,7 @@ static void sd_cast(int release) {
     switch (el) {
     case EL_LIGHT: {                                               /* at once, five tiles: the first in the way, and two more near it */
         float reach = sd_reach(el) * SD_TILE, end = hx + (float)SD.face * reach;
-        for (float x = hx; fabsf(x - hx) < reach; x += (float)SD.face * 2.0f) if (sd_solid(sd_floor_px(x), sd_floor_px(hy))) { end = x; break; }
+        for (float x = hx; fabsf(x - hx) < reach; x += (float)SD.face * 2.0f) if (sd_solid_pt(x, hy)) { end = x; break; }
         SdMob *first = NULL;                                       /* the first whose picture the bolt's line crosses */
         float best = 1e9f, fx = end, fy = hy;
         for (int i = 0; i < SD_MOBS; i++) {
@@ -775,6 +884,7 @@ static void sd_build(void) {                                       /* the place 
     const SdLevel *L = SD.L;
     memset(SD.plat, 0, sizeof SD.plat); memset(SD.fall, 0, sizeof SD.fall);
     sd_works_build();
+    sd_cuts_build();                                               /* the slopes (2k) */
     memset(SD.mob, 0, sizeof SD.mob); memset(SD.shot, 0, sizeof SD.shot);
     sd_dead_build();
     sd_verm_build();

@@ -364,6 +364,45 @@ right, mirrored; lives, spell and gold kept; one rank for every spell; the testi
   gallery; `make web` and its smoke test passed; in Chromium, the editor's TESTING dialog, its options reaching the game's page, and
   the passage opened straight in at rank 8. Not played by hand.
 
+### 2k. Slopes (session 12, 28 November 2026)
+
+The owner: "the ability to toggle any solid piece for construction as an angled cut, triangle, so I can create sloped edges of at least
+three grades. There should be an increase to friction when climbing and a reduction when going down." Asked and settled: four grades
+(two in one, 45 degrees, one in two, one in four); floors and hanging roofs; stood still on a 45 degree slope the caster slides; the dead
+and the dream walk them.
+
+- **The text.** `CUT x y l r [CEIL]` after the rows: a stone, brick or slate tile cut to a wedge, `l` and `r` the solid's height at its
+  left and right edges in pixels, held to 0..16 within the tile, so two in one runs past an edge (`0 32` under `-16 16`), and the
+  gentler grades spread over tiles (`0 8`, `8 16`; `0 4` to `12 16`). `CEIL` hangs it from the top. At most 1,024 (`SD_CUTS`); the
+  reader refuses one on open air, heights that cut nothing, two on a tile.
+- **The geometry** (`side.c`): a cut tile is still stone to `sd_solid`, so whatever was not taught slopes meets a block, as before
+  (spiderlings, rats, loose things, the kit's bodies). Taught: `sd_solid_open` (stone uncut), `sd_solid_pt` (stone at a pixel, the
+  wedge as it is; every point test of shots, flasks, lightning, fliers and loose things uses it now), `sd_floor_surf` and
+  `sd_roof_surf` (the first floor or roof over a column in a span, a slope's face or stone's top or underside), `sd_slope_under`.
+- **The caster.** Walking: the feet follow the floor under the middle of the box, up or down, within the step's reach; the leading edge
+  is stopped by a slope steeper than 45 degrees over half the box (so two in one is never walked up), or one met in the air well above
+  the feet; on a slope, the stone at its top is walked onto. Landing finds a slope's face; a jump's head meets a hanging slope at each
+  edge and the middle. Pace: up a slope `1 - slope_up x grade` (0.35 at 45 degrees: 47 pixels a second against 72; one in two 59; one
+  in four 66), down it `1 + slope_down x grade` (0.25: 90, 81, 76). Stood still on 45 degrees it slides down at `slide` (40 pixels a
+  second); on two in one it slides at twice that whatever is pressed. The three are in TUNING.
+- **The dead that walk** follow a slope as the caster does, are stopped as it is, and no longer take a slope falling away, or the floor
+  at a slope's foot, for an edge; their middle counts as standing on a slope. They take it at their own pace.
+- **The dream**: a floor cut of 45 degrees or gentler with room over it is a tile to stand in; beside it is a step, and off its high side
+  a walk up or down; it walks those, never leaps them. Two in one is stone to it, so it jumps it.
+- **Drawn**: the tile's stone only within the wedge, the stone's top (its moss and dust) laid along a floor's face, a hanging one's
+  underside in shadow, the back wall behind what is cut away. **The World Editor**: SLOPES among the tools, a button a grade and UNCUT;
+  *Rising leftward* and *Hanging from a roof* beside them. A click on stone cuts it with the grade's first piece, again its next, after
+  its last whole again; a drag lays the pieces in turn. Drawn over the tiles with the face a pale line; painting a tile open takes its
+  cut away; the checks refuse a cut left on open air.
+- Tested, harness only: `tools/mapedit/fixtures/side_slopes.txt` (every grade, a hanging roof each end sloped, a two in one face with
+  45 degrees down its far side). A scripted person walked it all at the paces above; stood still on 45 degrees and slid to the foot;
+  turned back at the foot of the two in one; jumped onto its face and slid off it, or over it onto its top; under the hanging roof its
+  head stopped at the slope's height at each point. A skeleton on the one in two hill walked its round down both slopes and back. The
+  dream crossed it to the goal, walking the slopes tile by tile and jumping the two in one. The dream's logs where there are no slopes,
+  seed 1 1,500 s and passages 4, 1 and 6 240 s each, line for line the build before's. `make asan` clean on the dream in it and the
+  scripted person. The editor in Chromium: the passage drawn, a one in four ramp laid by a drag, written as `CUT 4 12 0 4` to `12 16`.
+  Not done: spiderlings and rats keep to tiles (a cut is stone to them); loose things and the kit's bodies the same.
+
 ## 3. Steps
 
 | Step | What | State |
@@ -655,3 +694,5 @@ Not played by hand; nothing under Wine. Open: the owner's play and their word on
 **Session 11 (28 November 2026).** The passage's own panels in place of the crypt's bar, floating and a third smaller, and the World
 Editor's testing options for PLAY: section 2j has it all. The World Editor republished (version 14). Not played by hand; nothing under
 Wine; CI alone will compile the Windows build (`app_take_control` is new in the shared core).
+
+**Session 12 (28 November 2026).** Slopes: section 2k. The World Editor republished (version 15). Not played by hand; nothing under Wine.

@@ -48,6 +48,38 @@ static void sd_blob(Frame *f, float wx, float wy, float r, int ramp, int top) {
         if (d <= r) sd_px(f, cx + x, cy + y, ramp_at(ramp, top - (int)(d / r * 6.0f)), 24);
     }
 }
+/* a slope's tile (2k): its stone only within the wedge. A floor's face carries the stone's top, its moss and dust, along the slope; a
+ * hanging one's underside is shadowed. The back wall behind what is cut away, as its open neighbours have it */
+static int sd_back_tile(int tx, int ty);
+static int sd_cut_back(int tx, int ty) {
+    static const int D[4][2] = { { -1, 0 }, { 1, 0 }, { 0, -1 }, { 0, 1 } };
+    for (int k = 0; k < 4; k++) {
+        int c = sd_tile(tx + D[k][0], ty + D[k][1]);
+        if (c == ',') { uint32_t h = (uint32_t)tx * 73856093u ^ (uint32_t)ty * 19349663u; return (h & 1) ? ST_BACK1 : ST_BACK0; }
+    }
+    return -1;
+}
+static void sd_draw_cut(Frame *f, const SdCut *cu, int ch, int tx, int ty, int sx, int sy) {
+    static uint8_t mt[STS * STS];
+    uint32_t hh = (uint32_t)(tx * 2654435761u) ^ (uint32_t)(ty * 40503u);
+    int top = ch == '%' ? ST_BRICK_TOP : ch == 'S' ? ST_SLATE_TOP : ST_STONE_TOP;
+    int body = ch == '%' ? ST_BRICK : ch == 'S' ? ST_SLATE : ST_STONE0 + (int)(hh % 3);
+    const uint8_t *tt = side_tile[top], *tb = side_tile[cu->ceil ? (sd_solid_ch(sd_tile(tx, ty - 1)) ? body : top) : body];
+    memset(mt, C_CLEAR, sizeof mt);
+    for (int x = 0; x < STS; x++) {
+        float h = sd_cut_h(cu, (float)x + 0.5f);
+        int n = (int)lroundf(h);
+        if (n <= 0) continue;
+        if (!cu->ceil) {
+            int v0 = STS - n;
+            for (int v = v0; v < STS; v++) mt[v * STS + x] = v - v0 < 3 ? tt[(v - v0) * STS + x] : tb[v * STS + x];
+        } else {
+            for (int v = 0; v < n && v < STS; v++) mt[v * STS + x] = tb[v * STS + x];
+            if (n < STS) mt[(n - 1) * STS + x] = (uint8_t)(R_STONE + 2);   /* its underside, in shadow */
+        }
+    }
+    sd_draw_tile(f, mt, sx, sy, 17, 1.0f, 0);
+}
 static int sd_back_tile(int tx, int ty) {                          /* what shows behind a tile that isn't stone */
     int l = sd_tile(tx - 1, ty), r = sd_tile(tx + 1, ty), c = sd_tile(tx, ty);
     if (c == '.') return -1;
@@ -614,8 +646,8 @@ static void sd_render(Frame *f) {
     /* the back wall, and behind the doorways */
     for (int ty = ty0; ty <= ty1; ty++)
         for (int tx = tx0; tx <= tx1; tx++) {
-            if (sd_solid_ch(sd_tile(tx, ty))) continue;
-            int b = sd_back_tile(tx, ty);
+            if (sd_solid_ch(sd_tile(tx, ty)) && !sd_cut_at(tx, ty)) continue;
+            int b = sd_cut_at(tx, ty) ? sd_cut_back(tx, ty) : sd_back_tile(tx, ty);
             if (b >= 0) sd_draw_tile(f, side_tile[b], tx * SD_TILE - camx, ty * SD_TILE - camy, 8, 0.7f, 0);
         }
     /* what stands on the back wall: doorways, torches, levers */
@@ -652,6 +684,8 @@ static void sd_render(Frame *f) {
         for (int tx = tx0; tx <= tx1; tx++) {
             int ch = sd_tile(tx, ty), t = -1;
             uint32_t h = (uint32_t)(tx * 2654435761u) ^ (uint32_t)(ty * 40503u);
+            const SdCut *cu = sd_cut_at(tx, ty);
+            if (cu) { sd_draw_cut(f, cu, ch, tx, ty, tx * SD_TILE - camx, ty * SD_TILE - camy); continue; }   /* a slope (2k) */
             switch (ch) {
             case '#': t = !sd_solid_ch(sd_tile(tx, ty - 1)) ? ST_STONE_TOP : ST_STONE0 + (int)(h % 3); break;
             case '%': t = !sd_solid_ch(sd_tile(tx, ty - 1)) ? ST_BRICK_TOP : ST_BRICK; break;

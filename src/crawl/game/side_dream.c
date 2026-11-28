@@ -44,7 +44,22 @@ static float sdd_plat_wait(int tx, int ty) {                      /* how long th
     }
     return 0.0f;
 }
+/* slopes (2k): a floor cut no steeper than forty-five degrees, room over it, is a tile to stand in; beside it a step, and from its high
+ * side a walk up or down onto what is there. A steeper one (two in one) is stone to the dream, as it will not be stood on */
+static int sdd_cut_walk(int tx, int ty) {
+    const SdCut *c = sd_cut_at(tx, ty);
+    return c && !c->ceil && abs(c->r - c->l) <= SD_TILE && !sd_solid(tx, ty - 1);
+}
+static int sdd_cut_side(int tx, int ty, int s) { const SdCut *c = sd_cut_at(tx, ty); return c ? (s > 0 ? c->r : c->l) : 0; }
+static int sdd_slope_link(int ax, int ay, int bx, int by) {
+    int dx = bx - ax, dy = by - ay;
+    if (!SD.L->ncut || abs(dx) != 1 || abs(dy) > 1) return 0;
+    if (dy == 0) return sdd_cut_walk(ax, ay) || sdd_cut_walk(bx, by);
+    if (dy < 0) return sdd_cut_walk(ax, ay) && sdd_cut_side(ax, ay, dx) >= SD_TILE;
+    return sdd_cut_walk(bx, by) && sdd_cut_side(bx, by, -dx) >= SD_TILE;
+}
 static int sdd_room(int tx, int ty) {                              /* 2 room to stand, 1 to creep, 0 none */
+    if (SD.L->ncut && sdd_cut_walk(tx, ty)) return 2;
     if (sd_solid(tx, ty) || sd_tile(tx, ty) == '~' || sd_tile(tx, ty) == '^') return 0;
     return SD_HT <= (float)SD_TILE || !sd_solid(tx, ty - 1) ? 2 : 1;   /* a tile's height is room to stand, since the figure was halved */
 }
@@ -59,6 +74,9 @@ static int sdd_trap_at(int tx, int ty) {                          /* a trap warn
 static int sdd_stand(int tx, int ty) {
     if (tx < 0 || ty < 1 || tx >= SD.L->w || ty >= SD.L->h - 0) return 0;
     if (!sdd_room(tx, ty)) return 0;
+    if (SD.L->ncut && sdd_cut_walk(tx, ty)) return !sdd_hazard_floor(tx, ty) && !sdd_trap_at(tx, ty);   /* in a slope (2k) */
+    if (SD.L->ncut) { const SdCut *c = sd_cut_at(tx, ty + 1); if (c && !c->ceil && sd_cut_h(c, 8.0f) < (float)SD_TILE) return 0; }   /* over
+                                                                      one: the slope is where it stands */
     int b = sd_tile(tx, ty + 1);
     if (sd_solid(tx, ty + 1) || b == '=' || sdd_plat_under(tx, ty)) return !sdd_hazard_floor(tx, ty) && !sdd_trap_at(tx, ty);
     return 0;
@@ -77,6 +95,7 @@ static int sdd_across(int up) {
 /* can it get from a to b with one move? a rough test of the arc's room */
 static int sdd_link(int ax, int ay, int bx, int by) {
     int dx = bx - ax, dy = by - ay, adx = abs(dx), s = dx > 0 ? 1 : dx < 0 ? -1 : 0;
+    if (sdd_slope_link(ax, ay, bx, by)) return 1;                  /* along a slope (2k) */
     if (adx == 1 && dy == 0) return sdd_room(ax, ay) && sdd_room(bx, by);   /* a step, creeping if it must */
     if (sdd_room(ax, ay) < 2) return 0;                             /* every other move stands up */
     if (dy < 0) {                                                  /* up: three at most, across four (less, by the passage's tuning) */
@@ -123,6 +142,7 @@ static void sdd_plan(void) {
     static int q[SDD_NODES];
     for (int i = 0; i < SDD_NODES; i++) SDD.from[i] = -2;
     int sx = sd_floor_px(SD.x), sy = sd_floor_px(SD.y - 1.0f);
+    if (!sdd_stand(sx, sy) && SD.L->ncut && sdd_cut_walk(sx, sy + 1)) sy++;   /* at a slope's top edge: in it (2k) */
     if (!sdd_stand(sx, sy)) { SDD.npath = 0; return; }
     int gx = L->th[SDD.goal].x, gy = L->th[SDD.goal].y, start = sdd_node(sx, sy), goal = sdd_node(gx, gy);
     int qh = 0, qt = 0;
@@ -289,6 +309,7 @@ static void sd_dream(float dt) {
         if (SD.ground) { sdd_plan(); SDD.plan_t = 0.25f; }
     }
     int cx = sd_floor_px(SD.x), cy = sd_floor_px(SD.y - 1.0f);
+    if (!sdd_stand(cx, cy) && SD.L->ncut && sdd_cut_walk(cx, cy + 1)) cy++;   /* at a slope's top edge: in it (2k) */
     if (SD.ground && !sdd_stand(cx, cy) && SD.on_plat < 0) {       /* somewhere it shouldn't be (the poison): out, to the nearest place to stand */
         int bx = -1, by = -1, bd = 99;
         for (int y = cy - 4; y <= cy + 1; y++) for (int x = cx - 6; x <= cx + 6; x++) if (sdd_stand(x, y) && abs(x - cx) + abs(y - cy) < bd) { bd = abs(x - cx) + abs(y - cy); bx = x; by = y; }
@@ -340,7 +361,7 @@ static void sd_dream(float dt) {
         if (SDD.stuck_t > 3.0f) { SDD.stuck_t = 0.0f; SDD.plan_t = 0.0f; }
         return;
     }
-    int need_jump = ddy < 0 || (ddy == 0 && abs(ddx) >= 2);
+    int need_jump = (ddy < 0 || (ddy == 0 && abs(ddx) >= 2)) && !sdd_slope_link(cx, cy, nx, ny);   /* (a slope is walked) */
     if (need_jump) {
         float edge = (float)(cx * SD_TILE) + (ddx > 0 ? (float)SD_TILE - SD_HW - 0.5f : ddx < 0 ? SD_HW + 0.5f : 8.0f);   /* take off from the edge toward it */
         if ((ddx > 0 && SD.x < edge) || (ddx < 0 && SD.x > edge)) { in->left = ddx < 0; in->right = ddx > 0; in->run = abs(ddx) >= 3; return; }

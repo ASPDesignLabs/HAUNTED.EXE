@@ -301,6 +301,27 @@ DATA.hazards.fixed.flat().concat(DATA.hazards.arise.flat(), DATA.hazards.sapper)
     });
     console.log('side passages: small things that move read back; the crab\'s way checked');
 }
+/* slopes (docs/PLAN-side.md, 2k): every grade, floor and hanging, read and written back; the pieces each grade lays; the reader refusing
+ * a cut on open air, heights that cut nothing, two on one tile; a cut left on a tile painted over refused by the checks */
+{
+    const SC = require('./side.js'), ids = DATA.kinds.map(k => k.id);
+    const txt = fs.readFileSync(path.join(__dirname, 'fixtures', 'side_slopes.txt'), 'utf8'), r = SC.parse(txt, ids);
+    if (r.error) fail(`side_slopes: line ${r.line}: ${r.error}`);
+    else {
+        if (SC.exportText(r.map) !== txt) fail('side_slopes does not read back letter for letter');
+        const cs = SC.check(r.map).filter(c => c.sev === 'error'); if (cs.length) fail('side_slopes: ' + cs[0].msg);
+        if (r.map.cuts.length !== 24 || r.map.cuts.filter(c => c.ceil).length !== 4) fail(`side_slopes: ${r.map.cuts.length} cuts read, ${r.map.cuts.filter(c => c.ceil).length} hanging`);
+        const over = JSON.parse(JSON.stringify(r.map)); const c0 = over.cuts[0]; over.grid[c0.y * over.w + c0.x] = ',';
+        if (!SC.check(over).some(c => c.sev === 'error' && /no longer stone/.test(c.msg))) fail('a cut left on open air should be refused');
+    }
+    const segs = ['G2', 'G45', 'G12', 'G14'].map(g => JSON.stringify(SC.gradeSegs(g, false)) + JSON.stringify(SC.gradeSegs(g, true))).join(' ');
+    if (segs !== '[[0,32],[-16,16]][[32,0],[16,-16]] [[0,16]][[16,0]] [[0,8],[8,16]][[16,8],[8,0]] [[0,4],[4,8],[8,12],[12,16]][[16,12],[12,8],[8,4],[4,0]]') fail('the grades\' pieces: ' + segs);
+    const head = 'SIDE 1\nNAME "X"\nSIZE 20 10\n' + Array.from({ length: 10 }, (_, y) => `ROW "${(y === 0 || y >= 8 ? '#' : '#' + ','.repeat(18) + '#').padEnd(20, '#')}"`).join('\n') + '\nDOOR 1 7 0\n';
+    [['CUT 4 4 0 16', /not stone/], ['CUT 4 8 8 8', /not equal/], ['CUT 4 8 0 16\nCUT 4 8 0 8', /two cuts/], ['CUT 4 8 -4 0', /not equal|leave something/]].forEach(([l, re]) => {
+        const q = SC.parse(head + l + '\n', ids); if (!q.error || !re.test(q.error)) fail(`"${l}" should be refused: ${q.error || 'it was read'}`);
+    });
+    console.log(`side passages: slopes read back (${r.map ? r.map.cuts.length : 0} cut tiles); the grades' pieces; the reader's refusals`);
+}
 /* run I's traps in a passage (docs/PLAN-side.md, 2e): the fixture read and written back; every emitter option; the censer's clearance;
  * the PREVIEW's run: wax settling, the bowl swinging, the haze kept to its reach */
 {

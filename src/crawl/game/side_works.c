@@ -48,7 +48,7 @@ static void sd_items(float dt) {
             *vx *= expf(-dt * 3.0f);
         }
         float nx = *x + *vx * dt;
-        if (sd_solid(sd_floor_px(nx + (*vx > 0.0f ? 5.0f : -5.0f)), sd_floor_px(*y))) *vx = 0.0f; else *x = nx;
+        if (sd_solid_pt(nx + (*vx > 0.0f ? 5.0f : -5.0f), *y)) *vx = 0.0f; else *x = nx;
         float ny = *y + *vy * dt;
         if (*vy > 0.0f) {                                          /* landing: stone, a ledge, a shut gate, a platform */
             int ty = sd_floor_px(ny + 5.0f), tx = sd_floor_px(*x);
@@ -63,7 +63,7 @@ static void sd_items(float dt) {
                 }
                 if (!on) *y = ny;
             }
-        } else if (*vy < 0.0f) { if (sd_solid(sd_floor_px(*x), sd_floor_px(ny - 5.0f))) *vy = 0.0f; else *y = ny; }
+        } else if (*vy < 0.0f) { if (sd_solid_pt(*x, ny - 5.0f)) *vy = 0.0f; else *y = ny; }
         if (*y > (float)(L->h * SD_TILE + 64)) { *y = (float)(L->h * SD_TILE + 64); *vy = 0.0f; }   /* gone down the drop */
     }
 }

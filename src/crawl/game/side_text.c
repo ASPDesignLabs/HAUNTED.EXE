@@ -14,6 +14,12 @@ enum { SDT_DOOR, SDT_PLAT, SDT_FALL, SDT_FLOW, SDT_MOB, SDT_GOLD, SDT_KEY, SDT_L
  * own 4) and GOLD IT_* (what a coin crab leaves; f1, 0 coins); after a coin crab's MOB line, CPATH x y, the cells of its way in order,
  * the last the place it runs to (w the first in cpc, h how many) */
 #define SD_CPC 512
+/* slopes (docs/PLAN-side.md, 2k, the owner's, 28 November): CUT x y l r [CEIL] cuts a stone, brick or slate tile to a wedge. l and r are
+ * the solid's height at the tile's left and right edges in pixels, held to 0..16 within it, so a grade of two in one runs past a tile's
+ * edge (0 32, then -16 16) and a gentle one is spread over tiles (0 4, 4 8, 8 12, 12 16). Floors rise from the tile's foot; CEIL hangs
+ * from its top. What the cut leaves open is the dark behind */
+#define SD_CUTS 1024
+typedef struct { uint8_t x, y; int8_t l, r; uint8_t ceil; } SdCut;
 /* The builder's kit (the owner, 27 November; side_kit.c), with the letters S (wet slate: a floor slow to start on and slow to stop)
  * and W (cobweb: slows the caster and what flies through it; fire burns it away for the visit).
  * CHAIN x y h: a chain hanging h tiles from (x, y), climbed with up and down, jumped from; OFF: hauled up till a trigger drops it.
@@ -70,7 +76,7 @@ enum { TU_WALK, TU_RUN, TU_CREEP, TU_ACCEL, TU_BRAKE, TU_AIR, TU_JUMP, TU_GRAV_H
        TU_FLASK_NEAR, TU_FLASK_FAR, TU_FLASK_LIFT, TU_FLASK_HOLD, TU_DEAD_PACE, TU_DEAD_SIGHT, TU_CAM_LEAD,
        TU_CAST_EVERY, TU_FLASK_AIM, TU_JUMP_SND, TU_DEATH_SND,
        TU_BONE_TIME, TU_BONE_GRAV, TU_BONE_AIM, TU_DEAD_WIND, TU_DEAD_MEMORY, TU_DEAD_SHOT,
-       TU_CLIMB, TU_SPRING, TU_SLATE, TU_WEB, TU_PRESS, NTU };     /* the kit's (27 November) */   /* CAST_EVERY and FLASK_AIM: 26 November, the owner's (fire rate doubled; the flask aimed while held); the last six
+       TU_CLIMB, TU_SPRING, TU_SLATE, TU_WEB, TU_PRESS, TU_SLOPE_UP, TU_SLOPE_DOWN, TU_SLIDE, NTU };     /* the kit's (27 November) */   /* CAST_EVERY and FLASK_AIM: 26 November, the owner's (fire rate doubled; the flask aimed while held); the last six
                                                                the dead's (2h) */
 static const struct { const char *name; float def, lo, hi, step; const char *what; } TUNE[NTU] = {
     { "walk", 72.0f, 20.0f, 200.0f, 1.0f, "walking pace, pixels a second" },
@@ -124,11 +130,15 @@ static const struct { const char *name; float def, lo, hi, step; const char *wha
     { "slate", 0.15f, 0.02f, 1.0f, 0.01f, "the grip on wet slate, of the floor's (less: slower to start and to stop)" },
     { "web", 0.35f, 0.05f, 1.0f, 0.01f, "pace kept in a cobweb, and what flies through it" },
     { "press", 0.5f, 0.0f, 1.0f, 0.01f, "a press coming down takes this share of health (and, with no room to be thrown clear, all of it)" },
+    { "slope_up", 0.35f, 0.0f, 0.9f, 0.01f, "pace lost walking up a slope, at forty-five degrees (gentler slopes lose less)" },
+    { "slope_down", 0.25f, 0.0f, 1.0f, 0.01f, "pace gained walking down a slope, at forty-five degrees (gentler slopes gain less)" },
+    { "slide", 40.0f, 0.0f, 200.0f, 1.0f, "sliding down a slope of forty-five degrees stood still, pixels a second (twice it on two in one)" },
 };
+_Static_assert(NTU <= 64, "the tuned bits fit");
 static int sd_tune_of(const char *name) { for (int k = 0; k < NTU; k++) if (!strcmp(TUNE[k].name, name)) return k; return -1; }
 typedef struct { char name[40]; int w, h; uint8_t t[SD_H][SD_W]; SdThing th[SD_THINGS]; int nth; float tune[NTU]; uint64_t tuned;
                  SdHaz hz[SD_HAZ]; int nhz; int16_t hzc[SD_HZC][2]; int nhzc; SdTrig tr[SD_TRIGS]; int ntr;
-                 int16_t cpc[SD_CPC][2]; int ncpc; } SdLevel;          /* cpc: the coin crabs' ways (CPATH) */
+                 int16_t cpc[SD_CPC][2]; int ncpc; SdCut cut[SD_CUTS]; int ncut; } SdLevel;   /* cpc: the coin crabs' ways (CPATH); cut: slopes */
 /* the crypt's traps in side view: each kind in the shape of its own (docs/PLAN-side.md, 2d) */
 static int sd_haz_family(int k) {
     switch (k) {
@@ -221,6 +231,17 @@ static int sd_read(const char *text, SdLevel *L, char *err, int nerr) {
             if (n < 3 || iv[1] < 0 || iv[2] < 0 || iv[1] >= L->w || iv[2] >= L->h) SDBAD("HZC wants a cell in the map");
             L->hzc[L->nhzc][0] = (int16_t)iv[1]; L->hzc[L->nhzc][1] = (int16_t)iv[2];
             L->nhzc++; L->hz[L->nhz - 1].nc++;
+            continue;
+        }
+        if (!strcmp(op, "CUT")) {                                   /* CUT x y l r [CEIL]: a slope cut in a stone tile (2k) */
+            if (L->ncut >= SD_CUTS) SDBAD("more than %d cut tiles", SD_CUTS);
+            if (n < 5 || iv[1] < 0 || iv[2] < 0 || iv[1] >= L->w || iv[2] >= L->h) SDBAD("CUT wants a tile in the map and its two heights");
+            if (!sd_solid_ch(L->t[iv[2]][iv[1]])) SDBAD("CUT on a tile that is not stone, brick or slate");
+            if (iv[3] < -48 || iv[3] > 64 || iv[4] < -48 || iv[4] > 64 || iv[3] == iv[4] || (iv[3] <= 0 && iv[4] <= 0) || (iv[3] >= 16 && iv[4] >= 16))
+                SDBAD("a cut's heights are -48 to 64, not equal, and leave something of the tile both cut and standing");
+            for (int k = 0; k < L->ncut; k++) if (L->cut[k].x == iv[1] && L->cut[k].y == iv[2]) SDBAD("two cuts on one tile");
+            L->cut[L->ncut] = (SdCut){ (uint8_t)iv[1], (uint8_t)iv[2], (int8_t)iv[3], (int8_t)iv[4], (uint8_t)(n > 5 && !strcmp(w[5], "CEIL")) };
+            L->ncut++;
             continue;
         }
         if (!strcmp(op, "CPATH")) {                                 /* a cell of the last coin crab's way, in order */

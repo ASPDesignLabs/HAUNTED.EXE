@@ -124,6 +124,8 @@ function build() {
       <details open><summary>TILES</summary><div class="tools" id="sdTiles" style="margin-top:6px"></div></details>
       <details open><summary>WAYS AND HAZARDS</summary><div class="tools" id="sdWays" style="margin-top:6px"></div></details>
       <details open><summary>THINGS</summary><div class="tools" id="sdThings" style="margin-top:6px"></div></details>
+      <details open><summary>SLOPES</summary><div class="tools" id="sdSlopes" style="margin-top:6px"></div>
+        <div class="row" style="margin-top:4px"><label><input type="checkbox" id="sdSlLeft"> Rising leftward</label><label><input type="checkbox" id="sdSlCeil"> Hanging from a roof</label></div></details>
       <details open><summary>SMALL THINGS THAT MOVE</summary><div class="tools" id="sdSmall" style="margin-top:6px"></div></details>
       <details open><summary>GATES, PLATES, WATER</summary><div class="tools" id="sdWorks" style="margin-top:6px"></div></details>
       <details open><summary>THE BUILDER'S KIT</summary><div class="tools" id="sdKit" style="margin-top:6px"></div></details>
@@ -181,6 +183,9 @@ function build() {
   tb('sdWorks', 'Unseen zone', ICON.zone, { kind: 'thing', p: 'zone' }, 'A box never seen: pressed while the caster is in it. Bind it in TRIGGERS.');
   tb('sdWorks', 'Water', ICON.current, { kind: 'thing', p: 'current' }, 'Water running through a box: it carries what is loose and pushes the caster. Its way is in CHOSEN.');
   tb('sdWorks', 'Poisoned water', ICON.pcurrent, { kind: 'thing', p: 'pcurrent' }, 'The same, and it bites.');
+  Object.keys(SC.GRADES).forEach(g => { const G = SC.GRADES[g];   /* slopes (2k) */
+    tb('sdSlopes', G.name, slopeIcon(g), { kind: 'slope', g }, `${G.name}: ${G.says} Click stone, brick or slate to cut it; click it again for the grade's next piece, and after its last, uncut. Drag left to right to lay a ramp piece by piece.`); });
+  tb('sdSlopes', 'Uncut', ICON.erase, { kind: 'slope', g: null }, 'Click a cut tile to make it whole again.');
   tb('sdSmall', 'Rat', ICON.rat, { kind: 'thing', p: 'rat' }, 'Vermin: runs its floor back and forth, turning at walls, edges and spikes; bites as it passes (a nudge). One spell kills it. Not a creature: no record, nothing kept.');
   tb('sdSmall', 'Spiderling', ICON.ling, { kind: 'thing', p: 'ling' }, 'Vermin: follows the stone round every corner, floor, wall and ceiling; on a ceiling it drops on the caster passing under. Place it on any face of stone.');
   tb('sdSmall', 'Skull hopper', ICON.hopper, { kind: 'thing', p: 'hopper' }, 'A loose skull bounding in arcs either side of where it is set (its span), turning at walls and edges. A creature: its page, its souls.');
@@ -237,6 +242,16 @@ function draw() {
   if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; cv.style.width = W + 'px'; cv.style.height = H + 'px'; }
   g.imageSmoothingEnabled = false;
   for (let y = 0; y < m.h; y++) for (let x = 0; x < m.w; x++) g.drawImage(TILE[m.grid[y * m.w + x]] || TILE['.'], x * z, y * z, z, z);
+  (m.cuts || []).forEach(c => {                    /* slopes (2k): what is cut away shows the back wall; the face a pale line */
+    if (!SC.SOLID.has(m.grid[c.y * m.w + c.x])) return;
+    for (let u = 0; u < 16; u++) {
+      const h = Math.max(0, Math.min(16, c.l + (c.r - c.l) * (u + 0.5) / 16)), o0 = c.ceil ? h : 0, o1 = c.ceil ? 16 : 16 - h;
+      if (o1 > o0) g.drawImage(TILE[','], u, o0, 1, o1 - o0, c.x * z + u * z / 16, c.y * z + o0 * z / 16, z / 16 + 0.5, (o1 - o0) * z / 16);
+    }
+    g.strokeStyle = c.ceil ? '#2b2830' : '#9fd06a'; g.lineWidth = Math.max(1, z / 12); g.beginPath();
+    for (let u = 0; u <= 16; u += 1) { const h = Math.max(0, Math.min(16, c.l + (c.r - c.l) * u / 16)), yy = c.ceil ? h : 16 - h; if (u === 0) g.moveTo(c.x * z, c.y * z + yy * z / 16); else g.lineTo(c.x * z + u * z / 16, c.y * z + yy * z / 16); }
+    g.stroke();
+  });
   if (T.grid && z >= 12) {
     g.strokeStyle = 'rgba(216,208,189,0.08)'; g.lineWidth = 1; g.beginPath();
     for (let x = 0; x <= m.w; x++) { g.moveTo(x * z + 0.5, 0); g.lineTo(x * z + 0.5, H); }
@@ -370,7 +385,30 @@ function hit(x, y) {                               /* the thing on top at a tile
   return null;
 }
 const selected = () => T.sel == null ? null : T.map.things.find(t => t.id === T.sel) || null;
-function paint(x, y) { if (inMap(x, y)) T.map.grid[y * T.map.w + x] = T.tool.ch; }
+function paint(x, y) {
+  if (!inMap(x, y)) return;
+  T.map.grid[y * T.map.w + x] = T.tool.ch;
+  if (!SC.SOLID.has(T.tool.ch) && T.map.cuts) T.map.cuts = T.map.cuts.filter(c => c.x !== x || c.y !== y);   /* no longer stone: no cut (2k) */
+}
+/* slopes (2k): the tool's grade, its way and whether it hangs; a click cuts, again takes the next piece, after the last uncuts; a drag
+ * lays the pieces in turn over the tiles it crosses */
+function slopeIcon(g) {                           /* the grade's profile, rising rightward */
+  const P = { G2: [[5, 16], [12, 0], [16, 0]], G45: [[0, 16], [16, 0]], G12: [[0, 16], [16, 8]], G14: [[0, 16], [16, 12]] }[g] || [[0, 16], [16, 0]];
+  return icon(x => { x.fillStyle = '#8a8394'; x.beginPath(); x.moveTo(P[0][0], 16); P.forEach(([a, b]) => x.lineTo(a, b)); x.lineTo(16, 16); x.closePath(); x.fill();
+    x.strokeStyle = '#9fd06a'; x.beginPath(); x.moveTo(P[0][0], P[0][1]); P.forEach(([a, b]) => x.lineTo(a, b)); x.stroke(); });
+}
+function slopeAt(x, y) { return (T.map.cuts || []).find(c => c.x === x && c.y === y); }
+function slopeSet(x, y, cont) {
+  if (!inMap(x, y)) return;
+  const tl = T.tool, m = T.map;
+  m.cuts = (m.cuts || []).filter(c => c.x !== x || c.y !== y);
+  if (!tl.g) return;
+  if (!SC.SOLID.has(m.grid[y * m.w + x])) { E.toast('A SLOPE IS CUT FROM STONE, BRICK OR SLATE'); return; }
+  const segs = SC.gradeSegs(tl.g, $('sdSlLeft').checked), ceil = $('sdSlCeil').checked;
+  const k = cont != null ? cont : 0;
+  if (k >= segs.length) return;                                   /* (past its last piece: left whole) */
+  m.cuts.push({ x, y, l: segs[k][0], r: segs[k][1], ceil, g: tl.g, k });
+}
 function down(e) {
   if (e.button !== 0 || !T.map) return;
   cv.setPointerCapture(e.pointerId);
@@ -380,6 +418,12 @@ function down(e) {
   if (tl.kind === 'tile') {
     if (e.shiftKey) { T.drag = { rect: { x0: x, y0: y, x1: x, y1: y } }; draw(); return; }
     T.drag = { paint: true, before: snap() }; paint(x, y); draw(); return;
+  }
+  if (tl.kind === 'slope') {                       /* a slope (2k): a fresh piece, or the next on a tile cut already in this grade */
+    const was = slopeAt(x, y), next = was && was.g === tl.g && tl.g ? was.k + 1 : 0;
+    change(() => slopeSet(x, y, next));
+    T.drag = { slope: true, last: [x, y], k: next };
+    return;
   }
   if (tl.kind === 'erase') { const t = hit(x, y); if (t) change(() => { T.map.things = T.map.things.filter(o => o !== t); if (T.sel === t.id) T.sel = null; }); return; }
   if (tl.kind === 'paint') {                       /* a trap's cells: each click adds one in order, or takes it off */
@@ -424,6 +468,11 @@ function move(e) {
   $('sLane').textContent = '-';
   const d = T.drag;
   if (d && d.paint && inMap(x, y)) paint(x, y);
+  if (d && d.slope && inMap(x, y) && (x !== d.last[0] || y !== d.last[1]) && T.tool.g) {   /* the ramp's next piece */
+    const segs = SC.gradeSegs(T.tool.g, $('sdSlLeft').checked);
+    d.k = (d.k + 1) % segs.length; d.last = [x, y];
+    change(() => slopeSet(x, y, d.k), true);
+  }
   if (d && d.rect) { d.rect.x1 = Math.max(0, Math.min(T.map.w - 1, x)); d.rect.y1 = Math.max(0, Math.min(T.map.h - 1, y)); }
   if (d && d.move != null) {
     const t = T.map.things.find(o => o.id === d.move);

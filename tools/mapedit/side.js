@@ -14,6 +14,13 @@ const OPS = { door: 'DOOR', plat: 'PLAT', fall: 'FALL', flow: 'FLOW', mob: 'MOB'
               chain: 'CHAIN', spring: 'SPRING', crack: 'CRACK', stone: 'STONE', bell: 'BELL', ghost: 'GHOST', press: 'PRESS', tomb: 'TOMB', belt: 'BELT',
               vermin: 'VERMIN' };
 /* small things that move (docs/PLAN-vermin.md): vermin, a rat or a spiderling, are not kinds; a coin crab's way is its cells (CPATH) */
+/* slopes (docs/PLAN-side.md, 2k): a stone tile cut to a wedge, l and r its height at each edge (0..16 within it; past it for two in one).
+ * Each grade's pieces in the order a ramp is laid, rising rightward; rising leftward the same mirrored. CEIL hangs it from a roof */
+const GRADES = { 'G2': { name: 'Two in one', segs: [[0, 32], [-16, 16]], says: 'too steep to walk up: a caster landing on it slides off. Its two pieces stand one on the other.' },
+  'G45': { name: '45\u00b0', segs: [[0, 16]], says: 'walked up slower, down quicker; stood still on, it slides you down.' },
+  'G12': { name: 'One in two', segs: [[0, 8], [8, 16]], says: 'two tiles to rise one.' },
+  'G14': { name: 'One in four', segs: [[0, 4], [4, 8], [8, 12], [12, 16]], says: 'four tiles to rise one.' } };
+const gradeSegs = (g, left) => { const s = (GRADES[g] || GRADES.G45).segs.map(([l, r]) => left ? [r, l] : [l, r]); return left && s.length > 1 && g !== 'G2' ? s.reverse() : s; };   /* rising leftward: mirrored, laid left to right */
 const VERMIN = ['RAT', 'LING'], VERMIN_NAMES = { RAT: 'A rat', LING: 'A spiderling' }, CPC_MAX = 512, SPAN_OWN = 4;
 const NEED = { door: 4, plat: 8, fall: 3, flow: 7, mob: 4, gold: 4, key: 4, life: 3, switch: 4, torch: 3, gate: 5, plate: 3, zone: 5, current: 8, haz: 4, ledge: 4, power: 4,
                chain: 4, spring: 3, crack: 5, stone: 6, bell: 3, ghost: 5, press: 5, tomb: 3, belt: 6, vermin: 4 };
@@ -91,6 +98,7 @@ function resize(m, w, h, fromBottom) {            /* kept against the top, or ag
     const dy = fromBottom ? h - m.h : 0, g = new Array(w * h).fill(',');
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const sy = y - dy; if (sy >= 0 && sy < m.h && x < m.w) g[y * w + x] = m.grid[sy * m.w + x]; }
     m.things.forEach(t => { t.y += dy; if (t.cells) t.cells.forEach(c => { c[1] += dy; }); if (t.enter) { t.enter.y0 += dy; t.enter.y1 += dy; } });
+    m.cuts = (m.cuts || []).map(c => Object.assign({}, c, { y: c.y + dy })).filter(c => c.x >= 0 && c.y >= 0 && c.x < w && c.y < h);
     m.things = m.things.filter(t => t.x >= 0 && t.y >= 0 && t.x < w && t.y < h);
     m.things.forEach(t => { if (t.cells) t.cells = t.cells.filter(([x, y]) => x >= 0 && y >= 0 && x < w && y < h); });
     m.w = w; m.h = h; m.grid = g;
@@ -162,6 +170,7 @@ function exportText(m) {
         for (let x = 0; x < m.w; x++) r += falls.has(x + ',' + y) ? 'F' : m.grid[y * m.w + x];
         out.push(`ROW "${r}"`);
     }
+    (m.cuts || []).forEach(c => { if (SOLID.has(m.grid[c.y * m.w + c.x])) out.push(`CUT ${c.x} ${c.y} ${c.l} ${c.r}${c.ceil ? ' CEIL' : ''}`); });
     m.things.forEach(t => { if (!(defaultFall(t) && falls.has(t.x + ',' + t.y))) out.push(line(t)); });
     (m.trigs || []).forEach(g => out.push(trigLine(g)));
     Object.keys(m.tune || {}).forEach(k => out.push(`TUNE ${k} ${+(+m.tune[k]).toFixed(4)}`));
@@ -225,6 +234,16 @@ function parse(text, kindIds, tuneNames) {
             if (!lastHaz) return bad('HZC before any HAZ');
             if (!(iv[1] >= 0 && iv[2] >= 0 && iv[1] < m.w && iv[2] < m.h)) return bad('HZC wants a cell in the map');
             lastHaz.cells.push([iv[1], iv[2]]); continue;
+        }
+        if (op === 'CUT') {                                     /* a slope (2k) */
+            if (!(iv[1] >= 0 && iv[2] >= 0 && iv[1] < m.w && iv[2] < m.h) || w.length < 5) return bad('CUT wants a tile in the map and its two heights');
+            if (!SOLID.has(m.grid[iv[2] * m.w + iv[1]])) return bad('CUT on a tile that is not stone, brick or slate');
+            const l = iv[3], r = iv[4];
+            if (!(l >= -48 && l <= 64 && r >= -48 && r <= 64) || l === r || (l <= 0 && r <= 0) || (l >= 16 && r >= 16)) return bad("a cut's heights are -48 to 64, not equal, and leave something of the tile both cut and standing");
+            m.cuts = m.cuts || [];
+            if (m.cuts.some(c => c.x === iv[1] && c.y === iv[2])) return bad('two cuts on one tile');
+            m.cuts.push({ x: iv[1], y: iv[2], l, r, ceil: w[5] === 'CEIL' });
+            continue;
         }
         if (op === 'CPATH') {
             if (!lastCrab) return bad('CPATH before any coin crab (MOB x y MOB_CRAB)');
@@ -482,6 +501,8 @@ function check(m) {
         (g.acts || []).forEach(a => { if (a.crypt == null && (!tags[a.tag] || !TARGETS.includes(tags[a.tag].k))) out.push({ sev: 'error', msg: `Trigger ${i + 1}: ${a.tag || 'nothing'} is nothing a trigger moves (a gate, water, a flow, a platform, a trap, a ledge, a falling block, or one of the kit's).`, at: null, trig: i }); });
         if (g.mode === 'TIMED' && !(g.secs > 0)) out.push({ sev: 'error', msg: `Trigger ${i + 1}: TIMED wants its seconds.`, at: null, trig: i });
     });
+    (m.cuts || []).forEach(c => { if (!SOLID.has(at(m, c.x, c.y))) out.push({ sev: 'error', msg: 'A slope cut on a tile that is no longer stone, brick or slate: paint the stone back, or uncut it.', at: [c.x, c.y], id: null }); });
+    if ((m.cuts || []).length > 1024) err(`${m.cuts.length} cut tiles: the game holds 1024.`);
     const cpc = m.things.reduce((a, t) => a + (t.k === 'mob' && t.kind === 'MOB_CRAB' ? (t.cells || []).length : 0), 0);
     if (cpc > CPC_MAX) err(`The coin crabs' ways hold ${cpc} tiles: the game holds ${CPC_MAX}.`);
     if (!(m.num >= 0 && m.num <= 7)) err("The passage's number is 0 to 7 (the game's SIDE_TEXT).");
@@ -662,7 +683,7 @@ function fxSim(m, t, seed) {
     return S;
 }
 
-const API = { VERMIN, VERMIN_NAMES, CPC_MAX, SPAN_OWN, KIT_SAYS, POWERS, POWER_NAMES, POWER_SECS, LIM, TILES, TILE_NAMES, SOLID, KINDS, GOLD, RANKS, KEYS, FALL_DELAY, FALL_BACK, HAZ_FAMILY, HAZ_NAMES, FAMILY_SAYS, MODES, SOURCES, TARGETS, TAG_RE,
+const API = { GRADES, gradeSegs, VERMIN, VERMIN_NAMES, CPC_MAX, SPAN_OWN, KIT_SAYS, POWERS, POWER_NAMES, POWER_SECS, LIM, TILES, TILE_NAMES, SOLID, KINDS, GOLD, RANKS, KEYS, FALL_DELAY, FALL_BACK, HAZ_FAMILY, HAZ_NAMES, FAMILY_SAYS, MODES, SOURCES, TARGETS, TAG_RE,
               blank, add, newTag, at, resize, exportText, exportC, parse, check, label, FX_KINDS, FX_CELLS, FX_EMITS, FX_DEF, FX_SAYS, censerGeom, censerAt, censerCheck, fxSim };
 if (typeof module !== 'undefined' && module.exports) module.exports = API; else root.SideCore = API;
 })(typeof window !== 'undefined' ? window : globalThis);

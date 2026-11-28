@@ -242,9 +242,11 @@ static void sd_fallen(const SdMob *m) {
 /* ---- moving: walkers on the floor, fliers in the air ---- */
 #define SD_MOB_HW 5.0f                                             /* the walkers' feet's half width against the stone, as the caster's */
 static float sd_mob_bh(const SdMob *m) { return clampf(sd_mob_h(m) - 2.0f, 8.0f, 28.0f); }   /* how tall it is against the stone */
-static int sd_floor_at(float x, float y, int ledges) {             /* stone, or a ledge, at the row under y */
+static int sd_floor_at(float x, float y, int ledges) {             /* stone, or a ledge, at the row under y; a slope's face there (2k) */
     int c = sd_floor_px(x), r = sd_floor_px(y + 0.5f);
-    return sd_solid(c, r) || (ledges && sd_tile(c, r) == '=');
+    if (sd_solid_open(c, r) || (ledges && sd_tile(c, r) == '=')) return 1;
+    float s;
+    return SD.L->ncut ? sd_floor_surf(x, y - 0.6f, y + 0.6f, &s) : 0;
 }
 static int sd_bad_at(const SdMob *m, float x, float y) {           /* what a walker won't step into: spikes, poison (the drowned wade it) */
     int c = sd_floor_px(x), r = sd_floor_px(y - 1.0f), below = sd_floor_px(y + 0.5f);
@@ -252,10 +254,20 @@ static int sd_bad_at(const SdMob *m, float x, float y) {           /* what a wal
     if (m->kind == MOB_DROWNED) return 0;
     return sd_tile(c, r) == '~' || sd_tile(c, below) == '~';
 }
-static int sd_mob_blocked(const SdMob *m, float x) {               /* the stone in the way at x, from its feet to its head */
-    float bh = sd_mob_bh(m);
-    int c = sd_floor_px(x);
-    for (int r = sd_floor_px(m->y - bh); r <= sd_floor_px(m->y - 1.0f); r++) if (sd_solid(c, r)) return 1;
+static int sd_slope_walk(float x, float y, float ahead, int on_cut) {   /* ground ahead at x within forty-five degrees up or down, on or
+                                                                      onto a slope (2k) */
+    float s;
+    if (!SD.L->ncut || !sd_floor_surf(x, y - ahead - 1.0f, y + ahead + 1.0f, &s)) return 0;
+    return on_cut || sd_cut_at(sd_floor_px(x), sd_floor_px(s - 0.01f)) || sd_cut_at(sd_floor_px(x), sd_floor_px(s + 0.01f));
+}
+static int sd_mob_blocked(const SdMob *m, float x) {               /* the stone in the way at x, from its feet to its head; a slope too
+                                                                      steep to walk, or the stone at a slope's top it walks onto (2k) */
+    float bh = sd_mob_bh(m), s;
+    int c = sd_floor_px(x), r1 = sd_floor_px(m->y - 1.0f);
+    int on = m->ground == 1 && SD.L->ncut && sd_cut_at(sd_floor_px(m->x), sd_floor_px(m->y - 0.5f));
+    for (int r = sd_floor_px(m->y - bh); r <= r1; r++)
+        if (sd_solid_open(c, r) && !(on && r == r1 && (float)(r * SD_TILE) >= m->y - (SD_MOB_HW + 1.5f))) return 1;
+    if (SD.L->ncut && sd_floor_surf(x, m->y - bh, m->y - 0.01f, &s) && s < m->y - (SD_MOB_HW + 1.5f)) return 1;
     return 0;
 }
 static int sd_mob_step_up(const SdMob *m, float x) {               /* a step a tile high, with room over it */
@@ -279,8 +291,11 @@ static int sd_mob_body(SdMob *m, float dt) {                       /* 1: stopped
     if (m->vx != 0.0f) {
         float nx = m->x + m->vx * dt, lead = nx + (m->vx > 0.0f ? SD_MOB_HW : -SD_MOB_HW);
         if (sd_mob_blocked(m, lead)) { m->vx = 0.0f; stopped = 1; } else m->x = nx;
+        float s, d = fabsf(m->vx * dt);                            /* along a slope, up or down it (2k) */
+        if (m->ground == 1 && SD.L->ncut && sd_floor_surf(m->x, m->y - d * 2.2f - 0.6f, m->y + d * 2.2f + 1.2f, &s)) m->y = s;
     }
-    if (m->ground == 1 && !sd_floor_at(m->x - SD_MOB_HW + 1.0f, m->y, 1) && !sd_floor_at(m->x + SD_MOB_HW - 1.0f, m->y, 1)) m->ground = 0;
+    if (m->ground == 1 && !sd_floor_at(m->x - SD_MOB_HW + 1.0f, m->y, 1) && !sd_floor_at(m->x + SD_MOB_HW - 1.0f, m->y, 1)
+        && !(SD.L->ncut && sd_floor_at(m->x, m->y, 1))) m->ground = 0;   /* (on a slope its middle is what stands: 2k) */
     if (!m->ground) {
         float prev = m->y;
         m->vy = fminf(SD_FALL_MAX, m->vy + SD_G * dt);
@@ -293,8 +308,10 @@ static int sd_mob_body(SdMob *m, float dt) {                       /* 1: stopped
             float top = (float)(r * SD_TILE);
             for (int s = -1; s <= 1; s += 2) {
                 int c = sd_floor_px(m->x + (float)s * (SD_MOB_HW - 1.0f)), ch = sd_tile(c, r);
-                if (sd_solid(c, r) || (ch == '=' && prev <= top + 0.5f)) { m->y = top; m->vy = 0.0f; m->ground = 1; break; }
+                if (sd_solid_open(c, r) || (ch == '=' && prev <= top + 0.5f)) { m->y = top; m->vy = 0.0f; m->ground = 1; break; }
             }
+            float s;                                               /* onto a slope (2k) */
+            if (!m->ground && SD.L->ncut && sd_floor_surf(m->x, prev - 0.5f, m->y, &s)) { m->y = s; m->vy = 0.0f; m->ground = 1; }
             if (!m->ground) {
                 const SdLevel *L = SD.L;
                 for (int i = 0; i < L->nth; i++) {
@@ -316,14 +333,14 @@ static void sd_mob_fly(SdMob *m, float tx, float ty, float sp, float dt, int thr
     float nx = m->x + m->vx * dt, ny = m->y + m->vy * dt;
     if (through) { m->x = nx; m->y = ny; return; }
     float half = sd_mob_h(m) * 0.5f;
-    if (!sd_solid(sd_floor_px(nx + (m->vx > 0.0f ? 6.0f : -6.0f)), sd_floor_px(cy))) m->x = nx; else m->vx = -m->vx * 0.5f;
+    if (!sd_solid_pt(nx + (m->vx > 0.0f ? 6.0f : -6.0f), cy)) m->x = nx; else m->vx = -m->vx * 0.5f;
     float edge = ny - m->y + (m->vy > 0.0f ? cy + half - 2.0f : cy - half + 2.0f);
-    if (!sd_solid(sd_floor_px(m->x), sd_floor_px(edge))) m->y = ny; else m->vy = -m->vy * 0.5f;
+    if (!sd_solid_pt(m->x, edge)) m->y = ny; else m->vy = -m->vy * 0.5f;
 }
 
 /* ---- what they throw ---- */
 static float sd_headroom(float x, float y) {                       /* how far up from (x, y) before the stone, 96 at the most */
-    for (float h = 0.0f; h < 96.0f; h += 4.0f) if (sd_solid(sd_floor_px(x), sd_floor_px(y - h))) return h;
+    for (float h = 0.0f; h < 96.0f; h += 4.0f) if (sd_solid_pt(x, y - h)) return h;
     return 96.0f;
 }
 static void sd_throw_bone(SdMob *m) {                              /* a skeleton's bone: a high, slow lob to where you stood, not ahead */
@@ -382,7 +399,8 @@ static void sd_mob_walker(SdMob *m, int i, float dt, float sp, int knows, int se
             if (sd_mob_step_up(m, lead)) { sd_mob_jump(m, SD_TILE + 4.0f, pace); pace = m->vx; }
             else { pace = 0.0f; if (!knows) m->face = -m->face; }
         } else if (sd_bad_at(m, lead, m->y)) { pace = 0.0f; if (!knows) m->face = -m->face; }
-        else if (m->ground == 1 && !sd_floor_at(lead, m->y, 1)) {  /* an edge: down it after you, if not far; the quick jump a gap */
+        else if (m->ground == 1 && !sd_floor_at(lead, m->y, 1) && !sd_slope_walk(lead, m->y, SD_MOB_HW + 3.0f, sd_cut_at(sd_floor_px(m->x), sd_floor_px(m->y - 0.5f)) != NULL)) {   /* an edge: down it
+                                                                      after you, if not far; the quick jump a gap */
             int c = sd_floor_px(lead), r = sd_floor_px(m->y + 0.5f), drop = 0;
             while (drop < 5 && !sd_solid(c, r + drop) && sd_tile(c, r + drop) != '=') drop++;
             int pit_bad = drop >= 5 || sd_tile(c, r + drop) == '^' || (m->kind != MOB_DROWNED && sd_tile(c, r + drop) == '~');
@@ -622,7 +640,7 @@ static void sd_mobs(float dt) {
             if (m->act == SA_DIVE) {
                 float v = sp * 2.6f + 40.0f, nx = m->x + m->aim_x * v * dt, ny = m->y + m->aim_y * v * dt;
                 m->vx = m->aim_x * v; m->vy = m->aim_y * v;
-                int wall = sd_solid(sd_floor_px(nx + m->aim_x * 6.0f), sd_floor_px(sd_mob_cy(m) + (ny - m->y) + m->aim_y * 6.0f));
+                int wall = sd_solid_pt(nx + m->aim_x * 6.0f, sd_mob_cy(m) + (ny - m->y) + m->aim_y * 6.0f);
                 if (!wall) { m->x = nx; m->y = ny; }
                 if (sd_mob_touches(m, 0) && m->touch_t <= 0.0f) { sd_mob_strikes(m, m->way == SW_GARG ? ATTACKS[FA_SWOOP].k : sd_hit_k(m)); m->touch_t = 0.8f; m->act = SA_CLIMB; m->act_t = 0.0f; }
                 else if (wall || m->act_t > 0.9f) { m->act = SA_CLIMB; m->act_t = 0.0f; }
@@ -703,8 +721,8 @@ static void sd_mobs(float dt) {
             } else if (m->act == SA_DROP) {
                 m->vy = fminf(260.0f, m->vy + SD_G * 0.8f * dt); m->y += m->vy * dt;
                 if (sd_mob_touches(m, 0) && m->touch_t <= 0.0f) { sd_mob_strikes(m, 0.7f); m->touch_t = 1.0f; m->act = SA_RISE; m->act_t = 0.0f; }
-                else if (sd_solid(sd_floor_px(m->x), sd_floor_px(m->y)) || m->y - rest > 11.0f * SD_TILE) {
-                    if (sd_solid(sd_floor_px(m->x), sd_floor_px(m->y))) m->y = (float)(sd_floor_px(m->y) * SD_TILE);
+                else if (sd_solid_pt(m->x, m->y) || m->y - rest > 11.0f * SD_TILE) {
+                    if (sd_solid_pt(m->x, m->y)) m->y = (float)(sd_floor_px(m->y) * SD_TILE);
                     m->act = SA_RISE; m->act_t = -0.6f;            /* (a moment on the floor first) */
                 }
             } else {                                               /* up its thread */
@@ -755,8 +773,8 @@ static void sd_mobs(float dt) {
             } else if (m->act == SA_LEAP) {                        /* its arc; back into the poison, or stranded on stone */
                 m->vy = fminf(SD_FALL_MAX, m->vy + SD_G * dt);
                 float nx = m->x + m->vx * dt, ny = m->y + m->vy * dt;
-                if (sd_solid(sd_floor_px(nx + (m->vx > 0.0f ? 5.0f : -5.0f)), sd_floor_px(m->y - 4.0f))) m->vx = 0.0f; else m->x = nx;
-                if (m->vy < 0.0f && sd_solid(sd_floor_px(m->x), sd_floor_px(ny - 10.0f))) m->vy = 0.0f;
+                if (sd_solid_pt(nx + (m->vx > 0.0f ? 5.0f : -5.0f), m->y - 4.0f)) m->vx = 0.0f; else m->x = nx;
+                if (m->vy < 0.0f && sd_solid_pt(m->x, ny - 10.0f)) m->vy = 0.0f;
                 else m->y = ny;
                 int tx = sd_floor_px(m->x), ty = sd_floor_px(m->y - 1.0f);
                 if (m->vy > 0.0f && (sd_tile(tx, ty) == '~' || sd_tile(tx, ty + 1) == '~') && m->y >= (float)(ty * SD_TILE) + 4.0f) {
@@ -897,7 +915,7 @@ static void sd_shots(float dt) {
                 if (s->kind == SS_FLASK) { s->x = px; s->y = py; sd_burst(s); } else s->alive = 0;
                 break;
             }
-            if (sd_solid(sd_floor_px(s->x), sd_floor_px(s->y))) {
+            if (sd_solid_pt(s->x, s->y)) {
                 if (!s->foe) sd_kit_struck(sd_floor_px(s->x), sd_floor_px(s->y));   /* cracked masonry: broken */
                 if (s->kind == SS_FLASK) { s->x = px; s->y = py; sd_burst(s); }
                 else {
