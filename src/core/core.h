@@ -81,6 +81,7 @@ enum { SLOT_PROGRESS = SLOT_COUNT, SLOT_MARK, SLOT_PREFS, SLOT_ALL };   /* SLOT_
                                                                          the game, a byte (the pad's sprint button, PAD_*) */
 #define SLOT_MAX 16384                 /* a run and all the merchant's hall keeps for it */
 int  slot_read(int i, uint8_t *buf, int cap);        /* the slot's length, 0 when it is empty */
+void app_take_control(void);                         /* a scene asks for the controls, as if H were held (the World Editor's PLAY, testing) */
 void slot_write(int i, const uint8_t *buf, int len);
 
 extern const Scene scene_haunt;     /* HAUNT.EXE   - 80x25 text mode, 720x400 */

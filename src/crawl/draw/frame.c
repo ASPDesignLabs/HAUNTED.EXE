@@ -11,8 +11,7 @@ static void crawl_render(Frame *f) {
 #endif
     if (title_render(f)) return;                                   /* the title screen, the whole frame (1.0.0b21.1) */
     if (SD.on) {                                                   /* a side passage (docs/PLAN-side.md), over the crypt's bar */   /* side (PLAN-side) */
-        sd_render(f);
-        render_statusbar(f);
+        sd_render(f);                                              /* its own panels, no bar (2j) */
         render_xp(f); render_messages(f);
         if (G.player && G.ui) render_ui(f);
         if (!(G.player && G.ui)) render_toasts(f);

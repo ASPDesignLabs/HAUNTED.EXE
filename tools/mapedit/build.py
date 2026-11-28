@@ -34,6 +34,7 @@ window.HVS_WANT_LEVEL = parent !== window;
 addEventListener("message", (e) => {
   if (e.source !== parent || !e.data || e.data.type !== "hvs-level" || (typeof e.data.text !== "string" && !Array.isArray(e.data.sides))) return;
   if (typeof e.data.text === "string" && e.data.text) window.HVS_LEVEL = e.data.text;
+  if (e.data.debug && typeof e.data.debug === "object") window.HVS_DEBUG = e.data.debug;   /* its testing options (docs/PLAN-side.md, 2j) */
   if (Array.isArray(e.data.sides)) {                       /* side passages (docs/PLAN-side.md): each into its number; one to go straight into */
     window.HVS_SIDES = e.data.sides.filter(s => s && typeof s.text === "string" && Number.isInteger(s.n));
     if (Number.isInteger(e.data.sideNow)) { window.HVS_SIDE_NOW = e.data.sideNow; window.HVS_SIDE_LEVEL = e.data.level; }

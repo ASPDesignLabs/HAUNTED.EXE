@@ -616,7 +616,9 @@ static void render_messages(Frame *f) {
             int w = gfx_text_width(G.msg, 1), x = (W - w) / 2, y = toast_showing() ? 50 : (trial_shown() ? 60 : boss_fighting() ? 34 : 14);   /* below a pop-up,
                                                                       the hourglass, or a boss's bar */
             if (target_shown()) y = imax(y, target_y() + 34);         /* or what you are looking at, and what it does */
-            ui_band(f, x - 5, y, w + 10, 14);
+            if (SD.on) y = imax(y, 52);                            /* in a passage, under its panels (docs/PLAN-side.md, 2j) */
+            if (SD.on) gfx_text8(f, x + 1, y + 4, G.msg, 0, 1);    /* in a passage it floats, as its panels do (2j) */
+            else ui_band(f, x - 5, y, w + 10, 14);
             gfx_text8(f, x, y + 3, G.msg, R_GOLD + 11, 1);
         }
     }

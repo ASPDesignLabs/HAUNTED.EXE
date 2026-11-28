@@ -75,6 +75,8 @@ KEEP const char *web_side_load(int n, int len) {
     return crawl_side_text(n, g_stxt, g_serr, sizeof g_serr) ? g_serr : "";
 }
 KEEP void web_side_now(int n, int level) { crawl_side_now(n, level); }
+void crawl_play_debug(int rank, int invuln, int straight, int level);
+KEEP void web_play_debug(int rank, int invuln, int straight, int level) { crawl_play_debug(rank, invuln, straight, level); }   /* PLAY's testing (2j) */
 void crawl_side_tune(int k, float v);
 KEEP void web_side_tune(int k, float v) { crawl_side_tune(k, v); }   /* the editor's sliders while it plays */
 

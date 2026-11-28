@@ -482,6 +482,10 @@ static const MkKind MKK[NMKK] = {                                   /* el -1: an
 #define VENT_WARN 2.7f
 #define VENT_ON 3.5f
 #define VENT_ICE 15.0f                      /* iced so long */
+/* the World Editor's PLAY, for testing (docs/PLAN-side.md, 2j): set by crawl_play_debug before a run begins, never by the game itself.
+ * rank: every line's spell at this rank (0 off); invuln: nothing hurts; straight: no merchant first, and the controls yours at once
+ * (no title); level: the Level of Atonement to begin at (0 off); took: straight has taken over */
+static struct { int rank, invuln, straight, level, took; } PDBG;
 static struct {
     int active, level, hp, treasure, souls;
     float soul_frac;

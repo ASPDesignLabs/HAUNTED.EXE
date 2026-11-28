@@ -329,6 +329,41 @@ the bells along it and breaks masonry where it ends. `SdIn.up` (up held) is new,
 kit (the owner's word: play them first); the dead walk through bodies, and only belts and presses touch them; the figure has no
 climbing frames; the art is a draft for the sheet.
 
+### 2j. The passage's own panels, and PLAY's testing options (session 11, 28 November 2026)
+
+The owner: "omitting the bottom bar for something that fits this kind of experience better", then "I don't want it boxed in with a
+container, I want it floating over the gameplay", then "a bit smaller, by like 30%". Asked and settled: the creature's panel at the top
+right, mirrored; lives, spell and gold kept; one rank for every spell; the testing options for crypt levels and passages alike.
+
+- **No bar.** A passage draws none of the crypt's bar: its view is the whole screen (`SD_VIEW_H` 200, 156 till now), the caster held
+  `SD_CAM_Y` (124) down it, under the panels. The BFS9000's reach follows the view's middle; nothing else of the game reads the camera.
+- **The caster's panel, top left** (`sd_hud`, `draw/side.c`), floating, nothing boxed: the class (`CLASS_SHORT`, in its element's
+  colour; NO CLASS YET before one), the portrait under it (the passage's own figure, its head and shoulders doubled, edged in black;
+  its hurt frame when struck), beside it the lives (the lamp at a third of its size, cold when lost), the spell in hand (its element's
+  glyph and rank) and the gold with any keys, then three bars, 74 pixels: health 4 high (red; what was just lost darker red behind it,
+  going at a third of the bar a second, `SD.hp_lag`), spirit 3 (the vessel's, gold when full), experience 2 (purple, filling yellow
+  toward the next Level of Atonement). Words in a small type of its own, 4 by 5 (`SDH_FONT`), each with a shadow.
+- **The creature's panel, top right**, mirrored: its name, its picture's head (a square 22 across from its current picture, drawn 16
+  across, facing the caster), its health emptying toward the left, the dark red behind. Which creature (`SD.foe`, drawing only, no dice):
+  one struck, or striking (a blow or a thrown thing, its thrower the nearest of the kind), holds it three seconds; one looked at (ahead,
+  within ten tiles and four up or down, nothing between) holds it while looked at and a moment after, unless a fight holds it. Vermin are
+  not creatures and get none.
+- The game's messages float in a passage too, under the panels; the passage's own name banner is gone (the message says it as you come
+  in); the powerups' time left sits under the left panel.
+- **PLAY's testing options** (`PDBG`, `state.c`; `crawl_play_debug`): TESTING beside PLAY in the World Editor, kept in that browser and
+  sent with every PLAY, crypt level or passage; the game's own page and the released game never set them. Every line's spell at a chosen
+  rank (`align_sync` overrides the Alignment's; flame, frost, lightning, poison, spirit, the spear); invulnerable (`hurt_ex` in the crypt;
+  `sd_hurt`, standing poison and the pit in a passage, a fall putting you back at the doorway); straight in (no merchant, no title: the
+  app takes control as if H were held, `app_take_control`, new in `core.h`); the Level of Atonement to begin at, nothing bought with it.
+  The harness: `HOST_PLAYDBG=rank,invuln,straight,level`.
+- Tested, harness only: the dream's log, seed 1, 1,500 s, line for line the build before's, and the dream through passages 4 and 1
+  (240 s each) the same; a scripted person straight into the dead's gallery: the skeleton's panel as it was looked at, its health
+  emptying with the dark red behind, then the bat's; invulnerable, the same walk through the rats took no harm (four bites without), and
+  the dream 300 s in the crypt never under 105 health (28 without); straight in, the crypt's level and a passage both walked at once; the
+  spells at rank 5 and 8 shown on the bar and the panel; `make asan` clean on the panels, the testing options and the dream in the
+  gallery; `make web` and its smoke test passed; in Chromium, the editor's TESTING dialog, its options reaching the game's page, and
+  the passage opened straight in at rank 8. Not played by hand.
+
 ## 3. Steps
 
 | Step | What | State |
@@ -617,3 +652,6 @@ section, THE BUILDER'S KIT, a pane each, five new sliders in TUNING), read and w
   kit in Playwright's Chromium with no errors. The World Editor republished (version 11, its title and maps kept): PLAY plays the kit.
 Not played by hand; nothing under Wine. Open: the owner's play and their word on the sheet; the dream in the kit; climbing frames.
 
+**Session 11 (28 November 2026).** The passage's own panels in place of the crypt's bar, floating and a third smaller, and the World
+Editor's testing options for PLAY: section 2j has it all. The World Editor republished (version 14). Not played by hand; nothing under
+Wine; CI alone will compile the Windows build (`app_take_control` is new in the shared core).

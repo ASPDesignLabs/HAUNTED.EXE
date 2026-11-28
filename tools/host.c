@@ -207,6 +207,7 @@ static int drawn_file(const char *path) {                         /* HOST_DRAWN:
 }
 int crawl_side_text(int n, const char *text, char *err, int nerr);
 void crawl_side_now(int n, int level);
+void crawl_play_debug(int rank, int invuln, int straight, int level);
 static int side_files(const char *list) {                         /* HOST_SIDE=file:n[,file:n]: side passages read as PLAY reads them */
     char buf[1024];
     snprintf(buf, sizeof buf, "%s", list);
@@ -245,6 +246,11 @@ int main(int argc, char **argv) {
     }
     if (getenv("HOST_DRAWN") && drawn_file(getenv("HOST_DRAWN"))) return 1;
     if (getenv("HOST_SIDE") && side_files(getenv("HOST_SIDE"))) return 1;   /* side (PLAN-side) */
+    if (getenv("HOST_PLAYDBG")) {                                  /* HOST_PLAYDBG=rank,invuln,straight,level: the World Editor's PLAY's testing */
+        int r = 0, i = 0, s = 0, l = 0;
+        sscanf(getenv("HOST_PLAYDBG"), "%d,%d,%d,%d", &r, &i, &s, &l);
+        crawl_play_debug(r, i, s, l);
+    }
     if (getenv("HOST_SIDE_NOW")) {                                 /* HOST_SIDE_NOW=n[:level]: a run straight into passage n */
         const char *v = getenv("HOST_SIDE_NOW"), *c = strchr(v, ':');
         crawl_side_now(atoi(v), c ? atoi(c + 1) : 1);

@@ -166,6 +166,7 @@ input[type=range] { width: 100%; accent-color: var(--gold); }
       <button class="btn" id="bBackup">BACKUP FILE</button>
       <button class="btn" id="bLoadFile">LOAD FILE</button>
       <button class="btn" id="bExport">EXPORT C</button>
+      <button class="btn" id="bTest" title="Testing options for PLAY: every spell at a rank, invulnerable, straight in, the caster's level">TESTING</button>
       <button class="btn play" id="bPlay" title="Play this level in the game, here">PLAY</button>
       <input type="file" id="fileIn" accept=".json,application/json" hidden>
     </div>
@@ -1523,9 +1524,42 @@ $('bPlay').addEventListener('click', () => {
   SideUI.sidesFor(S.map).then(sides => playOpen(text, sides.length ? { sides } : null));   /* side (PLAN-side) */
 });
 let playExtra = null;                                    /* side (PLAN-side): the side passages sent with it, or one played alone */
+/* PLAY's testing options (docs/PLAN-side.md, 2j): kept in this browser, sent with every PLAY, crypt level or passage; never in the game's
+ * own page. rank: every line's spell at it (0 off); invuln: nothing hurts; straight: no merchant first, no title, yours at once; level:
+ * the Level of Atonement to begin at (0 off) */
+const TEST_DEF = { rank: 0, invuln: false, straight: true, level: 0 };
+function testOpts() { try { return Object.assign({}, TEST_DEF, JSON.parse(localStorage.getItem('cme.test') || '{}')); } catch (e) { return Object.assign({}, TEST_DEF); } }
+function testSave(o) { try { localStorage.setItem('cme.test', JSON.stringify(o)); } catch (e) {} testBadge(); }
+function testOn(o) { return o.rank > 0 || o.invuln || o.straight || o.level > 0; }
+function testWords(o) {
+  const w = [];
+  if (o.rank > 0) w.push(`every spell at rank ${o.rank}`); if (o.invuln) w.push('invulnerable'); if (o.straight) w.push('straight in'); if (o.level > 0) w.push(`level of atonement ${o.level}`);
+  return w.join(', ');
+}
+function testBadge() { const o = testOpts(), b = $('bTest'); if (b) { b.classList.toggle('play', testOn(o)); b.textContent = testOn(o) ? 'TESTING ON' : 'TESTING'; } }
+$('bTest').addEventListener('click', () => {
+  const o = testOpts(), opt = (v, l, cur) => `<option value="${v}"${+cur === v ? ' selected' : ''}>${l}</option>`;
+  const ranks = [0, 1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 25, 29].map(r => opt(r, r ? 'rank ' + r : 'as the run gives them', o.rank)).join('');
+  $('modal').innerHTML = `<div class="veil" role="dialog" aria-modal="true" aria-labelledby="tstT"><div class="dialog slab"><h2 id="tstT">TESTING</h2>
+    <p>For PLAY only, crypt levels and side passages alike: the game's own page and the released game never see these. Kept in this browser.</p>
+    <div class="field"><label for="tsRank">Spells</label><select id="tsRank">${ranks}</select></div>
+    <p class="note">Every line's spell (flame, frost, lightning, poison, spirit and the spear) given at this rank, whatever the Alignment holds.</p>
+    <div class="row"><label><input type="checkbox" id="tsInv"${o.invuln ? ' checked' : ''}> Invulnerable: nothing hurts, and a fall in a passage puts you back at its doorway</label></div>
+    <div class="row"><label><input type="checkbox" id="tsStr"${o.straight ? ' checked' : ''}> Straight in: no title, no merchant; the level, and the controls yours at once</label></div>
+    <div class="field"><label for="tsLvl">Level of Atonement</label><input type="number" id="tsLvl" min="0" max="999" step="1" value="${o.level}"></div>
+    <p class="note">0 as a new run begins (1). Nothing is bought with it: the points wait for the merchant.</p>
+    <div class="row"><button class="btn" id="tsOk">KEEP THESE</button><button class="btn" id="tsOff">ALL OFF</button><button class="btn" id="tsNo">CANCEL</button></div></div></div>`;
+  $('tsOk').focus();
+  $('tsOk').addEventListener('click', () => { testSave({ rank: +$('tsRank').value | 0, invuln: $('tsInv').checked, straight: $('tsStr').checked, level: Math.max(0, Math.min(999, +$('tsLvl').value | 0)) }); close(); toast(testOn(testOpts()) ? 'TESTING: ' + testWords(testOpts()).toUpperCase() : 'TESTING OFF'); });
+  $('tsOff').addEventListener('click', () => { testSave({ rank: 0, invuln: false, straight: false, level: 0 }); close(); toast('TESTING OFF'); });
+  $('tsNo').addEventListener('click', close);
+});
+testBadge();
 function playOpen(text, extra, title) {
   playText = text; playExtra = extra || null;
-  $('playTitle').textContent = title || `PLAYING ${String(S.map.name || 'THIS LEVEL').toUpperCase()}: LEVEL ${S.map.level}. A NEW RUN BEGINS THERE. ITS SAVES ARE KEPT APART FROM THE GAME'S.`;
+  const to = testOpts();
+  $('playTitle').textContent = (title || `PLAYING ${String(S.map.name || 'THIS LEVEL').toUpperCase()}: LEVEL ${S.map.level}. A NEW RUN BEGINS THERE. ITS SAVES ARE KEPT APART FROM THE GAME'S.`)
+    + (testOn(to) ? ` TESTING: ${testWords(to).toUpperCase()}.` : '');
   $('playLayer').hidden = false;
   $('playFrame').src = 'play/index.html?t=' + Date.now();
   $('playFrame').focus();
@@ -1533,7 +1567,8 @@ function playOpen(text, extra, title) {
 $('bPlayClose').addEventListener('click', playStop);
 addEventListener('message', e => {                       /* the game's page asks for the level when it loads (again, after fleeing) */
   if (playText == null || e.source !== $('playFrame').contentWindow || !e.data || e.data.type !== 'hvs-play-ready') return;
-  e.source.postMessage(Object.assign({ type: 'hvs-level', text: playText, name: S.map.name, level: S.map.level }, playExtra || {}), sameOrigin());
+  const to = testOpts();
+  e.source.postMessage(Object.assign({ type: 'hvs-level', text: playText, name: S.map.name, level: S.map.level }, playExtra || {}, testOn(to) ? { debug: to } : {}), sameOrigin());
 });
 
 /* ---------- starting ---------- */

@@ -110,6 +110,8 @@ static int sd_frame(float dt);                                     /* side.c: a 
 static void crawl_update(double dt) {
     float fdt = (float)dt;
     if (title_tick(fdt)) return;                                   /* the title holds the screen: the crypt waits behind it */
+    if (PDBG.straight && !PDBG.took && RUN.active && !G.player && !G.shop && !G.dead && !G.tally) { PDBG.took = 1; app_take_control(); }   /* PLAY's testing:
+                                                                      yours at once, as if H were held (2j) */
     foot_settle();                                                 /* one born by a prop, into what it leaves free (1.0.0b18.1) */
 #ifdef CRAWL_DEBUG
     dbg_souls(); foot_watch();

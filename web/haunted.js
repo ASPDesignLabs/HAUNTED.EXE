@@ -576,6 +576,8 @@
     }
     if (window.HVS_SIDE_NOW != null && window.HVS_SIDE_NOW >= 0) M._web_side_now(window.HVS_SIDE_NOW, window.HVS_SIDE_LEVEL || 1);
     for (const [k, v] of window.HVS_TUNE || []) M._web_side_tune(k, v);   // the editor's tuning, then as its sliders move
+    const dbg = window.HVS_DEBUG;                                 // the world editor's PLAY, testing (docs/PLAN-side.md, 2j): never the page's own
+    if (dbg && M._web_play_debug) M._web_play_debug(dbg.rank | 0, dbg.invuln ? 1 : 0, dbg.straight ? 1 : 0, dbg.level | 0);
     if (window.HVS_WANT_LEVEL) addEventListener("message", (e) => {
       if (e.source === parent && e.data && e.data.type === "hvs-tune" && Number.isInteger(e.data.k)) M._web_side_tune(e.data.k, +e.data.v);
     });

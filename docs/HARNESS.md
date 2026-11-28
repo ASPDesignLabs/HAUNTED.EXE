@@ -162,4 +162,6 @@ door` when a doorway is laid and `SIDE n unreadable: line n: why` when a text is
 `build/sidemock out.png` (kept as `media/sheets/side/side_draft.png`). The World Editor's PLAY, in the harness (any build):
 `HOST_SIDE=file:n[,file:n]` (passages read as PLAY hands them over, each into slot n, 0 to 7, in place of what is built in; a text it
 cannot read stops the harness with the reason and its line) and `HOST_SIDE_NOW=n[:level]` (a new run on that level, the merchant passed
-by, straight into passage n). `node tools/mapedit/test.js` writes `tools/mapedit/fixtures/side_*.txt` and `side_crypt.c` for them.
+by, straight into passage n) and `HOST_PLAYDBG=rank,invuln,straight,level` (the World Editor's PLAY's testing options, docs/PLAN-side.md
+2j: every line's spell at that rank, 0 off; nothing hurts; no merchant or title, the controls yours at once; the Level of Atonement to
+begin at, 0 off). `node tools/mapedit/test.js` writes `tools/mapedit/fixtures/side_*.txt` and `side_crypt.c` for them.

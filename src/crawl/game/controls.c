@@ -337,7 +337,8 @@ static void crawl_control(int what) {
         return;
     }
     if (what == CTRL_PEEK) { if (!G.player) { pop_readout(); G.peek = 0.15f; } return; }
-    if (title_enabled()) { title_open(); return; }                 /* the title first (1.0.0b21.1); a choice there makes it yours */
+    if (title_enabled() && !PDBG.straight) { title_open(); return; }   /* the title first (1.0.0b21.1); a choice there makes it yours
+                                                                      (but not for PLAY's testing, straight in: docs/PLAN-side.md, 2j) */
     show_bar();
     G.player = 1; G.status_ret = PLAY_PLAYER; G.ui = UI_NONE;
     PADX.fresh = 1; TCH.fresh = 1;                                 /* the button (or finger) that took over isn't a press */

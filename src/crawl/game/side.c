@@ -7,7 +7,8 @@
 #define SD_MOBS 40
 #define SD_SHOTS 40
 #define SD_STEP (1.0f / 240.0f)                                    /* the physics' fixed step, so a run comes out the same */
-#define SD_VIEW_H 156                                              /* the view over the status bar */
+#define SD_VIEW_H 200                                              /* the view: the whole screen, its own panels over it (2j; 156 over the crypt's bar till then) */
+#define SD_CAM_Y 124                                               /* the caster this far down the view, under the panels */
 #define SD_LIVES 3
 #define SD_LIFE_PRICE 500                                          /* at the merchant's (step 11) */
 #define SD_HW 5.0f                                                 /* the caster's box: half its width, its height, crouched */
@@ -67,6 +68,7 @@ static struct {
     uint8_t tr_on[SD_TRIGS], tr_was[SD_TRIGS]; float tr_t[SD_TRIGS];
     int hz_ph[SD_HAZ], hz_at[SD_HAZ], hz_n[SD_HAZ], hz_in[SD_HAZ]; float hz_t[SD_HAZ], hz_k[SD_HAZ], hz_bite[SD_HAZ];
     float silence_t, hold_t;
+    int foe; float foe_t, foe_lag, hp_lag;                         /* the panels (2j): the creature shown, how long yet, the HP behind */
 } SD;
 static struct {                                                    /* what stays done for the rest of the crypt level's visit */
     int stamp;
@@ -268,7 +270,7 @@ static void sd_life_lost(void);
 static int sd_fx_ward(void);
 static float sd_knock = 1.0f;                                      /* the next hurt's throw, of TUNING's (a small biter's is light) */
 static void sd_hurt(float dmg, int el, float from_x) {
-    if (SD.dying || SD.inv_t > 0.0f || dmg <= 0.0f || sd_fx_ward()) { sd_knock = 1.0f; return; }   /* (the ward: untouchable) */
+    if (SD.dying || SD.inv_t > 0.0f || dmg <= 0.0f || sd_fx_ward() || PDBG.invuln) { sd_knock = 1.0f; return; }   /* (PDBG: PLAY's testing) */   /* (the ward: untouchable) */
     const Gear *g = &RUN.gear;
     int phys = el == EL_PHYS;
     float d = dmg;
@@ -389,6 +391,7 @@ static void sd_caster(float dt) {
 }
 
 /* ---- harm from the place ---- */
+static void sd_place_at(int link);
 static void sd_place_harm(float dt) {
     if (SD.dying) return;
     float h = sd_box_h(), top = SD.y - h;
@@ -404,7 +407,7 @@ static void sd_place_harm(float dt) {
     SD.pois_k = in ? 1.0f : 0.0f;
     if (in) {
         SD.pois_t += dt;
-        if (SD.pois_t >= SDT[TU_BITE_EVERY] && !sd_fx_ward()) {   /* a share of your health each while */
+        if (SD.pois_t >= SDT[TU_BITE_EVERY] && !sd_fx_ward() && !PDBG.invuln) {   /* a share of your health each while */
             SD.pois_t = 0.0f;
             int n = imax(1, (int)(SDT[TU_BITE] * (float)G.max_hp * (1.0f - el_resist(&RUN.gear, EL_POISON)) + 0.5f));
             G.hp -= n; snd_sfx_ex(SFX_HURT, 0.5f, 0.5f);
@@ -412,6 +415,7 @@ static void sd_place_harm(float dt) {
         }
     } else SD.pois_t = SDT[TU_BITE_EVERY] * 0.8f;                 /* the first bite comes quick (its own clock: it shared the flask's
                                                                       till 26 November, and every flask flew at four tenths) */
+    if (SD.y > (float)(SD.L->h * SD_TILE + 48) && PDBG.invuln) { sd_place_at(SD.link_in); return; }   /* PLAY's testing: back to the doorway */
     if (SD.y > (float)(SD.L->h * SD_TILE + 48)) {                  /* down past the foot: gone */
         G.hp = imax(0, G.hp); SD.dying = 1; SD.die_t = 1.0f; sd_death_sfx(1);
 #ifdef CRAWL_DEBUG
@@ -513,8 +517,49 @@ static void sd_mob_slain(SdMob *m, int sp) {
     fprintf(stderr, "EVENT side_slain %s rank %d by %s t=%.2f\n", KINDS[m->kind].name, m->rank, sp >= 0 && sp < NATK ? ATK_NAME[sp] : "?", SD.t);
 #endif
 }
+/* the panels (2j): which creature the right one shows. Struck, or striking, it holds three seconds; looked at (ahead of you, near your
+ * height, nothing between) it is shown while you look and a moment after, unless one in a fight holds it. Drawing only: no dice. */
+static void sd_foe_set(int i, float secs) {
+    if (i < 0 || i >= SD_MOBS) return;
+    if (i != SD.foe && SD.foe_t > 1.0f && secs < 2.0f) return;    /* looking does not take it from a fight */
+    if (i != SD.foe || SD.foe_t <= 0.0f) SD.foe_lag = SD.mob[i].maxhp > 0.0f ? SD.mob[i].hp / SD.mob[i].maxhp : 0.0f;
+    SD.foe = i; SD.foe_t = fmaxf(SD.foe_t, secs);
+}
+static void sd_foe_kind(int kind, float x, float y) {              /* a shot's thrower: the nearest of its kind */
+    int best = -1; float bd = 1e9f;
+    for (int i = 0; i < SD_MOBS; i++) {
+        const SdMob *m = &SD.mob[i];
+        if (!m->alive || m->state == SDM_DIE || m->kind != kind) continue;
+        float d = hypotf(m->x - x, m->y - y);
+        if (d < bd) { bd = d; best = i; }
+    }
+    sd_foe_set(best, 3.0f);
+}
+static int sd_line_clear(float x0, float y0, float x1, float y1);
+static void sd_foe_watch(float dt) {
+    SD.foe_t = fmaxf(0.0f, SD.foe_t - dt);
+    int best = -1; float bd = 1e9f;
+    for (int i = 0; i < SD_MOBS; i++) {
+        const SdMob *m = &SD.mob[i];
+        if (!m->alive || m->state == SDM_DIE || (m->kind == MOB_LEECH && m->act == 21)) continue;   /* (21: a leech under its pool) */
+        float dx = m->x - SD.x;
+        if (dx * (float)SD.face < -4.0f || fabsf(dx) > 10.0f * SD_TILE || fabsf(m->y - SD.y) > 4.0f * SD_TILE) continue;
+        if (!sd_line_clear(SD.x, SD.y - 10.0f, m->x, m->y - 8.0f)) continue;
+        if (fabsf(dx) < bd) { bd = fabsf(dx); best = i; }
+    }
+    if (best >= 0) sd_foe_set(best, 1.2f);
+    float k = G.max_hp > 0 ? (float)G.hp / (float)G.max_hp : 0.0f;  /* what was lost shows dark a moment, then goes */
+    SD.hp_lag = k >= SD.hp_lag ? k : fmaxf(k, SD.hp_lag - dt * 0.35f);
+    if (SD.foe_t > 0.0f) {
+        const SdMob *m = &SD.mob[SD.foe];
+        float f = m->alive && m->state != SDM_DIE && m->maxhp > 0.0f ? fmaxf(0.0f, m->hp / m->maxhp) : 0.0f;
+        SD.foe_lag = f >= SD.foe_lag ? f : fmaxf(f, SD.foe_lag - dt * 0.35f);
+        if (!m->alive) SD.foe_t = 0.0f;
+    }
+}
 static void sd_mob_hit(SdMob *m, float dmg, int sp, int el) {
     if (m->state == SDM_DIE || !m->alive) return;
+    sd_foe_set((int)(m - SD.mob), 3.0f);
     if ((KINDS[m->kind].flags & KF_SPIRIT) && el != EL_SPIRIT) return;   /* nothing carried hurts a spirit but spirit */
     if (el >= 0 && el < NELEM) dmg *= KINDS[m->kind].weak[el];
     if (el == EL_FROST) m->slow_t = 2.0f;
@@ -592,7 +637,7 @@ static void sd_cast(int release) {
         RUN.souls -= bfs_cost(RUN.gear.atk[AT_BFS]);
         for (int i = 0; i < SD_MOBS; i++) {
             SdMob *m = &SD.mob[i];
-            if (m->alive && m->state != SDM_DIE && fabsf(m->x - SD.camx - 160.0f) < 170.0f && fabsf(m->y - SD.camy - 78.0f) < 90.0f
+            if (m->alive && m->state != SDM_DIE && fabsf(m->x - SD.camx - 160.0f) < 170.0f && fabsf(m->y - SD.camy - (float)SD_VIEW_H * 0.5f) < (float)SD_VIEW_H * 0.5f + 12.0f
                 && !(KINDS[m->kind].flags & KF_SPIRIT)) { m->hp = 0.0f; sd_mob_slain(m, AT_BFS); }
         }
         snd_sfx_ex(SFX_IMPLODE, 1.3f, 0.5f); rumble(1.0f, 1.0f, 0.7f);
@@ -752,7 +797,7 @@ static void sd_place_at(int link) {
     SD.vx = SD.vy = 0.0f; SD.ground = 1; SD.on_plat = -1; SD.on_body = -1; SD.climb = -1; SD.crouch = 0; SD.face = t->x < L->w / 2 ? 1 : -1;
     SD.dying = 0; SD.die_t = 0.0f; SD.inv_t = 1.0f; SD.cd = 0.4f; SD.in_t = 0.0f; SD.held = 0.0f; SD.holding = 0;
     SD.camx = clampf(SD.x - 160.0f, 0.0f, fmaxf(0.0f, (float)(L->w * SD_TILE - W)));
-    SD.camy = clampf(SD.y - 100.0f, 0.0f, fmaxf(0.0f, (float)(L->h * SD_TILE - SD_VIEW_H)));
+    SD.camy = clampf(SD.y - (float)SD_CAM_Y, 0.0f, fmaxf(0.0f, (float)(L->h * SD_TILE - SD_VIEW_H)));
 }
 static int sd_enter(int side, int link, int cx, int cy) {
     if (side < 0 || side >= SD_SIDES || (side >= NSIDE_TEXT && !sdl_read[side])) return 0;   /* built in, or handed over by PLAY */
@@ -772,6 +817,7 @@ static int sd_enter(int side, int link, int cx, int cy) {
     SD.on = 1; SD.side = side; SD.link_in = link; SD.cx = cx; SD.cy = cy; SD.L = &SDL[side];
     for (int k = 0; k < NTU; k++) SDT[k] = (SD.L->tuned >> k & 1) ? SD.L->tune[k] : TUNE[k].def;   /* its own numbers, else the game's */
     SD.leaving = 0; SD.fade = 1.0f; SD.t = 0.0f;
+    SD.foe = 0; SD.foe_t = 0.0f; SD.hp_lag = G.max_hp > 0 ? (float)G.hp / (float)G.max_hp : 1.0f;
     memcpy(SD0.taken, SDP.taken[side], sizeof SD0.taken); memcpy(SD0.thrown, SDP.thrown[side], sizeof SD0.thrown);
     memcpy(SD0.slain, SDP.slain[side], sizeof SD0.slain);
     memcpy(SD0.keys, G.has_key, sizeof SD0.keys); SD0.treasure = RUN.treasure; SD0.level_treasure = G.level_treasure;
@@ -943,6 +989,7 @@ static void sd_update(float dt) {
         sd_traps(st);
         sd_mobs(st);
         sd_verm(st);                                               /* rats and spiderlings (side_vermin.c) */
+        sd_foe_watch(st);                                          /* the panels' creature (2j) */
         sd_shots(st);
         if (!SD.on) return;                                        /* (the last life went in a step) */
         in->jump_hit = 0; in->cast_hit = 0;
@@ -968,7 +1015,7 @@ static void sd_update(float dt) {
         }
     }
     /* the camera: a little ahead of where you face, kept in the map */
-    float tx = SD.x - 160.0f + (float)SD.face * SDT[TU_CAM_LEAD], ty = SD.y - 96.0f;
+    float tx = SD.x - 160.0f + (float)SD.face * SDT[TU_CAM_LEAD], ty = SD.y - (float)SD_CAM_Y;
     SD.camx += (tx - SD.camx) * fminf(1.0f, dt * 5.0f);
     SD.camy += (ty - SD.camy) * fminf(1.0f, dt * 4.0f);
     SD.camx = clampf(SD.camx, 0.0f, fmaxf(0.0f, (float)(SD.L->w * SD_TILE - W)));
@@ -1025,6 +1072,10 @@ int crawl_side_text(int n, const char *text, char *err, int nerr) {
 }
 void crawl_side_now(int n, int level);                             /* a new run begins on level, and goes straight into passage n */
 void crawl_side_now(int n, int level) { g_side_now = n >= 0 && n < SD_SIDES ? n : -1; g_side_level = level < 1 ? 1 : level; }
+void crawl_play_debug(int rank, int invuln, int straight, int level);   /* the World Editor's PLAY's testing (2j), before the run begins */
+void crawl_play_debug(int rank, int invuln, int straight, int level) {
+    PDBG.rank = clampi(rank, 0, 120); PDBG.invuln = invuln != 0; PDBG.straight = straight != 0; PDBG.level = clampi(level, 0, 999); PDBG.took = 0;
+}
 void crawl_side_tune(int k, float v);                              /* the World Editor's sliders while it plays: one number, now */
 void crawl_side_tune(int k, float v) {
     if (k < 0 || k >= NTU) return;

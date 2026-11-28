@@ -99,6 +99,7 @@ static void take_control(void) {
     SCENES[p]->control(CTRL_TAKE);
     A.control = 1; A.hold_t = 0; A.scene_t = 0;
 }
+void app_take_control(void) { if (!A.control && !A.quit) take_control(); }
 
 void app_update(double dt) {
     if (dt > 0.25) dt = 0.25;

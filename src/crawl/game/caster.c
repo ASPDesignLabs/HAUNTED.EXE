@@ -289,6 +289,7 @@ static void align_sync(void) {                                     /* each line'
     }
     gear_set_class(cls_el(), d6_on());                             /* and to the class (1.0.0b21, D6) */
     RUN.gear.atk[AT_HELL] = RUN.gear.atk[AT_WISPS] = -1;           /* only the abilities let these loose now */
+    if (PDBG.rank > 0) for (int e = 0; e < NELEM; e++) RUN.gear.atk[LINE_ATK[e]] = (int8_t)PDBG.rank;   /* PLAY's testing: every line's spell (2j) */
     spell_set_own(cls_el() >= 0 ? LINE_ATK[cls_el()] : LEDGER.lent ? LINE_ATK[LEDGER.lent - 1] : -1);   /* its first rank free */
     spell_set_atone(RUN.atone);
 }

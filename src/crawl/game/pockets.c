@@ -413,7 +413,9 @@ static void crawl_enter(uint32_t seed) {
         memset(&RUN, 0, sizeof RUN);
         RUN.active = 1; RUN.level = g_dtext_on ? g_dtext.level : 1; RUN.hp = 100;   /* a drawing read for PLAY: begun on its level */ RUN.shop_next = 1;
         if (g_side_now >= 0) { RUN.level = g_side_level; RUN.shop_next = 0; }   /* side (PLAN-side): PLAY of a passage, at once */
+        if (PDBG.straight) RUN.shop_next = 0;                      /* PLAY's testing (docs/PLAN-side.md, 2j): no merchant first */
         RUN.run_id = new_run_id(seed); RUN.peds = 2; RUN.repo_n = 2; RUN.atone = 1;
+        if (PDBG.level > 0) { RUN.atone = PDBG.level; RUN.xp = atone_need(RUN.atone); }   /* PLAY's testing: this Level of Atonement (2j) */
         gear_reset(&RUN.gear);
 #ifdef CRAWL_DEBUG
         if (getenv("CRAWL_LEVEL")) RUN.level = atoi(getenv("CRAWL_LEVEL"));

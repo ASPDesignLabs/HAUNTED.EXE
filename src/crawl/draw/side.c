@@ -427,6 +427,161 @@ static void sd_draw_power(Frame *f, int kind, int cx, int cy, float k) {
     for (int r = 0; r < 9; r++) for (int c = 0; c < 9; c++)
         if (ICON[kind][r][c] == '#') sd_px(f, cx - 4 + c, cy - 4 + r, (uint8_t)(RAMP[kind] + 13 + ((r + c) & 1) * 2), 31);
 }
+/* ---- the panels (2j, the owner, 28 November): the crypt's bar is not drawn in a passage; nothing is boxed, all of it floats over the
+ * play, each word with a shadow and each picture with a dark edge round it, so it reads on any wall. Top left, the caster: the class over a
+ * portrait (the passage's own figure, doubled), its lives, spell and gold beside it, and under it health (red, what was just lost a
+ * darker red behind), spirit, and experience (purple, filling yellow), thickest to thinnest. Top right, mirrored, the creature looked at,
+ * striking or struck: its name, its picture's head, its health. Made a third smaller at the owner's word: its own small type. ---- */
+#define SDH_Y 2
+#define SDH_W 78
+#define SDH_H 44
+#define SDH_P 18                                                   /* a portrait's square */
+/* the panels' type: capitals, figures and a few marks, 4 by 5 in a 5 pixel cell */
+static const char SDH_FCH[] = " ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789$-':.,";
+static const char *const SDH_FONT[][5] = {
+    { "....", "....", "....", "....", "...." },
+    { ".##.", "#..#", "####", "#..#", "#..#" }, { "###.", "#..#", "###.", "#..#", "###." }, { ".###", "#...", "#...", "#...", ".###" },
+    { "###.", "#..#", "#..#", "#..#", "###." }, { "####", "#...", "###.", "#...", "####" }, { "####", "#...", "###.", "#...", "#..." },
+    { ".###", "#...", "#.##", "#..#", ".###" }, { "#..#", "#..#", "####", "#..#", "#..#" }, { "###.", ".#..", ".#..", ".#..", "###." },
+    { "..##", "...#", "...#", "#..#", ".##." }, { "#..#", "#.#.", "##..", "#.#.", "#..#" }, { "#...", "#...", "#...", "#...", "####" },
+    { "#..#", "####", "####", "#..#", "#..#" }, { "#..#", "##.#", "#.##", "#..#", "#..#" }, { ".##.", "#..#", "#..#", "#..#", ".##." },
+    { "###.", "#..#", "###.", "#...", "#..." }, { ".##.", "#..#", "#..#", "#.#.", ".#.#" }, { "###.", "#..#", "###.", "#.#.", "#..#" },
+    { ".###", "#...", ".##.", "...#", "###." }, { "###.", ".#..", ".#..", ".#..", ".#.." }, { "#..#", "#..#", "#..#", "#..#", ".##." },
+    { "#..#", "#..#", "#..#", ".##.", ".##." }, { "#..#", "#..#", "####", "####", "#..#" }, { "#..#", "#..#", ".##.", "#..#", "#..#" },
+    { "#.#.", "#.#.", ".#..", ".#..", ".#.." }, { "####", "..#.", ".#..", "#...", "####" },
+    { ".##.", "#..#", "#..#", "#..#", ".##." }, { ".#..", "##..", ".#..", ".#..", "###." }, { "###.", "...#", ".##.", "#...", "####" },
+    { "###.", "...#", ".##.", "...#", "###." }, { "#..#", "#..#", "####", "...#", "...#" }, { "####", "#...", "###.", "...#", "###." },
+    { ".##.", "#...", "###.", "#..#", ".##." }, { "####", "...#", "..#.", ".#..", ".#.." }, { ".##.", "#..#", ".##.", "#..#", ".##." },
+    { ".##.", "#..#", ".###", "...#", ".##." }, { ".###", "##..", ".##.", "..##", "###." }, { "....", "....", "###.", "....", "...." },
+    { ".#..", ".#..", "....", "....", "...." }, { "....", ".#..", "....", ".#..", "...." }, { "....", "....", "....", "....", ".#.." },
+    { "....", "....", "....", ".#..", "#..." },
+};
+_Static_assert(sizeof SDH_FONT / sizeof SDH_FONT[0] == sizeof SDH_FCH - 1, "a glyph for each of the panels' letters");
+static int sd_htext_w(const char *s) { int n = (int)strlen(s); return n ? n * 5 - 1 : 0; }
+static void sd_htext(Frame *f, int x, int y, const char *s, uint8_t c) {   /* in the small type, a shadow under it */
+    for (int pass = 0; pass < 2; pass++)
+        for (int i = 0; s[i]; i++) {
+            const char *q = strchr(SDH_FCH, toupper((unsigned char)s[i]));
+            if (!q) continue;
+            const char *const *g = SDH_FONT[q - SDH_FCH];
+            for (int r = 0; r < 5; r++) for (int k = 0; k < 4; k++)
+                if (g[r][k] == '#') gfx_px(f, x + i * 5 + k + (pass ? 0 : 1), y + r + (pass ? 0 : 1), pass ? c : 0);
+        }
+}
+static uint8_t sd_pbuf[SDH_P * SDH_P];                             /* a portrait drawn here first, then edged in black over the play */
+static void sd_pflush(Frame *f, int x, int y) {
+    for (int j = -1; j <= SDH_P; j++)
+        for (int i = -1; i <= SDH_P; i++) {
+            #define PB(a, b) ((a) >= 0 && (b) >= 0 && (a) < SDH_P && (b) < SDH_P ? sd_pbuf[(b) * SDH_P + (a)] : (uint8_t)C_CLEAR)
+            uint8_t c = PB(i, j);
+            if (c != C_CLEAR) { gfx_px(f, x + i, y + j, c); continue; }
+            if (PB(i - 1, j) != C_CLEAR || PB(i + 1, j) != C_CLEAR || PB(i, j - 1) != C_CLEAR || PB(i, j + 1) != C_CLEAR) gfx_px(f, x + i, y + j, 0);
+            #undef PB
+        }
+}
+static void sd_bar(Frame *f, int x, int y, int w, int h, float k, float lag, int fill, int fill_top, uint8_t lagc, uint8_t empty, int right) {
+    gfx_rect(f, x - 1, y - 1, w + 2, h + 2, 0);
+    int n = (int)(clampf(k, 0.0f, 1.0f) * (float)w + 0.5f), nl = (int)(clampf(lag, 0.0f, 1.0f) * (float)w + 0.5f);
+    for (int i = 0; i < w; i++) {
+        int at = right ? w - 1 - i : i;                            /* mirrored: it empties toward the left edge */
+        for (int j = 0; j < h; j++) {
+            uint8_t c = at < n ? ramp_at(fill, fill_top - (j == 0 && h > 1 ? -2 : j == h - 1 && h > 2 ? 3 : 0)) : at < nl ? lagc : empty;
+            gfx_px(f, x + i, y + j, c);
+        }
+    }
+}
+static void sd_portrait_fig(Frame *f, int x, int y, int fr) {      /* the caster's head and shoulders from its frame, doubled */
+    memset(sd_pbuf, C_CLEAR, sizeof sd_pbuf);
+    const uint8_t *p = side_fig[clampi(fr, 0, NSF - 1)];
+    int y0 = SF_H, sx = 0, n = 0;
+    for (int r = 0; r < SF_H && y0 == SF_H; r++) for (int c = 0; c < SF_W; c++) if (p[r * SF_W + c] != C_CLEAR) { y0 = r; break; }
+    for (int r = y0; r < y0 + 4 && r < SF_H; r++) for (int c = 0; c < SF_W; c++) if (p[r * SF_W + c] != C_CLEAR) { sx += c; n++; }
+    int cx = n ? sx / n : SF_W / 2, s = (SDH_P - 2) / 2, c0 = cx - s / 2, r0 = y0;
+    for (int r = 0; r < s; r++)
+        for (int c = 0; c < s; c++) {
+            int u = c0 + c, v = r0 + r;
+            if (u < 0 || v < 0 || u >= SF_W || v >= SF_H || p[v * SF_W + u] == C_CLEAR) continue;
+            for (int k = 0; k < 4; k++) sd_pbuf[(1 + r * 2 + (k >> 1)) * SDH_P + 1 + c * 2 + (k & 1)] = p[v * SF_W + u];
+        }
+    sd_pflush(f, x, y);
+}
+static void sd_portrait_spr(Frame *f, int x, int y, int spr, int flip) {   /* a creature's head from its picture: a square of it 22 across
+                                                                      (twice the passage's scale) drawn 16 across, facing the caster */
+    const int s = 22, o = SDH_P - 2;
+    int y0 = TS, sx = 0, n = 0;
+    memset(sd_pbuf, C_CLEAR, sizeof sd_pbuf);
+    for (int r = 0; r < TS && y0 == TS; r++) for (int c = 0; c < TS; c++) if (crawl_spr[spr][c * TS + r] != C_CLEAR) { y0 = r; break; }
+    for (int r = y0; r < y0 + 6 && r < TS; r++) for (int c = 0; c < TS; c++) if (crawl_spr[spr][c * TS + r] != C_CLEAR) { sx += c; n++; }
+    int cx = n ? sx / n : TS / 2, c0 = cx - s / 2, r0 = imin(y0 - 1, TS - s);
+    for (int r = 0; r < o; r++)
+        for (int c = 0; c < o; c++) {
+            int u = c0 + (c * s + s / 2) / o, v = r0 + (r * s + s / 2) / o;
+            if (u < 0 || v < 0 || u >= TS || v >= TS) continue;
+            uint8_t px = crawl_spr[spr][u * TS + v];
+            if (px != C_CLEAR) sd_pbuf[(1 + r) * SDH_P + 1 + (flip ? o - 1 - c : c)] = px;
+        }
+    sd_pflush(f, x, y);
+}
+static void sd_lamp(Frame *f, int x, int y, int lit) {             /* a life: the passage's lamp at a third of its size, cold when lost */
+    const uint8_t *t = side_tile[ST_LIFE];
+    for (int r = 0; r < 5; r++)
+        for (int c = 0; c < 4; c++) {
+            uint8_t px = C_CLEAR;
+            for (int k = 0; k < 9 && px == C_CLEAR; k++) px = t[(2 + r * 3 - (r == 4) + k / 3) * STS + 2 + c * 3 + k % 3];
+            if (px == C_CLEAR) continue;
+            if (!lit) { if (IS_FULLBRIGHT(px)) continue; px = (uint8_t)(R_STONE + 7); }
+            gfx_px(f, x + c + 1, y + r + 1, 0); gfx_px(f, x + c, y + r, px);
+        }
+}
+static void sd_glyph5(Frame *f, int x, int y, int e) {             /* an element's glyph, 7 by 7, drawn 5 by 5 */
+    static const int K[5] = { 0, 2, 3, 4, 6 };
+    for (int pass = 0; pass < 2; pass++)
+        for (int r = 0; r < 5; r++) for (int c = 0; c < 5; c++) {
+            char ch = ELEM_GLYPH[e][K[r]][K[c]];
+            if (ch == '#' || ch == 'o') gfx_px(f, x + c + !pass, y + r + !pass, pass ? ramp_at(ELEM_RAMP[e], ch == 'o' ? 15 : 11) : 0);
+        }
+}
+static void sd_hud(Frame *f) {
+    int x = 3, y = SDH_Y;
+    {                                                              /* the class, over the portrait */
+        int e = RUN.cls >= 1 && RUN.cls <= NELEM ? RUN.cls - 1 : -1;
+        sd_htext(f, x, y + 1, e >= 0 ? CLASS_SHORT[e] : "NO CLASS YET", e >= 0 ? ramp_at(ELEM_RAMP[e], 14) : (uint8_t)(R_BONE + 13));
+    }
+    int px = x, py = y + 9;
+    sd_portrait_fig(f, px, py, SD.hurt_t > 0.0f || SD.dying ? SF_HURT : SF_IDLE0);
+    int bx = px + SDH_P + 3;                                       /* beside it: the lives, the spell in hand, the gold and the keys */
+    for (int k = 0; k < SD_LIVES; k++) sd_lamp(f, bx + k * 6, py + 1, k < sd_lives());
+    {
+        int sp = clampi(G.spell, 0, NATK - 1), el = ATK_ELEM[sp];
+        char t[16];
+        if (sp == AT_BFS) snprintf(t, sizeof t, "BFS -%d", bfs_cost(RUN.gear.atk[AT_BFS])); else snprintf(t, sizeof t, "RANK %d", imax(RUN.gear.atk[sp], 1));
+        if (el >= 0) sd_glyph5(f, bx, py + 7, el);
+        sd_htext(f, bx + (el >= 0 ? 7 : 0), py + 7, t, ramp_at(gear_color(GK_ATK, sp), 13));
+    }
+    {
+        char t[16];
+        snprintf(t, sizeof t, "$%d", RUN.treasure);
+        sd_htext(f, bx, py + 13, t, R_GOLD + 12);
+        int kx = bx + sd_htext_w(t) + 3;
+        for (int c = 0; c < NKEYS; c++) if (G.has_key[c]) { key_icon(f, kx, py + 13, c); kx += 9; }
+    }
+    int bw = SDH_W - 4, by = py + SDH_P + 3;                       /* health, spirit, experience: thickest to thinnest */
+    float hp = G.max_hp > 0 ? (float)G.hp / (float)G.max_hp : 0.0f;
+    sd_bar(f, x + 1, by, bw, 4, hp, SD.hp_lag, R_BLOOD, 12, (uint8_t)(R_BLOOD + 5), (uint8_t)(R_STONE + 2), 0);
+    int cap = vessel(), full = RUN.souls >= cap;
+    sd_bar(f, x + 1, by + 6, bw, 3, cap > 0 ? spirit() / (float)cap : 0.0f, 0.0f, full ? R_GOLD : R_GLOW, full ? 11 : 10, 0, (uint8_t)(R_STONE + 2), 0);
+    int reach = atone_reach(), lo = atone_need(reach), hi = atone_need(reach + 1);
+    sd_bar(f, x + 1, by + 11, bw, 2, hi > lo ? (float)(RUN.xp - lo) / (float)(hi - lo) : 0.0f, 0.0f, R_GOLD, 11, 0, (uint8_t)(R_PURPLE + 7), 0);
+    if (SD.foe_t <= 0.0f || SD.foe < 0 || SD.foe >= SD_MOBS) return;
+    const SdMob *m = &SD.mob[SD.foe];                              /* the creature, mirrored at the top right */
+    const char *nm = KINDS[m->kind].name;
+    int w = imax(SDH_W, sd_htext_w(nm) + 2), ex = W - 3 - w;
+    sd_htext(f, ex + w - sd_htext_w(nm), y + 1, nm, m->rank > 0 ? ramp_at(KINDS[m->kind].family >= 0 ? R_BLOOD : R_BONE, 12) : (uint8_t)(R_BONE + 13));
+    sd_portrait_spr(f, ex + w - SDH_P, py, sd_mob_spr(m), 1);
+    float k = m->alive && m->state != SDM_DIE && m->maxhp > 0.0f ? fmaxf(0.0f, m->hp / m->maxhp) : 0.0f;
+    sd_bar(f, ex + w - 1 - bw, by, bw, 4, k, SD.foe_lag, R_BLOOD, 12, (uint8_t)(R_BLOOD + 5), (uint8_t)(R_STONE + 2), 1);
+}
+
 static void sd_render(Frame *f) {
     const SdLevel *L = SD.L;
     int camx = (int)floorf(SD.camx), camy = (int)floorf(SD.camy);
@@ -701,28 +856,13 @@ static void sd_render(Frame *f) {
             }
         }
     }
-    for (int k = 0, n = 0; k < NPW; k++) {                         /* their time left, top right: the icon and a bar running down */
+    sd_hud(f);                                                     /* the panels, over the view (2j) */
+    for (int k = 0, n = 0; k < NPW; k++) {                         /* the powerups' time left, under the left panel: the icon and a bar running down */
         if (FX.pw[k] <= 0.0f) continue;
-        int cx = W - 14 - n * 26, cy = 10;
+        int cx = 14 + n * 26, cy = SDH_Y + SDH_H + 12;
         sd_draw_power(f, k, cx, cy, 1.0f);
         int bw = (int)(18.0f * FX.pw[k] / fmaxf(FX.pw_full[k], 0.1f));
         for (int x = 0; x < 18; x++) f->pix[(cy + 9) * W + cx - 9 + x] = x < bw ? (uint8_t)(k == PW_RAPID ? R_GOLD + 13 : k == PW_MIGHT ? R_FLAME + 12 : R_GHOST + 13) : (uint8_t)(R_STONE + 4);
         n++;
     }
-    /* the lives, top left: a lamp each, the lost ones cold */
-    for (int k = 0; k < SD_LIVES; k++) {
-        const uint8_t *t = side_tile[ST_LIFE];
-        for (int y = 2; y < STS; y++) for (int x = 2; x < 14; x++) {
-            uint8_t c = t[y * STS + x];
-            if (c == C_CLEAR) continue;
-            if (k >= sd_lives()) c = IS_FULLBRIGHT(c) ? C_CLEAR : (uint8_t)(R_STONE + 5);
-            if (c != C_CLEAR) f->pix[(y + 1) * W + 4 + k * 13 + x - 2] = c;
-        }
-    }
-    if (SD.in_t < 3.0f) {                                          /* its name, as you come in */
-        int w = gfx_text_width(L->name, 1);
-        gfx_text8(f, (W - w) / 2 + 1, 13, L->name, 0, 1);
-        gfx_text8(f, (W - w) / 2, 12, L->name, R_GOLD + 11, 1);
-    }
-    for (int y = SD_VIEW_H; y < H; y++) memset(f->pix + y * W, 0, W);   /* under the bar */
 }

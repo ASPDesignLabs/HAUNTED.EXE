@@ -202,6 +202,7 @@ static int sd_hit_el(const SdMob *m) {
 }
 static void sd_mob_strikes(SdMob *m, float k) {                    /* its blow landing on the caster; then it draws back a moment */
     G.blame = (Blame){ BL_MOB, m->kind, m->rank };
+    sd_foe_set((int)(m - SD.mob), 3.0f);                           /* the panel shows what struck (2j) */
     if (m->kind == MOB_BAT || m->kind == MOB_LING || m->kind == MOB_RAT) sd_knock = 0.3f;   /* a small biter: a nudge, not a throw */
     sd_hurt(sd_blow(m) * k, sd_hit_el(m), m->x);
     if (!m->fly && m->way != SW_DROP && m->way != SW_SKULL && m->way != SW_SAC && m->way != SW_HOP && m->way != SW_LEECH && m->way != SW_CRAB) {
@@ -854,6 +855,7 @@ static int sd_shot_meets(SdShot *s) {                              /* 1: it stru
         for (int k = 0; k < n; k++)
             if (sd_fig_px(cx + dx[k], cy + dy[k])) {
                 G.blame = (Blame){ BL_MOB, s->from >= 0 ? s->from : MOB_SKEL, 0 };
+                if (s->from >= 0) sd_foe_kind(s->from, s->x - s->vx * 0.2f, s->y);   /* the panel: who threw it (2j) */
                 sd_hurt(s->dmg, s->el, s->x - s->vx);
                 s->alive = 0;
                 return 1;

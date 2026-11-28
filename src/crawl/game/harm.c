@@ -205,6 +205,7 @@ static int dh_spare(int kind);                                     /* drawn_haz.
 /* a person's last two minutes, in tens of seconds: health lost, kills, and how long since a hurt (docs/PLAN-ai.md, section 27) */
 static struct { float hp[12]; int k[12], i; float t, calm, over_t, quiet; int n0; } WELL;
 static int hurt_ex(float dmg, int kind, float sx, float sy) {
+    if (PDBG.invuln) return 0;                                     /* the World Editor's PLAY, testing: nothing hurts (docs/PLAN-side.md, 2j) */
     int el = harm_of(kind);
     float raw = dmg, armoured = dmg;
     if (G.dead || G.ending || G.exiting || G.tally || G.shop || G.level_t < 1.5) return 0;
