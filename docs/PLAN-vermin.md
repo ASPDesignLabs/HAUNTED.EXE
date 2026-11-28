@@ -43,7 +43,7 @@ look at the first 24 only (`k < REC_KINDS`).
 | 1 | The three kinds in `KINDS` (24, 25, 26), `REC_MEM`, `LG_REC2`, the guards; old pages load, the new section reads back, the dream's log unchanged | Done, harness only |
 | 2 | Side passages: the hopper's and the leech's ways (`side_dead.c`), the crab's run on its painted path (`CPATH`), vermin (`VERMIN x y RAT|LING`) | Done, harness only |
 | 3 | The crypt: the crab on a drawn level, its path painted, its run along it in the 3-D view, caught or slain for its gold | Done, harness only |
-| 4 | Art: each kind's pictures (crypt sprites, the bestiary's), the vermin's side tiles; the sheet | Drafts on the sheet (`media/sheets/vermin/vermin_draft.png`), awaiting the owner |
+| 4 | Art: each kind's pictures (crypt sprites, the bestiary's), the vermin's side tiles; the sheet | A second pass on the sheet (`media/sheets/vermin/vermin_draft_2.png`, the first beside it), awaiting the owner |
 | 5 | The World Editor: vermin, the hopper's span, the crab's path and its gold, in passages and on crypt levels | Done, harness and headless browser only |
 | 6 | Tests, `make asan`, docs, the editor republished | Done |
 
@@ -84,7 +84,7 @@ look at the first 24 only (`k < REC_KINDS`).
   (`tools/mapedit/fixtures/crab.c`, written by `test.js`) through `HOST_DRAWN`: it ran its six cells as the dream came in and was
   cornered; a scripted person who took over and walked to it caught it (`EVENT crab caught by player`, 14 gold). The dream's log, seeds
   1 and 4, 1,500 s, line for line the build before's.
-- Step 4. The draft pictures on one sheet, `media/sheets/vermin/vermin_draft.png`: the crypt's sprites (`build/sheet vermin`), the
+- Step 4. The draft pictures on one sheet, `media/sheets/vermin/vermin_draft.png` (now `vermin_draft_1.png`): the crypt's sprites (`build/sheet vermin`), the
   vermin's passage tiles from `build/sidemock`, and the small-things passage in play. In passages the three kinds show these same
   pictures until the creatures' own side art (PLAN-side, 13).
 - Step 5. The World Editor. Passages (`side.js`, `side_ui.js`): SMALL THINGS THAT MOVE among the tools (rat, spiderling, skull hopper,
@@ -98,4 +98,24 @@ look at the first 24 only (`k < REC_KINDS`).
   refusals. Driven in a headless Chromium: both panes, both paintings, no page errors.
 - Step 6. `make asan`: the crab's level with the scripted catch, 400 s, and the small-things passage under the dream, 300 s: clean.
   Left for the owner: the pictures (the sheet), and playing them by hand.
+
+**Session 2 (28 November 2026).** The owner: "Run another detail pass against the creatures you created." The pictures again, nothing
+else (`src/art/parts/vermin.c`, `src/art/side_art.c`):
+- The hopper is the game's own skull now, the art pass's profile (`SKULL_SIDE`) doubled (`hop_double`, EPX), so it is kin to the wall
+  skulls and the skeletons': settled, squat and nodding, grit thrown out either side; in the leap tipped back and stretched, its jaw
+  dropped open on the dark of its mouth, the air behind it. A crack down from the crown and one from the back, the bone's grain, moss
+  where it lay, grave-earth on its jaw, its eye a coal.
+- The leech is shaded along its spine: a dark back with a stripe of sallow spots, a pale flat belly, rings every three pixels, a wet
+  glint here and there; a flared sucker edge on at its tail, a round mouth at its head turned to its way, a ring of teeth (five shut,
+  eight gaping), two pairs of eyespots (the first lit); a slick under it lying, bile dripping off it in the leap.
+- The crab's coin is milled at its rim, a struck ring inside it, a crowned head in profile raised on it, lit above and shadowed below;
+  under it a plated body on six legs, hip, knee and a pale point, each side's set lifting by turns; pincers raised either side of the
+  coin, a finger that opens and closes, pale tips; eyes on stalks; dust behind it. Still, it is the coin with a glint and one leg's tip.
+- The rat and the spiderling in passages are drawn a pixel at a time (`RAT_TILE`, `LING_TILE`, `vermin_grid`): the rat with a dark
+  back, a pale belly, a pink ear, a lit eye, a whisker and a nose, at full stretch and gathered; the spiderling side on, an abdomen with
+  its mother's mark (an hourglass, as the crypt's spiderlings carry), a head with its eyes and fangs, four legs arched over it to pale
+  knees, a step and the next, its shell lifted three steps so its legs read on the back wall.
+- A passage's hits are by these pictures, so they move with them; the crypt's do not. Tested, harness only: the dream, seed 1, 1,500 s,
+  line for line the build before's; the small-things passage under `make asan`, 300 s, clean (the hopper and the leech slain, the
+  spiderlings biting). The sheet: `media/sheets/vermin/vermin_draft_2.png`, the first draft under each part.
 

@@ -405,35 +405,41 @@ static void climb_chain(uint8_t *t) {                              /* heavy link
     }
 }
 
-/* ---- vermin (docs/PLAN-vermin.md): drafts, facing right, their feet on the tile's foot ---- */
-static void rat_tile(uint8_t *t, int frame) {                      /* a rat running: a low body, a long tail, its legs at one step and the next */
+/* ---- vermin (docs/PLAN-vermin.md): drawn a pixel at a time (the second pass, 28 November), facing right, feet on the tile's foot.
+ * The letters: k d m l h the fur dark to light; b its belly; s S the skin (ears, feet, tail), its inside pale; n the nose; e an eye
+ * (lit); w a whisker; i j J the spider's shell dark to light, I a pale band at a joint, r its mother's mark, E its lesser eyes, f fangs */
+static void vermin_grid(uint8_t *t, const char *const *g) {
     tclear(t);
-    for (int y = 9; y <= 13; y++) for (int x = 4; x <= 12; x++) {
-        float ax = ((float)x - 8.5f) / 4.6f, ay = ((float)y - 11.2f) / 2.4f;
-        if (ax * ax + ay * ay <= 1.0f) tp(t, x, y, rc(R_WARM, 8 + (y < 11) * 2 - (y == 13) * 2));
-    }
-    for (int y = 9; y <= 12; y++) for (int x = 12; x <= 15; x++) if ((x - 12) <= (12 - y) + 2 && x - 12 >= (y - 9) - 1) tp(t, x, y, rc(R_WARM, 9));   /* the snout */
-    tp(t, 15, 11, rc(R_BLOOD, 6)); tp(t, 13, 10, rc(R_GLOW, 11));  /* nose; an eye, bright */
-    tp(t, 11, 8, rc(R_WARM, 11)); tp(t, 12, 8, rc(R_WARM, 7));     /* an ear */
-    for (int x = 0; x <= 4; x++) tp(t, x, 11 + (x < 2) - (frame && x < 3), rc(R_SKIN, 7));   /* the tail */
-    int a = frame ? 1 : -1;
-    tp(t, 6 + a, 14, rc(R_WARM, 5)); tp(t, 6 + a, 15, rc(R_SKIN, 6)); tp(t, 11 - a, 14, rc(R_WARM, 5)); tp(t, 11 - a, 15, rc(R_SKIN, 6));
+    for (int y = 0; y < STS; y++)
+        for (int x = 0; x < STS; x++) {
+            int c;
+            switch (g[y][x]) {
+            case 'k': c = rc(R_WARM, 2); break;  case 'd': c = rc(R_WARM, 5); break;  case 'm': c = rc(R_WARM, 8); break;
+            case 'l': c = rc(R_WARM, 10); break; case 'h': c = rc(R_WARM, 12); break; case 'b': c = rc(R_BONE, 8); break;
+            case 's': c = rc(R_SKIN, 6); break;  case 'S': c = rc(R_SKIN, 10); break; case 'n': c = rc(R_SKIN, 13); break;
+            case 'e': c = rc(R_FLAME, 11); break; case 'w': c = rc(R_BONE, 6); break;
+            case 'i': c = rc(R_IRON, 4); break;  case 'j': c = rc(R_IRON, 8); break;  case 'J': c = rc(R_IRON, 11); break;
+            case 'I': c = rc(R_BONE, 7); break;  case 'r': c = rc(R_BLOOD, 9); break; case 'E': c = rc(R_FLAME, 6); break;
+            case 'f': c = rc(R_BONE, 10); break;
+            default: continue;
+            }
+            tp(t, x, y, (uint8_t)c);
+        }
 }
-static void ling_tile(uint8_t *t, int frame) {                     /* a spiderling from the side: a round body and its head, legs bent down */
-    tclear(t);
-    for (int y = 6; y <= 12; y++) for (int x = 3; x <= 10; x++) {
-        float ax = ((float)x - 6.5f) / 3.8f, ay = ((float)y - 9.0f) / 3.2f;
-        if (ax * ax + ay * ay <= 1.0f) tp(t, x, y, rc(R_IRON, 5 + (y < 9) * 3 - (x > 8)));
-    }
-    for (int y = 8; y <= 11; y++) for (int x = 10; x <= 13; x++) if ((x - 11.5f) * (x - 11.5f) + (y - 9.5f) * (y - 9.5f) <= 3.2f) tp(t, x, y, rc(R_IRON, 6));
-    tp(t, 12, 9, rc(R_FLAME, 7)); tp(t, 13, 10, rc(R_FLAME, 5));    /* its eyes */
-    tp(t, 6, 8, rc(R_BLOOD, 8));                                    /* its mother's mark */
-    for (int l = 0; l < 4; l++) {                                  /* legs: up from the body, a knee, down to the foot */
-        int bx = 4 + l * 2 + (l > 1), kx = bx + (l < 2 ? -1 : 1), up = ((l + frame) & 1) ? 1 : 0;
-        tp(t, bx, 11, rc(R_IRON, 4)); tp(t, kx, 10 - up, rc(R_IRON, 9)); tp(t, kx, 11, rc(R_IRON, 6)); tp(t, kx + (l < 2 ? -1 : 1), 12, rc(R_IRON, 5));
-        tp(t, kx + (l < 2 ? -1 : 1), 13, rc(R_IRON, 5)); tp(t, kx + (l < 2 ? -2 : 2), 14, rc(R_IRON, 4)); tp(t, kx + (l < 2 ? -2 : 2), 15, rc(R_IRON, 3));
-    }
-}
+static const char *const RAT_TILE[2][STS] = {
+    { "................", "................", "................", "................", "................", "................",
+      "................", "................", "..........sS....", "......kddmmlS...", "....kdmmmmllhl..", "...kdmmmmlllhehw",
+      "s.kdmmmmmmllllln", ".s.kdbbbbbmmdk..", "...dk.....kd....", "..ss.......ss..." },   /* at full stretch */
+    { "................", "................", "................", "................", "................", "................",
+      "................", "................", "..........sS....", ".....kkddmmlS...", "...kddmmmmllhl..", "..kdmmmmmlllhehw",
+      ".kdmmmmmmmllllln", "ss.kdbbbbbbmdk..", ".....dk..kd.....", ".....ss..ss....." },   /* gathered, its back arched */
+};
+static const char *const LING_TILE[2][STS] = {
+    { "................", "................", "................", "................", "......I.........", "......j...I..I..", "...I.jj...j..j..", "...jJJJJj.j.j.j.", "...JJrrrjjJJj.j.", "..jjjjrjjJJjeEj.", "..IjjrrrijjjjEIj", "..jjjiiiijiiif.j", "..j.j......j...j", ".j.j.......j....", ".j.j.......j....", ".j.........j...." },
+    { "................", "................", "................", "................", "..........I.....", "...I..I...j.....", "...jj.j...j..I..", "..j.JJJJj.jj.j..", "..jJJrrrjjJJjj..", "..jjjjrjjJJjeEj.", ".jIjjrrrijjjjEI.", ".j.jjiiiijiiffj.", ".j...j......j.j.", "j...j.......j..j", "j...j.......j..j", "....j..........j" }
+};
+static void rat_tile(uint8_t *t, int frame) { vermin_grid(t, RAT_TILE[frame & 1]); }
+static void ling_tile(uint8_t *t, int frame) { vermin_grid(t, LING_TILE[frame & 1]); }
 
 /* ---- the figure: a hooded caster in a robe, from a rig ---- */
 

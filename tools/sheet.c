@@ -165,9 +165,9 @@ static const Group GROUPS[] = {
       { { SP_DROWN_A, "WADE (TODAY)" }, { SP_DROWN_SWELL, "SWELLING" }, { SP_DROWN_SPEW, "SPEWING" }, { -1, 0 } } },
     { "c4fx", "PLAN-COMBAT C4: THE SPEW'S GOUTS, THE STAMP'S DUST", -1, 1,
       { { SP_SPEW_A, "GOUT A" }, { SP_SPEW_B, "GOUT B" }, { SP_DUST_A, "DUST" }, { SP_DUST_B, "SPREADING" }, { -1, 0 } } },
-    { "vermin", "PLAN-VERMIN: THE SKULL HOPPER, THE BILE LEECH, THE COIN CRAB (DRAFTS)", -1, 1,
-      { { SP_HOP_A, "HOPPER UP" }, { SP_HOP_B, "HOPPER DOWN" }, { SP_LEECH_A, "LEECH" }, { SP_LEECH_B, "LEECH LEAPS" },
-        { SP_CRAB_COIN, "A COIN" }, { SP_CRAB_A, "CRAB RUNS A" }, { SP_CRAB_B, "CRAB RUNS B" }, { -1, 0 } } },
+    { "vermin", "PLAN-VERMIN: THE SKULL HOPPER, THE BILE LEECH, THE COIN CRAB (SECOND PASS)", -1, 1,
+      { { SP_HOP_A, "SETTLED" }, { SP_HOP_B, "IN THE LEAP" }, { SP_LEECH_A, "LYING" }, { SP_LEECH_B, "LEAPING" },
+        { SP_CRAB_COIN, "A COIN" }, { SP_CRAB_A, "RUNNING" }, { SP_CRAB_B, "NEXT STEP" }, { -1, 0 } } },
     /* the caster's track (C) ends */
     /* the dead's track (D): */
     /* the dead's track (D) ends */
