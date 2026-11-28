@@ -43,7 +43,7 @@ look at the first 24 only (`k < REC_KINDS`).
 | 1 | The three kinds in `KINDS` (24, 25, 26), `REC_MEM`, `LG_REC2`, the guards; old pages load, the new section reads back, the dream's log unchanged | Done, harness only |
 | 2 | Side passages: the hopper's and the leech's ways (`side_dead.c`), the crab's run on its painted path (`CPATH`), vermin (`VERMIN x y RAT|LING`) | Done, harness only |
 | 3 | The crypt: the crab on a drawn level, its path painted, its run along it in the 3-D view, caught or slain for its gold | Done, harness only |
-| 4 | Art: each kind's pictures (crypt sprites, the bestiary's), the vermin's side tiles; the sheet | A second pass on the sheet (`media/sheets/vermin/vermin_draft_2.png`, the first beside it), awaiting the owner |
+| 4 | Art: each kind's pictures (crypt sprites, the bestiary's), the vermin's side tiles; the sheet | Approved by the owner, 28 November, from its second pass (`media/sheets/vermin/vermin_approved.png`; the first draft `vermin_draft_1.png`) |
 | 5 | The World Editor: vermin, the hopper's span, the crab's path and its gold, in passages and on crypt levels | Done, harness and headless browser only |
 | 6 | Tests, `make asan`, docs, the editor republished | Done |
 
@@ -117,5 +117,8 @@ else (`src/art/parts/vermin.c`, `src/art/side_art.c`):
   knees, a step and the next, its shell lifted three steps so its legs read on the back wall.
 - A passage's hits are by these pictures, so they move with them; the crypt's do not. Tested, harness only: the dream, seed 1, 1,500 s,
   line for line the build before's; the small-things passage under `make asan`, 300 s, clean (the hopper and the leech slain, the
-  spiderlings biting). The sheet: `media/sheets/vermin/vermin_draft_2.png`, the first draft under each part.
+  spiderlings biting). The sheet: `media/sheets/vermin/vermin_approved.png`, the first draft under each part.
+- The owner, on the sheet: "Looks very good, go ahead and add it in." The pictures are the game's as they stand (they were drawn into it
+  on the branch, not kept apart), the sheet renamed `vermin_approved.png`. Left: the owner's hand on the five in play, and putting them
+  in the built-in levels and passages, which is theirs to draw.
 
